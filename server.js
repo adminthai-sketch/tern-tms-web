@@ -25,7 +25,7 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// 2. API Login (ปลอดภัย ไม่ล่มแม้ยื่น Query พลาด)
+// 2. API Login (แก้ไขคอลัมน์ role เป็น role_id)
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
 
@@ -36,8 +36,8 @@ app.post('/api/login', async (req, res) => {
     try {
         const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
 
-        // ตรวจสอบจากตาราง users
-        const query = 'SELECT id, username, full_name, role, status FROM users WHERE username = $1 AND password_hash = $2';
+        // ดึง role_id เพื่อให้ตรงกับโครงสร้างตาราง
+        const query = 'SELECT id, username, full_name, role_id, status FROM users WHERE username = $1 AND password_hash = $2';
         const result = await pool.query(query, [username, hashedPassword]);
 
         if (result.rows.length === 0) {
@@ -64,7 +64,7 @@ app.post('/api/login', async (req, res) => {
                 id: user.id,
                 username: user.username,
                 fullName: user.full_name || user.username,
-                role: user.role || 'Admin'
+                role: user.role_id === 1 ? 'Admin' : 'User' // แปลง role_id เป็นชื่อสิทธิ์
             }
         });
 

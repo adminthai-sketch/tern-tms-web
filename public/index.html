@@ -5,84 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TERN TMS - Transport Management System</title>
     
-    <!-- ฟอนต์ Prompt -->
+    <!-- ฟอนต์ และ ไอคอน -->
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Prompt', 'sans-serif'] },
-                    colors: { primary: '#0f4c81', secondary: '#64748b' }
-                }
-            }
-        }
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', secondary: '#64748b' } } } }
     </script>
+
+    <!-- Handsontable (ตารางสไตล์ Excel) -->
+    <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
+
     <style>
-        /* ซ่อน Scrollbar แต่ยัง Scroll ได้ */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* แต่ง Handsontable ให้เข้ากับ Modern UI */
+        .handsontable { font-family: 'Prompt', sans-serif; font-size: 14px; }
+        .ht_master tr th { background-color: #f8fafc; color: #0f4c81; font-weight: bold; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen overflow-hidden flex flex-col">
 
     <!-- ========================================== -->
-    <!-- 🔐 หน้าต่าง Login (จะแสดงเป็นค่าเริ่มต้น) -->
+    <!-- 🔐 หน้าต่าง Login -->
     <!-- ========================================== -->
     <div id="login-view" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-100/80 backdrop-blur-sm">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200 transform transition-all">
             <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-xl mb-4">
-                    <i class="fa-solid fa-truck-fast text-3xl"></i>
-                </div>
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-xl mb-4"><i class="fa-solid fa-truck-fast text-3xl"></i></div>
                 <h1 class="text-2xl font-bold text-primary">TERN TMS</h1>
                 <p class="text-sm text-slate-500 mt-1">Operation Management System</p>
             </div>
-
             <form id="login-form" class="space-y-5">
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อผู้ใช้งาน</label>
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <i class="fa-solid fa-user"></i>
-                        </div>
-                        <input type="text" id="username" required placeholder="ระบุชื่อผู้ใช้..." 
-                            class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i class="fa-solid fa-user"></i></div>
+                        <input type="text" id="username" required placeholder="ระบุชื่อผู้ใช้..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-800">
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1">รหัสผ่าน</label>
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <i class="fa-solid fa-lock"></i>
-                        </div>
-                        <input type="password" id="password" required placeholder="ระบุรหัสผ่าน..." 
-                            class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i class="fa-solid fa-lock"></i></div>
+                        <input type="password" id="password" required placeholder="ระบุรหัสผ่าน..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-slate-800">
                     </div>
                 </div>
-
-                <!-- กล่องข้อความแจ้งเตือน Error (ซ่อนไว้ก่อน) -->
                 <div id="login-error" class="hidden bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center gap-2">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <span id="error-message">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</span>
+                    <i class="fa-solid fa-circle-exclamation"></i><span id="error-message">ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง</span>
                 </div>
-
-                <button type="submit" id="btn-login" 
-                    class="w-full bg-primary hover:bg-blue-900 text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2">
-                    <span>เข้าสู่ระบบ</span>
-                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                <button type="submit" id="btn-login" class="w-full bg-primary hover:bg-blue-900 text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2">
+                    <span>เข้าสู่ระบบ</span><i class="fa-solid fa-arrow-right-to-bracket"></i>
                 </button>
             </form>
         </div>
     </div>
 
     <!-- ========================================== -->
-    <!-- 📱 หน้าหลักของระบบ (Main Layout) ซ่อนไว้ก่อน -->
+    <!-- 📱 หน้าหลักของระบบ (Main Layout) -->
     <!-- ========================================== -->
     <div id="app-view" class="hidden flex-1 flex flex-col h-full">
         <!-- Top Navbar -->
@@ -96,70 +80,83 @@
                     <div id="user-fullname" class="text-sm font-bold text-slate-700">Loading...</div>
                     <div id="user-role" class="text-xs text-slate-500">Role</div>
                 </div>
-                <div class="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold">
-                    <i class="fa-solid fa-user-tie"></i>
-                </div>
-                <button onclick="logout()" class="ml-2 text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ">
-                    <i class="fa-solid fa-power-off text-lg"></i>
-                </button>
+                <div class="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold"><i class="fa-solid fa-user-tie"></i></div>
+                <button onclick="logout()" class="ml-2 text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ"><i class="fa-solid fa-power-off text-lg"></i></button>
             </div>
         </header>
 
-        <!-- Main Content Area -->
         <div class="flex-1 flex overflow-hidden bg-slate-50">
             <!-- ซ้าย: Sidebar Menu -->
             <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto">
-                <div class="px-6 mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Operation</div>
-                <a href="#" class="flex items-center gap-3 px-6 py-3 bg-primary/5 text-primary border-r-4 border-primary font-semibold">
-                    <i class="fa-solid fa-box-open w-5 text-center"></i> 1. สร้างรับงาน
-                </a>
-                <a href="#" class="flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
-                    <i class="fa-solid fa-truck-ramp-box w-5 text-center"></i> 2. จัดรถและคนขับ
-                </a>
-                <a href="#" class="flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
-                    <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i> 3. ระบบวางบิล
+                <div class="px-6 mb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Operation</div>
+                <a href="#" onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item active-nav flex items-center gap-3 px-6 py-3 bg-primary/5 text-primary border-r-4 border-primary font-semibold">
+                    <i class="fa-solid fa-house w-5 text-center"></i> หน้าหลัก (รอพัฒนา)
                 </a>
                 
-                <div class="px-6 mt-8 mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Dashboard</div>
-                <a href="#" class="flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
-                    <i class="fa-solid fa-desktop w-5 text-center"></i> มอนิเตอร์ติดตามงาน
-                </a>
-
-                <div class="px-6 mt-8 mb-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Backoffice</div>
-                <a href="#" class="flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
+                <div class="px-6 mt-6 mb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Backoffice (Master Data)</div>
+                <a href="#" onclick="switchView('drivers')" id="nav-drivers" class="nav-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
                     <i class="fa-solid fa-id-card w-5 text-center"></i> ฐานข้อมูลคนขับ
                 </a>
-                <a href="#" class="flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
+                <a href="#" onclick="switchView('customers')" id="nav-customers" class="nav-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
                     <i class="fa-solid fa-building w-5 text-center"></i> ฐานข้อมูลลูกค้า
                 </a>
-                <a href="#" class="flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
+                <a href="#" onclick="switchView('rates')" id="nav-rates" class="nav-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-primary transition-colors">
                     <i class="fa-solid fa-hand-holding-dollar w-5 text-center"></i> ฐานข้อมูลค่าเที่ยว
                 </a>
             </nav>
 
             <!-- ขวา: พื้นที่แสดงผล (Workspace) -->
-            <main class="flex-1 p-6 overflow-y-auto">
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 h-full flex flex-col items-center justify-center text-center">
-                    <div class="w-24 h-24 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-4xl mb-4">
-                        <i class="fa-solid fa-check"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold text-slate-800 mb-2">ล็อกอินสำเร็จ!</h2>
-                    <p class="text-slate-500 max-w-md">ระบบเชื่อมต่อ API สำเร็จ ตอนนี้คุณอยู่ใน Layout หลักแล้ว ในสเตปถัดไปเราจะเอา Handsontable มาประกอบลงในพื้นที่ว่างตรงนี้ครับ</p>
+            <main class="flex-1 p-6 overflow-hidden flex flex-col">
+                
+                <!-- วิวหน้าหลัก -->
+                <div id="view-dashboard" class="app-view h-full flex flex-col items-center justify-center text-center bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+                    <div class="w-20 h-20 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center text-3xl mb-4"><i class="fa-solid fa-rocket"></i></div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">ยินดีต้อนรับสู่ TERN TMS</h2>
+                    <p class="text-slate-500 max-w-md">เลือกระบบจัดการหลังบ้าน (คนขับ, ลูกค้า, เรทราคา) ที่เมนูด้านซ้าย เพื่อจัดการฐานข้อมูลหลักก่อนเริ่มรับงานครับ</p>
                 </div>
+
+                <!-- วิวฐานข้อมูลคนขับ -->
+                <div id="view-drivers" class="app-view hidden h-full flex-col bg-white rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                        <h2 class="text-lg font-bold text-primary"><i class="fa-solid fa-id-card mr-2"></i> ฐานข้อมูลคนขับและรถ</h2>
+                        <button onclick="saveMasterData('drivers')" id="btn-save-drivers" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล</button>
+                    </div>
+                    <div id="hot-drivers" class="flex-1 w-full overflow-hidden p-2"></div>
+                </div>
+
+                <!-- วิวฐานข้อมูลลูกค้า -->
+                <div id="view-customers" class="app-view hidden h-full flex-col bg-white rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                        <h2 class="text-lg font-bold text-primary"><i class="fa-solid fa-building mr-2"></i> ฐานข้อมูลลูกค้า</h2>
+                        <button onclick="saveMasterData('customers')" id="btn-save-customers" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล</button>
+                    </div>
+                    <div id="hot-customers" class="flex-1 w-full overflow-hidden p-2"></div>
+                </div>
+
+                <!-- วิวฐานข้อมูลค่าเที่ยว -->
+                <div id="view-rates" class="app-view hidden h-full flex-col bg-white rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center p-4 border-b border-slate-200">
+                        <h2 class="text-lg font-bold text-primary"><i class="fa-solid fa-hand-holding-dollar mr-2"></i> ฐานข้อมูลค่าเที่ยวและค่าขนส่ง</h2>
+                        <button onclick="saveMasterData('rates')" id="btn-save-rates" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล</button>
+                    </div>
+                    <div id="hot-rates" class="flex-1 w-full overflow-hidden p-2"></div>
+                </div>
+
             </main>
         </div>
     </div>
 
-    <!-- Script ควบคุมการล็อกอิน -->
+    <!-- ========================================== -->
+    <!-- Scripts -->
+    <!-- ========================================== -->
     <script>
+        // --- ระบบ Login เดิม ---
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const btn = document.getElementById('btn-login');
             const originalText = btn.innerHTML;
             const errorBox = document.getElementById('login-error');
             
-            // เปลี่ยนสถานะปุ่ม
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังตรวจสอบ...';
             btn.disabled = true;
             errorBox.classList.add('hidden');
@@ -168,32 +165,17 @@
             const password = document.getElementById('password').value;
 
             try {
-                // ยิง API ไปที่ Backend ของเรา
                 const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-
                 const result = await response.json();
 
                 if (response.ok && result.success) {
-                    // เก็บข้อมูล User ลง LocalStorage เผื่อใช้ภายหลัง
                     localStorage.setItem('tms_user', JSON.stringify(result.user));
-                    
-                    // อัปเดตชื่อที่มุมขวาบน
-                    document.getElementById('user-fullname').innerText = result.user.fullName;
-                    document.getElementById('user-role').innerText = result.user.role;
-
-                    // สลับหน้าจอ
-                    document.getElementById('login-view').classList.add('opacity-0', 'pointer-events-none');
-                    setTimeout(() => {
-                        document.getElementById('login-view').classList.add('hidden');
-                        document.getElementById('app-view').classList.remove('hidden');
-                        document.getElementById('app-view').classList.add('animate-[fadeIn_0.5s_ease-out]');
-                    }, 300);
+                    initApp(result.user);
                 } else {
-                    // รหัสผิด
                     errorBox.classList.remove('hidden');
                     document.getElementById('error-message').innerText = result.message || 'ข้อมูลไม่ถูกต้อง';
                 }
@@ -201,28 +183,114 @@
                 errorBox.classList.remove('hidden');
                 document.getElementById('error-message').innerText = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้';
             } finally {
-                // คืนสถานะปุ่ม
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         });
 
-        function logout() {
-            localStorage.removeItem('tms_user');
-            window.location.reload();
+        function initApp(user) {
+            document.getElementById('user-fullname').innerText = user.fullName;
+            document.getElementById('user-role').innerText = user.role;
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('app-view').classList.remove('hidden');
+            document.getElementById('app-view').classList.add('animate-[fadeIn_0.5s_ease-out]');
         }
 
-        // เช็กว่าเคยล็อกอินไว้แล้วหรือยัง
+        function logout() { localStorage.removeItem('tms_user'); window.location.reload(); }
+
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('tms_user');
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                document.getElementById('user-fullname').innerText = user.fullName;
-                document.getElementById('user-role').innerText = user.role;
-                document.getElementById('login-view').classList.add('hidden');
-                document.getElementById('app-view').classList.remove('hidden');
-            }
+            if (savedUser) { initApp(JSON.parse(savedUser)); }
         });
+
+        // --- ระบบ Navigation & Handsontable ---
+        let hotInstances = { drivers: null, customers: null, rates: null };
+
+        function switchView(viewName) {
+            // สลับปุ่ม Active ในเมนู
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('bg-primary/5', 'text-primary', 'border-r-4', 'border-primary', 'font-semibold', 'active-nav');
+                el.classList.add('text-slate-600');
+            });
+            const activeNav = document.getElementById('nav-' + viewName);
+            if(activeNav) {
+                activeNav.classList.remove('text-slate-600');
+                activeNav.classList.add('bg-primary/5', 'text-primary', 'border-r-4', 'border-primary', 'font-semibold', 'active-nav');
+            }
+
+            // สลับหน้าจอ View
+            document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden', 'flex')); // ป้องกันบัค flex-col หาย
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+
+            // โหลดข้อมูลถ้าเพิ่งเปิดแท็บนี้ครั้งแรก
+            if (viewName !== 'dashboard' && !hotInstances[viewName]) {
+                loadMasterData(viewName);
+            } else if (hotInstances[viewName]) {
+                hotInstances[viewName].render(); // รีเฟรชตารางถ้ามีอยู่แล้ว
+            }
+        }
+
+        const tableConfigs = {
+            drivers: { headers: ['ป้ายทะเบียน', 'ประเภทรถ', 'ชื่อ.พนง.', 'ชื่อเล่น'], cols: 4 },
+            customers: { headers: ['Customer No.', 'Customer Name', 'ชื่อลูกค้าย่อ', 'Billing Name', 'Phone Number', 'Address', 'Tax ID'], cols: 7 },
+            rates: { headers: ["ชื่องาน", "ลูกค้า", "ต้นทาง", "ปลายทาง", "วิ่งงาน", "จำนวนตู้/ใบ", "ประเภทงาน", "ค่าเที่ยว 6W", "ค่าเที่ยว 10W", "ค่าเที่ยว 12W*2", "ค่าเที่ยวเงินสด", "ค่าขนส่ง 6W", "ค่าขนส่ง 10W", "ค่าขนส่ง 12W*2", "งานเงินสด"], cols: 15 }
+        };
+
+        async function loadMasterData(type) {
+            try {
+                const response = await fetch('/api/' + type);
+                const result = await response.json();
+                
+                const container = document.getElementById('hot-' + type);
+                // ถ้า API พ่น Array ว่างมา ให้สร้าง Array ว่าง 1 แถวให้พิมพ์ได้
+                let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(tableConfigs[type].cols).fill("")];
+
+                hotInstances[type] = new Handsontable(container, {
+                    data: safeData,
+                    colHeaders: tableConfigs[type].headers,
+                    rowHeaders: true,
+                    minSpareRows: 1, // เพิ่มแถวว่างเสมอเพื่อใช้พิมพ์เพิ่ม
+                    width: '100%',
+                    height: '100%',
+                    stretchH: type === 'rates' ? 'all' : 'none', // ค่าเที่ยวช่องเยอะให้ยืดเต็มจอ
+                    manualColumnResize: true,
+                    licenseKey: 'non-commercial-and-evaluation'
+                });
+            } catch (err) {
+                alert('❌ ไม่สามารถโหลดข้อมูล ' + type + ' ได้: ' + err.message);
+            }
+        }
+
+        async function saveMasterData(type) {
+            const btn = document.getElementById('btn-save-' + type);
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+            btn.disabled = true;
+
+            try {
+                const hot = hotInstances[type];
+                // กรองเอาเฉพาะแถวที่มีข้อมูล (ไม่เอาแถวว่างที่พิมพ์ไม่เสร็จ)
+                const cleanData = hot.getData().filter(r => r.some(c => c !== null && c !== ''));
+
+                const response = await fetch('/api/' + type, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: cleanData })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                } else {
+                    alert('❌ เกิดข้อผิดพลาด: ' + result.message);
+                }
+            } catch (err) {
+                alert('❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>

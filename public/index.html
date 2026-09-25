@@ -26,7 +26,7 @@
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
 
-    <!-- 🌟 โหลดไฟล์ CSS ที่เราแยกไว้ -->
+    <!-- ไฟล์ CSS หลัก -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
@@ -112,7 +112,8 @@
                     <div class="px-6 mt-8 mb-2 text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2">
                         <i class="fa-solid fa-shield-halved"></i> Admin Only
                     </div>
-                    <a href="#" onclick="switchMenu('master')" id="menu-master" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
+                    <!-- 💡 แก้ลิงก์ชี้ไปที่ไฟล์ใหม่ในโฟลเดอร์ admin -->
+                    <a href="/admin/admin.html" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
                         <i class="fa-solid fa-database w-5 text-center"></i> จัดการข้อมูลหลังบ้าน
                     </a>
                 </div>
@@ -145,61 +146,7 @@
                     <div class="flex-1 flex items-center justify-center text-slate-400">รอประกอบร่างจาก billing.txt</div>
                 </div>
 
-                <!-- View: Master Data (Admin) -->
-                <div id="view-master" class="view-section hidden h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                        <h2 class="text-xl font-bold text-emerald-600 flex items-center gap-2">
-                            <i class="fa-solid fa-database"></i> ฐานข้อมูลหลังบ้าน (Master Data)
-                        </h2>
-                        <div class="flex gap-2">
-                            <!-- 🎛️ ปุ่มเปิดหน้าต่างปรับแต่งคอลัมน์ -->
-                            <button onclick="openColToggleModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200">
-                                <i class="fa-solid fa-eye"></i> ซ่อน/แสดงคอลัมน์
-                            </button>
-                            <button onclick="saveCurrentMaster()" id="btn-save-master" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors">
-                                <i class="fa-solid fa-floppy-disk"></i> บันทึกตารางนี้
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Tabs -->
-                    <div class="flex gap-2 mb-4 bg-slate-100 p-1.5 rounded-xl w-fit">
-                        <button onclick="switchMasterTab('users')" id="tab-master-users" class="master-tab-btn active bg-white text-slate-800 font-semibold px-4 py-2 rounded-lg text-sm shadow-sm transition-all flex items-center gap-2">
-                            <i class="fa-solid fa-users text-emerald-600"></i> ผู้ใช้งานระบบ
-                        </button>
-                        <button onclick="switchMasterTab('drivers')" id="tab-master-drivers" class="master-tab-btn text-slate-600 font-medium px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 hover:text-slate-900">
-                            <i class="fa-solid fa-id-card text-blue-600"></i> คนขับและรถ
-                        </button>
-                        <button onclick="switchMasterTab('customers')" id="tab-master-customers" class="master-tab-btn text-slate-600 font-medium px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 hover:text-slate-900">
-                            <i class="fa-solid fa-building text-amber-600"></i> ข้อมูลลูกค้า
-                        </button>
-                        <button onclick="switchMasterTab('rates')" id="tab-master-rates" class="master-tab-btn text-slate-600 font-medium px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 hover:text-slate-900">
-                            <i class="fa-solid fa-hand-holding-dollar text-indigo-600"></i> เรทราคาค่าเที่ยว
-                        </button>
-                    </div>
-
-                    <!-- Handsontable Container -->
-                    <div class="flex-1 relative w-full h-full overflow-hidden rounded-lg border border-slate-200">
-                        <div id="hot-master-container" class="w-full h-full z-0 relative"></div>
-                    </div>
-                </div>
-
             </main>
-        </div>
-    </div>
-
-    <!-- ========================================== -->
-    <!-- 🎛️ Modal ปรับแต่งคอลัมน์ (ซ่อน/แสดง) -->
-    <!-- ========================================== -->
-    <div id="col-toggle-modal" class="hidden absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm transition-opacity">
-        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]">
-            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 class="font-bold text-primary text-lg"><i class="fa-solid fa-eye mr-2"></i> ซ่อน/แสดงคอลัมน์</h3>
-                <button onclick="closeColToggleModal()" class="text-slate-400 hover:text-red-500 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            <div id="col-toggle-container" class="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto bg-white">
-                <!-- Checkboxes จะถูกสร้างอัตโนมัติที่นี่โดย JS -->
-            </div>
         </div>
     </div>
 
@@ -291,188 +238,10 @@
 
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             const activeView = document.getElementById('view-' + menuName);
-            activeView.classList.remove('hidden');
-            activeView.classList.add('animate-[fadeIn_0.3s_ease-out]');
-
-            if(menuName === 'master' && !hotMasterInstance) {
-                switchMasterTab('users');
-            } else if (menuName === 'master' && hotMasterInstance) {
-                hotMasterInstance.render();
+            if(activeView) {
+                activeView.classList.remove('hidden');
+                activeView.classList.add('animate-[fadeIn_0.3s_ease-out]');
             }
-        }
-
-        // --- 4. ระบบจัดการ Master Data & UI State Management ---
-        let currentMasterType = 'users';
-        let hotMasterInstance = null;
-
-        const masterConfigs = {
-            users: {
-                endpoint: '/api/users',
-                headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'สิทธิ์ (Role)', 'สถานะ (Status)'],
-                columns: [
-                    { readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' },
-                    { type: 'dropdown', source: ['Admin', 'User'] }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }
-                ]
-            },
-            drivers: {
-                endpoint: '/api/drivers',
-                headers: ['ป้ายทะเบียน', 'ประเภทรถ', 'ชื่อ.พนง.', 'ชื่อเล่น'],
-                columns: [{ type: 'text' }, { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'text' }, { type: 'text' }]
-            },
-            customers: {
-                endpoint: '/api/customers',
-                headers: ['Customer No.', 'Customer Name', 'ชื่อลูกค้าย่อ', 'Billing Name', 'Phone Number', 'Address', 'Tax ID'],
-                columns: Array(7).fill({ type: 'text' })
-            },
-            rates: {
-                endpoint: '/api/rates',
-                headers: ["ชื่องาน", "ลูกค้า", "ต้นทาง", "ปลายทาง", "วิ่งงาน", "จำนวนตู้/ใบ", "ประเภทงาน", "ค่าเที่ยว 6W", "ค่าเที่ยว 10W", "ค่าเที่ยว 12W*2", "ค่าเที่ยวเงินสด", "ค่าขนส่ง 6W", "ค่าขนส่ง 10W", "ค่าขนส่ง 12W*2", "งานเงินสด"],
-                columns: Array(15).fill({ type: 'text' })
-            }
-        };
-
-        // ฟังก์ชันดึง/บันทึก ความจำของการจัดตารางแยกตาม User
-        function getUIState(tableName) {
-            const user = JSON.parse(localStorage.getItem('tms_user'));
-            if (!user) return {};
-            const key = `tms_ui_${tableName}_${user.username}`;
-            return JSON.parse(localStorage.getItem(key)) || {};
-        }
-
-        function saveUIState(tableName, stateData) {
-            const user = JSON.parse(localStorage.getItem('tms_user'));
-            if (!user) return;
-            const key = `tms_ui_${tableName}_${user.username}`;
-            const existing = getUIState(tableName);
-            localStorage.setItem(key, JSON.stringify({ ...existing, ...stateData }));
-        }
-
-        async function switchMasterTab(type) {
-            currentMasterType = type;
-            
-            document.querySelectorAll('.master-tab-btn').forEach(b => {
-                b.classList.remove('bg-white', 'text-slate-800', 'font-semibold', 'shadow-sm');
-                b.classList.add('text-slate-600', 'font-medium');
-            });
-            const btn = document.getElementById('tab-master-' + type);
-            if (btn) {
-                btn.classList.remove('text-slate-600', 'font-medium');
-                btn.classList.add('bg-white', 'text-slate-800', 'font-semibold', 'shadow-sm');
-            }
-
-            const cfg = masterConfigs[type];
-            try {
-                const response = await fetch(cfg.endpoint);
-                const result = await response.json();
-                
-                const container = document.getElementById('hot-master-container');
-                if (hotMasterInstance) {
-                    hotMasterInstance.destroy();
-                }
-
-                let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(cfg.headers.length).fill("")];
-                
-                // 💡 ดึงความจำของ User ว่าซ่อนคอลัมน์ไหนไว้ หรือยืดคอลัมน์กว้างแค่ไหน
-                const uiState = getUIState('master_' + type);
-
-                hotMasterInstance = new Handsontable(container, {
-                    data: safeData,
-                    colHeaders: cfg.headers,
-                    columns: cfg.columns,
-                    rowHeaders: true,
-                    minSpareRows: 1,
-                    width: '100%',
-                    height: '100%',
-                    manualColumnResize: true,
-                    manualColumnMove: true,
-                    hiddenColumns: {
-                        columns: uiState.hiddenColumns || [], // นำค่าที่จำไว้มาใช้
-                        indicators: true
-                    },
-                    colWidths: uiState.colWidths || undefined, // นำความกว้างที่จำไว้มาใช้
-                    stretchH: type === 'rates' ? 'all' : 'none',
-                    licenseKey: 'non-commercial-and-evaluation',
-                    
-                    // เมื่อ User ยืดหดคอลัมน์ ให้จำค่าทันที
-                    afterColumnResize: function(newSize, column) {
-                        const widths = this.getPlugin('manualColumnResize').manualColumnWidths;
-                        saveUIState('master_' + currentMasterType, { colWidths: widths });
-                    }
-                });
-            } catch (err) {
-                alert('❌ โหลดข้อมูลไม่สำเร็จ: ' + err.message);
-            }
-        }
-
-        async function saveCurrentMaster() {
-            if (!hotMasterInstance) return;
-            const btn = document.getElementById('btn-save-master');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
-            btn.disabled = true;
-
-            const cfg = masterConfigs[currentMasterType];
-            const cleanData = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
-
-            try {
-                const response = await fetch(cfg.endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: cleanData })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    alert('✅ ' + result.message);
-                    switchMasterTab(currentMasterType);
-                } else {
-                    alert('❌ เกิดข้อผิดพลาด: ' + result.message);
-                }
-            } catch (err) {
-                alert('❌ ไม่สามารถบันทึกข้อมูลได้: ' + err.message);
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        // --- 5. ระบบหน้าต่าง Modal จัดการคอลัมน์ (จำค่า) ---
-        function openColToggleModal() {
-            if (!hotMasterInstance) return;
-            const cfg = masterConfigs[currentMasterType];
-            const plugin = hotMasterInstance.getPlugin('hiddenColumns');
-            const hiddenCols = plugin.getHiddenColumns() || [];
-            
-            let html = '';
-            cfg.headers.forEach((header, index) => {
-                const isChecked = !hiddenCols.includes(index) ? 'checked' : '';
-                html += `
-                    <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-blue-50 cursor-pointer transition-colors shadow-sm">
-                        <input type="checkbox" class="w-5 h-5 accent-primary rounded cursor-pointer" ${isChecked} onchange="toggleMasterColumn(${index}, this.checked)">
-                        <span class="font-medium text-slate-700 text-sm">${header}</span>
-                    </label>
-                `;
-            });
-            
-            document.getElementById('col-toggle-container').innerHTML = html;
-            document.getElementById('col-toggle-modal').classList.remove('hidden');
-        }
-
-        function closeColToggleModal() {
-            document.getElementById('col-toggle-modal').classList.add('hidden');
-        }
-
-        function toggleMasterColumn(colIndex, isVisible) {
-            const plugin = hotMasterInstance.getPlugin('hiddenColumns');
-            if (isVisible) {
-                plugin.showColumns([colIndex]);
-            } else {
-                plugin.hideColumns([colIndex]);
-            }
-            hotMasterInstance.render();
-            
-            // เมื่อกดซ่อน/แสดงคอลัมน์ ให้จำค่าทันที
-            const currentHidden = plugin.getHiddenColumns() || [];
-            saveUIState('master_' + currentMasterType, { hiddenColumns: currentHidden });
         }
     </script>
 </body>

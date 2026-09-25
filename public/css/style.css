@@ -1,0 +1,58 @@
+/* -----------------------------------------
+   Custom Scrollbar (สกอร์ลบาร์แบบมินิมอล)
+----------------------------------------- */
+::-webkit-scrollbar { 
+    width: 8px; 
+    height: 8px; 
+}
+::-webkit-scrollbar-thumb { 
+    background: #cbd5e1; 
+    border-radius: 10px; 
+    border: 2px solid white; 
+}
+::-webkit-scrollbar-thumb:hover { 
+    background: #94a3b8; 
+}
+
+/* -----------------------------------------
+   Modern Handsontable Theme 
+----------------------------------------- */
+.handsontable { 
+    font-family: 'Prompt', sans-serif; 
+    font-size: 13.5px; 
+    color: #334155; 
+}
+
+/* ปรับแต่งหัวตาราง (Header) */
+.handsontable th { 
+    background-color: #f8fafc !important; 
+    color: #0f4c81 !important; 
+    font-weight: 600 !important; 
+    border: 1px solid #e2e8f0 !important; 
+    border-bottom: 2px solid #cbd5e1 !important;
+    padding: 8px !important;
+    vertical-align: middle;
+}
+
+/* ปรับแต่งเซลล์ข้อมูล (Cells) */
+.handsontable td { 
+    border: 1px solid #e2e8f0 !important; 
+    padding: 6px 12px !important; 
+    vertical-align: middle;
+}
+
+/* Hover Effect เวลานำเมาส์ชี้ที่แถว */
+.ht_master tbody tr:hover td { 
+    background-color: #f1f5f9 !important; 
+    transition: background-color 0.2s; 
+}
+
+/* กรอบสีน้ำเงินเวลาคลิกเลือกเซลล์ */
+.wtBorder { 
+    background-color: #0f4c81 !important; 
+}
+.handsontableInput { 
+    padding: 6px 12px !important; 
+    font-family: 'Prompt', sans-serif; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+}

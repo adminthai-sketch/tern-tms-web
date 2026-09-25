@@ -3,13 +3,10 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-// static folder สำหรับให้บริการไฟล์ index.html และรูปภาพ
 app.use(express.static('public'));
 
 // เชื่อมต่อ Neon Postgres
@@ -18,47 +15,30 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// ตั้งค่า Mailer สำหรับส่ง OTP (ใช้ Gmail หรือ SMTP อื่นๆ)
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER, // ใส่อีเมลของคุณใน .env
-        pass: process.env.EMAIL_PASS  // ใส่ App Password ใน .env
-    }
-});
-
-// ==========================================
 // 1. Endpoint Health Check
-// ==========================================
 app.get('/api/health', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
-    res.json({ status: 'ok', message: 'เชื่อมต่อ Neon DB สำหรับ TERN TMS สำเร็จ!', time: result.rows[0].now });
+    res.json({ status: 'ok', message: 'เชื่อมต่อ Neon DB สำเร็จ!', time: result.rows[0].now });
   } catch (err) {
     res.status(500).json({ status: 'error', error: err.message });
   }
 });
 
-// ==========================================
-// 2. API ล็อกอินขั้นที่ 1 (ตรวจ Pass -> ส่ง OTP)
-// ==========================================
+// 2. API Login (ปลอดภัย ไม่ล่มแม้ยื่น Query พลาด)
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    
+
     if (!username || !password) {
         return res.status(400).json({ success: false, message: 'กรุณากรอก Username และ Password' });
     }
 
     try {
-        const hash = crypto.createHash('sha256').update(password).digest('hex');
-        
-        const query = `
-          SELECT u.id, u.username, u.full_name, u.email, u.status, r.role_name
-          FROM users u
-          LEFT JOIN roles r ON u.role_id = r.id
-          WHERE u.username = $1 AND u.password_hash = $2
-        `;
-        const result = await pool.query(query, [username, hash]);
+        const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+
+        // ตรวจสอบจากตาราง users
+        const query = 'SELECT id, username, full_name, role, status FROM users WHERE username = $1 AND password_hash = $2';
+        const result = await pool.query(query, [username, hashedPassword]);
 
         if (result.rows.length === 0) {
             return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
@@ -66,99 +46,31 @@ app.post('/api/login', async (req, res) => {
 
         const user = result.rows[0];
 
-        if (user.status !== 'ACTIVE') {
+        if (user.status && user.status !== 'ACTIVE') {
             return res.status(403).json({ success: false, message: 'บัญชีผู้ใช้นี้ถูกระงับการใช้งาน' });
         }
 
-        // สุ่ม OTP 6 หลัก และตั้งเวลาหมดอายุ 5 นาที
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); 
-
-        // บันทึกลง Neon DB
-        await pool.query(
-            'UPDATE users SET otp_code = $1, otp_expires_at = $2 WHERE id = $3',
-            [otp, expiresAt, user.id]
-        );
-
-        // ยิงอีเมล OTP 
-        if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-            await transporter.sendMail({
-                from: '"TERN TMS Security" <no-reply@terntms.com>',
-                to: user.email,
-                subject: '🔐 รหัส OTP สำหรับเข้าสู่ระบบ TERN TMS',
-                html: `
-                    <div style="font-family: 'Prompt', Arial, sans-serif; padding: 25px; background: #f8fafc; border-radius: 12px; max-width: 450px; border: 1px solid #e2e8f0;">
-                        <h2 style="color: #0f4c81; margin-top: 0;">TERN TMS Verification</h2>
-                        <p style="color: #475569;">สวัสดีคุณ <b>${user.full_name}</b>,</p>
-                        <p style="color: #475569;">กรุณาใช้รหัส OTP ด้านล่างนี้เพื่อยืนยันการเข้าสู่ระบบ (รหัสมีอายุ 5 นาที):</p>
-                        <div style="background: #0f4c81; color: #ffffff; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 8px; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                            ${otp}
-                        </div>
-                        <p style="color: #94a3b8; font-size: 12px; text-align: center;">หากคุณไม่ได้ขอรหัสนี้ โปรดแจ้งผู้ดูแลระบบทันที</p>
-                    </div>
-                `
-            });
-        } else {
-             console.log("⚠️ EMAIL_USER or EMAIL_PASS not set in .env. OTP is:", otp);
+        // อัปเดตเวลาเข้าใช้งานล่าสุด
+        try {
+            await pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
+        } catch (e) {
+            console.log('Skipped last_login_at update');
         }
 
-        res.json({
-            success: true,
-            requireOTP: true,
-            username: user.username,
-            emailMasked: user.email ? user.email.replace(/(.{2})(.*)(?=@)/, (gp1, gp2, gp3) => gp1 + "*".repeat(gp2.length)) : 'No Email'
-        });
-
-    } catch (err) {
-        console.error('Login Error:', err);
-        res.status(500).json({ success: false, message: 'Server error: ' + err.message });
-    }
-});
-
-// ==========================================
-// 3. API ล็อกอินขั้นที่ 2 (ตรวจ OTP)
-// ==========================================
-app.post('/api/verify-otp', async (req, res) => {
-    const { username, otp } = req.body;
-
-    if (!username || !otp) {
-        return res.status(400).json({ success: false, message: 'ข้อมูลไม่ครบถ้วน' });
-    }
-
-    try {
-        const query = `
-          SELECT u.id, u.username, u.full_name, u.role_id, r.role_name
-          FROM users u
-          LEFT JOIN roles r ON u.role_id = r.id
-          WHERE u.username = $1 AND u.otp_code = $2 AND u.otp_expires_at > NOW()
-        `;
-        const result = await pool.query(query, [username, otp]);
-
-        if (result.rows.length === 0) {
-            return res.status(400).json({ success: false, message: 'รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว' });
-        }
-
-        const user = result.rows[0];
-
-        // เคลียร์ OTP และอัปเดตเวลา Last Login
-        await pool.query(
-            'UPDATE users SET otp_code = NULL, otp_expires_at = NULL, last_login_at = NOW() WHERE id = $1',
-            [user.id]
-        );
-
-        res.json({
+        return res.json({
             success: true,
             message: 'เข้าสู่ระบบสำเร็จ',
             user: {
                 id: user.id,
                 username: user.username,
-                fullName: user.full_name,
-                role: user.role_name
+                fullName: user.full_name || user.username,
+                role: user.role || 'Admin'
             }
         });
 
     } catch (err) {
-        res.status(500).json({ success: false, message: 'Server error: ' + err.message });
+        console.error('Login Error:', err);
+        return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดบนเซิร์ฟเวอร์: ' + err.message });
     }
 });
 
@@ -259,7 +171,7 @@ app.post('/api/rates', async (req, res) => {
         for (let row of data) {
             const [job_name, customer_name, origin, dest, run_type, count, job_type, tr_6, tr_10, tr_12, tr_c, tf_6, tf_10, tf_12, tf_c] = row;
             if (!job_name) continue;
-            
+
             const parseNum = (val) => (val === '' || val === null || isNaN(val)) ? null : Number(val);
 
             await client.query(`

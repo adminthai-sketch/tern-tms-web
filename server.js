@@ -195,3 +195,56 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 TERN TMS Server running on http://localhost:${PORT}`);
 });
+
+// ==========================================
+// 👥 API: ฐานข้อมูลผู้ใช้งาน (Users Management)
+// ==========================================
+app.get('/api/users', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, username, full_name, email, role_id, status FROM users ORDER BY id ASC');
+        const data = result.rows.map(r => [r.id, r.username, r.full_name, r.email, r.role_id === 1 ? 'Admin' : 'User', r.status]);
+        res.json({ success: true, data: data });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post('/api/users', async (req, res) => {
+    const { data } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (let row of data) {
+            const [id, username, full_name, email, role_text, status] = row;
+            if (!username) continue;
+
+            const role_id = role_text === 'Admin' ? 1 : 2;
+            const userStatus = status || 'ACTIVE';
+
+            if (id) {
+                // ถ้ามี ID อยู่แล้ว ให้ อัปเดต ข้อมูล
+                await client.query(`
+                    UPDATE users 
+                    SET full_name = $1, email = $2, role_id = $3, status = $4
+                    WHERE username = $5
+                `, [full_name, email, role_id, userStatus, username]);
+            } else {
+                // ถ้าเป็นผู้ใช้ใหม่ ให้สร้างพร้อม รหัสผ่านเริ่มต้น 1234 (SHA-256)
+                const defaultHash = crypto.createHash('sha256').update('1234').digest('hex');
+                await client.query(`
+                    INSERT INTO users (username, password_hash, full_name, email, role_id, status)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (username) DO UPDATE 
+                    SET full_name = EXCLUDED.full_name, email = EXCLUDED.email, role_id = EXCLUDED.role_id, status = EXCLUDED.status
+                `, [username, defaultHash, full_name, email, role_id, userStatus]);
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, message: '💾 บันทึกข้อมูลผู้ใช้งานเรียบร้อย! (ผู้ใช้ใหม่รหัสผ่านคือ 1234)' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: err.message });
+    } finally {
+        client.release();
+    }
+});

@@ -3,245 +3,323 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERN TMS - Operation Management</title>
+    <title>TERN TMS - Admin Backoffice</title>
     
-    <!-- ฟอนต์และไอคอน -->
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = { 
-            theme: { 
-                extend: { 
-                    fontFamily: { sans: ['Prompt', 'sans-serif'] }, 
-                    colors: { primary: '#0f4c81', bglight: '#f8fafc' } 
-                } 
-            } 
-        }
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
     </script>
 
-    <!-- Handsontable -->
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
-
-    <!-- ไฟล์ CSS หลัก -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="../css/style.css">
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
 
-    <!-- ========================================== -->
-    <!-- 🔐 หน้าต่าง Login (SPA) -->
-    <!-- ========================================== -->
-    <div id="login-view" class="absolute inset-0 z-50 flex items-center justify-center bg-slate-100/80 backdrop-blur-sm">
-        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-xl mb-4"><i class="fa-solid fa-truck-fast text-3xl"></i></div>
-                <h1 class="text-2xl font-bold text-primary">TERN TMS</h1>
-                <p class="text-sm text-slate-500 mt-1">Operation Management System</p>
-            </div>
-            
-            <form id="login-form" class="space-y-5">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">ชื่อผู้ใช้งาน</label>
-                    <div class="relative mb-4">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i class="fa-solid fa-user"></i></div>
-                        <input type="text" id="username" required placeholder="ระบุชื่อผู้ใช้..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
-                    </div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1">รหัสผ่าน</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><i class="fa-solid fa-lock"></i></div>
-                        <input type="password" id="password" required placeholder="ระบุรหัสผ่าน..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
-                    </div>
-                </div>
-
-                <div id="login-error" class="hidden bg-red-50 text-red-600 text-sm p-3 rounded-lg flex items-center gap-2">
-                    <i class="fa-solid fa-circle-exclamation"></i><span id="error-message"></span>
-                </div>
-                
-                <button type="submit" id="btn-login" class="w-full bg-primary hover:bg-blue-900 text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2 shadow-md">
-                    <span>เข้าสู่ระบบ</span><i class="fa-solid fa-arrow-right-to-bracket"></i>
-                </button>
-            </form>
+    <!-- 🟢 TOP HEADER -->
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-shield-halved"></i></div>
+            <span class="font-bold text-xl text-slate-800 tracking-wide">TERN TMS <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold ml-1">ADMIN BACKOFFICE</span></span>
         </div>
-    </div>
-
-    <!-- ========================================== -->
-    <!-- 📱 APP LAYOUT (หน้าหลักของระบบ) -->
-    <!-- ========================================== -->
-    <div id="app-view" class="hidden flex-1 flex flex-col h-full">
         
-        <!-- 🟢 TOP HEADER -->
-        <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-truck-fast"></i></div>
-                <span class="font-bold text-xl text-primary tracking-wide">TERN TMS</span>
+        <div class="flex items-center gap-4">
+            <a href="/index.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200">
+                <i class="fa-solid fa-arrow-left"></i> กลับหน้าหลัก
+            </a>
+            <div class="text-right hidden sm:block">
+                <div id="user-fullname" class="text-sm font-bold text-slate-700">Admin</div>
+                <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">ADMIN</div>
             </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ"><i class="fa-solid fa-power-off text-lg"></i></button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        <!-- 🟢 SIDEBAR -->
+        <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Master Data</div>
             
-            <div class="flex items-center gap-4">
-                <div class="text-right hidden sm:block">
-                    <div id="user-fullname" class="text-sm font-bold text-slate-700">กำลังโหลด...</div>
-                    <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-500">ROLE</div>
-                </div>
-                <div class="w-10 h-10 bg-blue-50 text-primary rounded-full flex items-center justify-center font-bold border border-blue-100"><i class="fa-solid fa-user-tie"></i></div>
-                <button onclick="logout()" class="ml-2 text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ"><i class="fa-solid fa-power-off text-lg"></i></button>
-            </div>
-        </header>
+            <a href="#" onclick="switchMasterTab('users')" id="menu-users" class="sidebar-item active flex items-center gap-3 px-6 py-3 bg-emerald-50 text-emerald-700 border-r-4 border-emerald-600 font-semibold">
+                <i class="fa-solid fa-users w-5 text-center"></i> ผู้ใช้งาน (Users)
+            </a>
+            <a href="#" onclick="switchMasterTab('drivers')" id="menu-drivers" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                <i class="fa-solid fa-id-card w-5 text-center"></i> คนขับ/รถ (Drivers)
+            </a>
+            <a href="#" onclick="switchMasterTab('customers')" id="menu-customers" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                <i class="fa-solid fa-building w-5 text-center"></i> ลูกค้า (Customers)
+            </a>
+            <a href="#" onclick="switchMasterTab('rates')" id="menu-rates" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                <i class="fa-solid fa-hand-holding-dollar w-5 text-center"></i> เรทราคา (Rates)
+            </a>
+        </nav>
 
-        <div class="flex-1 flex overflow-hidden">
-            <!-- 🟢 SIDEBAR -->
-            <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-                <div class="px-6 mb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Workspace</div>
+        <!-- 🟢 MAIN WORKSPACE -->
+        <main class="flex-1 p-6 overflow-hidden flex flex-col relative bg-bglight">
+            <div class="h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200">
                 
-                <a href="#" onclick="switchMenu('monitor')" id="menu-monitor" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors">
-                    <i class="fa-solid fa-desktop w-5 text-center"></i> มอนิเตอร์งาน (Dashboard)
-                </a>
-                <a href="#" onclick="switchMenu('booking')" id="menu-booking" class="sidebar-item active flex items-center gap-3 px-6 py-3 bg-primary/10 text-primary border-r-4 border-primary font-semibold">
-                    <i class="fa-solid fa-file-signature w-5 text-center"></i> สร้าง Booking (รับงาน)
-                </a>
-                <a href="#" onclick="switchMenu('dispatch')" id="menu-dispatch" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors">
-                    <i class="fa-solid fa-truck-ramp-box w-5 text-center"></i> จัดการคนขับ (Dispatch)
-                </a>
-                <a href="#" onclick="switchMenu('billing')" id="menu-billing" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors">
-                    <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i> วางบิล (Billing)
-                </a>
-
-                <!-- Admin Section -->
-                <div id="admin-menu-section" class="hidden">
-                    <div class="px-6 mt-8 mb-2 text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-shield-halved"></i> Admin Only
+                <!-- หัวข้อตาราง -->
+                <div class="flex justify-between items-center p-5 border-b border-slate-100">
+                    <div>
+                        <h2 id="table-title" class="text-xl font-bold text-emerald-600 flex items-center gap-2">
+                            <i class="fa-solid fa-users"></i> จัดการผู้ใช้งานระบบ
+                        </h2>
+                        <p id="table-desc" class="text-xs text-slate-400 mt-1">ดับเบิ้ลคลิกที่เซลล์ในตารางเพื่อ ✏️ แก้ไขข้อมูล</p>
                     </div>
-                    <!-- 💡 แก้ลิงก์ชี้ไปที่ไฟล์ใหม่ในโฟลเดอร์ admin -->
-                    <a href="/admin/admin.html" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
-                        <i class="fa-solid fa-database w-5 text-center"></i> จัดการข้อมูลหลังบ้าน
-                    </a>
-                </div>
-            </nav>
-
-            <!-- 🟢 MAIN CONTENT -->
-            <main class="flex-1 p-6 overflow-hidden flex flex-col relative">
-                
-                <!-- View: Monitor -->
-                <div id="view-monitor" class="view-section hidden h-full flex flex-col bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-6 text-white">
-                    <h2 class="text-xl font-bold text-sky-400 mb-4 border-b border-slate-700 pb-3"><i class="fa-solid fa-desktop mr-2"></i> Live Monitor (Coming Soon)</h2>
-                    <div class="flex-1 flex items-center justify-center text-slate-500">รอประกอบร่างจาก monitor.txt</div>
+                    <div class="flex gap-2">
+                        <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm">
+                            <i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์
+                        </button>
+                        <button onclick="saveCurrentMaster()" id="btn-save-master" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors">
+                            <i class="fa-solid fa-floppy-disk"></i> บันทึกตาราง
+                        </button>
+                    </div>
                 </div>
 
-                <!-- View: Booking -->
-                <div id="view-booking" class="view-section h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h2 class="text-xl font-bold text-primary mb-4 border-b border-slate-100 pb-3"><i class="fa-solid fa-file-signature mr-2"></i> สร้างรายการรับงาน (Booking)</h2>
-                    <div class="flex-1 flex items-center justify-center text-slate-400">รอประกอบร่างจาก booking.txt</div>
+                <!-- 🛠️ ACTION TOOLBAR (ค้นหา, เพิ่ม, ลบ) -->
+                <div class="flex justify-between items-center bg-slate-50 px-5 py-3 border-b border-slate-200">
+                    <!-- ค้นหา -->
+                    <div class="relative w-72">
+                        <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400"></i>
+                        <input type="text" id="global-search" placeholder="ค้นหาข้อมูลในตารางนี้..." class="pl-9 pr-3 py-2 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
+                    </div>
+                    <!-- ปุ่ม Action -->
+                    <div class="flex gap-2">
+                        <button onclick="addNewRow()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm">
+                            <i class="fa-solid fa-plus"></i> เพิ่มรายการ
+                        </button>
+                        <button onclick="deleteSelectedRow()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm">
+                            <i class="fa-solid fa-trash-can"></i> ลบที่เลือก
+                        </button>
+                    </div>
                 </div>
 
-                <!-- View: Dispatch -->
-                <div id="view-dispatch" class="view-section hidden h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h2 class="text-xl font-bold text-primary mb-4 border-b border-slate-100 pb-3"><i class="fa-solid fa-truck-ramp-box mr-2"></i> จัดรถและคนขับ</h2>
-                    <div class="flex-1 flex items-center justify-center text-slate-400">รอประกอบร่างจาก dispatch.txt</div>
+                <!-- Handsontable Container -->
+                <div class="flex-1 relative w-full overflow-hidden bg-white">
+                    <div id="hot-master-container" class="w-full h-full z-0 relative"></div>
                 </div>
-                
-                <!-- View: Billing -->
-                <div id="view-billing" class="view-section hidden h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                    <h2 class="text-xl font-bold text-primary mb-4 border-b border-slate-100 pb-3"><i class="fa-solid fa-file-invoice-dollar mr-2"></i> วางบิล (Billing)</h2>
-                    <div class="flex-1 flex items-center justify-center text-slate-400">รอประกอบร่างจาก billing.txt</div>
-                </div>
+            </div>
+        </main>
+    </div>
 
-            </main>
+    <!-- Modal ซ่อน/แสดงคอลัมน์ -->
+    <div id="col-toggle-modal" class="hidden absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-lg"><i class="fa-solid fa-eye mr-2 text-emerald-600"></i> ซ่อน/แสดงคอลัมน์</h3>
+                <button onclick="closeColToggleModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="col-toggle-container" class="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto bg-white"></div>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 🟢 JAVASCRIPT LOGIC -->
-    <!-- ========================================== -->
     <script>
-        // --- 1. ระบบเข้าสู่ระบบ (Login) ---
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('btn-login');
-            const originalText = btn.innerHTML;
-            const errorBox = document.getElementById('login-error');
-            
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังตรวจสอบ...';
-            btn.disabled = true;
-            errorBox.classList.add('hidden');
-
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    localStorage.setItem('tms_user', JSON.stringify(result.user));
-                    initApp(result.user);
-                } else {
-                    errorBox.classList.remove('hidden');
-                    document.getElementById('error-message').innerText = result.message || 'ข้อมูลไม่ถูกต้อง';
-                }
-            } catch (error) {
-                errorBox.classList.remove('hidden');
-                document.getElementById('error-message').innerText = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้';
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+        // --- 🔒 Guard & Auth ---
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('tms_user');
+            if (!savedUser) { window.location.href = '/login.html'; return; }
+            const user = JSON.parse(savedUser);
+            if (user.role !== 'Admin') {
+                alert('⛔ คุณไม่มีสิทธิ์เข้าถึงหน้า Admin Backoffice');
+                window.location.href = '/index.html';
+                return;
             }
-        });
-
-        // --- 2. การเริ่มต้นแอปพลิเคชัน (App Initialization) ---
-        function initApp(user) {
-            document.getElementById('login-view').classList.add('hidden');
-            document.getElementById('app-view').classList.remove('hidden');
-            document.getElementById('app-view').classList.add('animate-[fadeIn_0.5s_ease-out]');
-            
             document.getElementById('user-fullname').innerText = user.fullName;
-            const roleBadge = document.getElementById('user-role-badge');
-            roleBadge.innerText = user.role.toUpperCase();
-
-            // RBAC: จัดการเมนูตามสิทธิ์
-            if (user.role === 'Admin') {
-                document.getElementById('admin-menu-section').classList.remove('hidden');
-                roleBadge.classList.add('bg-emerald-100', 'text-emerald-700');
-            } else {
-                roleBadge.classList.add('bg-blue-100', 'text-blue-700');
-            }
-
-            switchMenu('booking');
-        }
+            switchMasterTab('users');
+        });
 
         function logout() {
             localStorage.removeItem('tms_user');
-            window.location.reload();
+            window.location.href = '/login.html';
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedUser = localStorage.getItem('tms_user');
-            if (savedUser) initApp(JSON.parse(savedUser));
+        // --- 📊 ตาราง Master Data & State Management ---
+        let currentMasterType = 'users';
+        let hotMasterInstance = null;
+        let originalTableData = []; // ไว้เก็บข้อมูลต้นฉบับสำหรับระบบ Search
+
+        const masterConfigs = {
+            users: {
+                title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users',
+                endpoint: '/api/users',
+                headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'สิทธิ์ (Role)', 'สถานะ (Status)'],
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', source: ['Admin', 'User'] }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }]
+            },
+            drivers: {
+                title: 'จัดการคนขับและทะเบียนรถ (Drivers)', icon: 'fa-id-card',
+                endpoint: '/api/drivers',
+                headers: ['ป้ายทะเบียน', 'ประเภทรถ', 'ชื่อ.พนง.', 'ชื่อเล่น'],
+                columns: [{ type: 'text' }, { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'text' }, { type: 'text' }]
+            },
+            customers: {
+                title: 'จัดการข้อมูลลูกค้า (Customers)', icon: 'fa-building',
+                endpoint: '/api/customers',
+                headers: ['Customer No.', 'Customer Name', 'ชื่อลูกค้าย่อ', 'Billing Name', 'Phone Number', 'Address', 'Tax ID'],
+                columns: Array(7).fill({ type: 'text' })
+            },
+            rates: {
+                title: 'จัดการเรทราคาค่าเที่ยว (Rates)', icon: 'fa-hand-holding-dollar',
+                endpoint: '/api/rates',
+                headers: ["ชื่องาน", "ลูกค้า", "ต้นทาง", "ปลายทาง", "วิ่งงาน", "จำนวนตู้/ใบ", "ประเภทงาน", "ค่าเที่ยว 6W", "ค่าเที่ยว 10W", "ค่าเที่ยว 12W*2", "ค่าเที่ยวเงินสด", "ค่าขนส่ง 6W", "ค่าขนส่ง 10W", "ค่าขนส่ง 12W*2", "งานเงินสด"],
+                columns: Array(15).fill({ type: 'text' })
+            }
+        };
+
+        function getUIState(tableName) {
+            const user = JSON.parse(localStorage.getItem('tms_user'));
+            return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {};
+        }
+        function saveUIState(tableName, stateData) {
+            const user = JSON.parse(localStorage.getItem('tms_user'));
+            const existing = getUIState(tableName);
+            localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData }));
+        }
+
+        async function switchMasterTab(type) {
+            currentMasterType = type;
+            const cfg = masterConfigs[type];
+
+            document.getElementById('table-title').innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.title}`;
+            document.getElementById('global-search').value = ''; // เคลียร์ช่องค้นหาเมื่อเปลี่ยนแท็บ
+
+            document.querySelectorAll('.sidebar-item').forEach(b => {
+                b.classList.remove('bg-emerald-50', 'text-emerald-700', 'border-r-4', 'border-emerald-600', 'font-semibold');
+                b.classList.add('text-slate-600');
+            });
+            document.getElementById('menu-' + type).classList.remove('text-slate-600');
+            document.getElementById('menu-' + type).classList.add('bg-emerald-50', 'text-emerald-700', 'border-r-4', 'border-emerald-600', 'font-semibold');
+
+            try {
+                const response = await fetch(cfg.endpoint);
+                const result = await response.json();
+                
+                const container = document.getElementById('hot-master-container');
+                if (hotMasterInstance) hotMasterInstance.destroy();
+
+                let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(cfg.headers.length).fill("")];
+                originalTableData = JSON.parse(JSON.stringify(safeData)); // ก็อปปี้ไว้ใช้ตอน Search
+
+                const uiState = getUIState('master_' + type);
+
+                hotMasterInstance = new Handsontable(container, {
+                    data: safeData,
+                    colHeaders: cfg.headers,
+                    columns: cfg.columns,
+                    rowHeaders: true,
+                    minSpareRows: 1, // มีแถวว่าง 1 แถวเสมอ
+                    width: '100%',
+                    height: '100%',
+                    manualColumnResize: true,
+                    manualColumnMove: true,
+                    hiddenColumns: { columns: uiState.hiddenColumns || [], indicators: true },
+                    colWidths: uiState.colWidths || undefined,
+                    stretchH: type === 'rates' ? 'all' : 'none',
+                    licenseKey: 'non-commercial-and-evaluation',
+                    afterColumnResize: function() {
+                        saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths });
+                    }
+                });
+            } catch (err) { alert('❌ โหลดข้อมูลไม่สำเร็จ: ' + err.message); }
+        }
+
+        // --- 🛠️ ฟังก์ชันเครื่องมือจัดการตาราง (Add, Delete, Search) ---
+        
+        // 1. ระบบค้นหาข้อมูล (Real-time Filter)
+        document.getElementById('global-search').addEventListener('input', function(e) {
+            if (!hotMasterInstance) return;
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+                hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData)));
+                return;
+            }
+            const filtered = originalTableData.filter(row => {
+                return row.some(cell => String(cell || '').toLowerCase().includes(query));
+            });
+            // ถ้าค้นหาไม่เจออะไรเลย ให้แสดงตารางว่าง
+            hotMasterInstance.loadData(filtered.length > 0 ? filtered : [new Array(masterConfigs[currentMasterType].headers.length).fill("")]);
         });
 
-        // --- 3. การสลับเมนูหลัก (Navigation Switching) ---
-        function switchMenu(menuName) {
-            document.querySelectorAll('.sidebar-item').forEach(el => {
-                el.classList.remove('bg-primary/10', 'text-primary', 'border-r-4', 'border-primary', 'font-semibold');
-                el.classList.add('text-slate-600');
-            });
-            
-            const activeMenu = document.getElementById('menu-' + menuName);
-            if(activeMenu) {
-                activeMenu.classList.remove('text-slate-600');
-                activeMenu.classList.add('bg-primary/10', 'text-primary', 'border-r-4', 'border-primary', 'font-semibold');
-            }
+        // 2. ระบบเพิ่มแถวใหม่ (Add Row)
+        function addNewRow() {
+            if (!hotMasterInstance) return;
+            document.getElementById('global-search').value = ''; // เคลียร์ค้นหาก่อน
+            hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData))); // รีโหลดข้อมูลเต็ม
+            hotMasterInstance.alter('insert_row_above', 0); // แทรกแถวบนสุด
+            hotMasterInstance.selectCell(0, 0); // โฟกัสไปที่เซลล์แรก
+        }
 
-            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-            const activeView = document.getElementById('view-' + menuName);
-            if(activeView) {
-                activeView.classList.remove('hidden');
-                activeView.classList.add('animate-[fadeIn_0.3s_ease-out]');
+        // 3. ระบบลบแถว (Delete Row)
+        function deleteSelectedRow() {
+            if (!hotMasterInstance) return;
+            const selected = hotMasterInstance.getSelected(); // [startRow, startCol, endRow, endCol]
+            
+            if (selected && selected.length > 0) {
+                const startRow = Math.min(selected[0][0], selected[0][2]);
+                const endRow = Math.max(selected[0][0], selected[0][2]);
+                const amount = endRow - startRow + 1;
+
+                if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n(คุณต้องกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อยืนยันการลบออกจากระบบจริงๆ)`)) {
+                    hotMasterInstance.alter('remove_row', startRow, amount);
+                    // อัปเดต originalTableData ด้วย
+                    originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
+                }
+            } else {
+                alert('🖱️ กรุณาคลิกเลือกแถวในตารางที่ต้องการลบก่อนครับ');
             }
+        }
+
+        // 4. ระบบบันทึก (Save)
+        async function saveCurrentMaster() {
+            if (!hotMasterInstance) return;
+            const btn = document.getElementById('btn-save-master');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+            btn.disabled = true;
+
+            const cfg = masterConfigs[currentMasterType];
+            const cleanData = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
+
+            try {
+                const response = await fetch(cfg.endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: cleanData })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                    switchMasterTab(currentMasterType);
+                } else { alert('❌ เกิดข้อผิดพลาด: ' + result.message); }
+            } catch (err) { alert('❌ บันทึกข้อมูลไม่สำเร็จ: ' + err.message); } 
+            finally { btn.innerHTML = originalText; btn.disabled = false; }
+        }
+
+        // --- 🎛️ Modal ซ่อน/แสดงคอลัมน์ ---
+        function openColToggleModal() {
+            const plugin = hotMasterInstance.getPlugin('hiddenColumns');
+            const hiddenCols = plugin.getHiddenColumns() || [];
+            let html = '';
+            masterConfigs[currentMasterType].headers.forEach((header, index) => {
+                const isChecked = !hiddenCols.includes(index) ? 'checked' : '';
+                html += `
+                    <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 cursor-pointer transition-colors">
+                        <input type="checkbox" class="w-5 h-5 accent-emerald-600 rounded" ${isChecked} onchange="toggleMasterColumn(${index}, this.checked)">
+                        <span class="font-medium text-slate-700 text-sm">${header}</span>
+                    </label>`;
+            });
+            document.getElementById('col-toggle-container').innerHTML = html;
+            document.getElementById('col-toggle-modal').classList.remove('hidden');
+        }
+
+        function closeColToggleModal() { document.getElementById('col-toggle-modal').classList.add('hidden'); }
+
+        function toggleMasterColumn(colIndex, isVisible) {
+            const plugin = hotMasterInstance.getPlugin('hiddenColumns');
+            if (isVisible) plugin.showColumns([colIndex]); else plugin.hideColumns([colIndex]);
+            hotMasterInstance.render();
+            saveUIState('master_' + currentMasterType, { hiddenColumns: plugin.getHiddenColumns() || [] });
         }
     </script>
 </body>

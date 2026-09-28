@@ -6,28 +6,38 @@ const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // เผื่อข้อมูลตารางขนาดใหญ่
 app.use(express.static('public'));
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
-
-// 1. Endpoint Health Check
-app.get('/api/health', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW()');
-    res.json({ status: 'ok', message: 'เชื่อมต่อ Neon DB สำเร็จ!', time: result.rows[0].now });
-  } catch (err) { res.status(500).json({ status: 'error', error: err.message }); }
+const pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL, 
+    ssl: { rejectUnauthorized: false } 
 });
 
-// 2. API Login (เพิ่มการดึง Permissions)
+// ==========================================
+// 1. Endpoint Health Check
+// ==========================================
+app.get('/api/health', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT NOW()');
+        res.json({ status: 'ok', message: 'เชื่อมต่อ Neon DB สำเร็จ!', time: result.rows[0].now });
+    } catch (err) { 
+        res.status(500).json({ status: 'error', error: err.message }); 
+    }
+});
+
+// ==========================================
+// 2. API Login
+// ==========================================
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ success: false, message: 'กรุณากรอก Username และ Password' });
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: 'กรุณากรอก Username และ Password' });
+    }
 
     try {
         const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
         
-        // JOIN ตาราง roles เพื่อดึงชื่อสิทธิ์และ permissions (jsonb)
         const query = `
             SELECT u.id, u.username, u.full_name, u.status, r.role_name, r.permissions 
             FROM users u 
@@ -36,22 +46,37 @@ app.post('/api/login', async (req, res) => {
         `;
         const result = await pool.query(query, [username, hashedPassword]);
 
-        if (result.rows.length === 0) return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+        if (result.rows.length === 0) {
+            return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+        }
         
         const user = result.rows[0];
-        if (user.status && user.status !== 'ACTIVE') return res.status(403).json({ success: false, message: 'บัญชีผู้ใช้นี้ถูกระงับการใช้งาน' });
+        
+        if (user.status && user.status !== 'ACTIVE') {
+            return res.status(403).json({ success: false, message: 'บัญชีผู้ใช้นี้ถูกระงับการใช้งาน' });
+        }
 
-        try { await pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]); } catch (e) {}
+        // อัปเดตเวลาเข้าใช้งาน
+        try { 
+            await pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]); 
+        } catch (e) {
+            console.log('Skipped last_login update');
+        }
 
         return res.json({
-            success: true, message: 'เข้าสู่ระบบสำเร็จ',
+            success: true, 
+            message: 'เข้าสู่ระบบสำเร็จ',
             user: {
-                id: user.id, username: user.username, fullName: user.full_name || user.username,
+                id: user.id, 
+                username: user.username, 
+                fullName: user.full_name || user.username,
                 role: user.role_name || 'User',
-                permissions: user.permissions || {} // ส่งสิทธิ์ (JSON) ไปให้หน้าเว็บอ่าน
+                permissions: user.permissions || {}
             }
         });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
+    }
 });
 
 // ==========================================
@@ -65,7 +90,9 @@ app.get('/api/roles', async (req, res) => {
             return [r.id, r.role_name, !!p.monitor, !!p.booking, !!p.dispatch, !!p.billing, !!p.admin];
         });
         res.json({ success: true, data: data });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
+    }
 });
 
 app.post('/api/roles', async (req, res) => {
@@ -90,7 +117,9 @@ app.post('/api/roles', async (req, res) => {
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
-    } finally { client.release(); }
+    } finally { 
+        client.release(); 
+    }
 });
 
 // ==========================================
@@ -104,12 +133,13 @@ app.get('/api/users', async (req, res) => {
         `);
         const data = result.rows.map(r => [r.id, r.username, r.full_name, r.email, r.role_name || '', r.status]);
         
-        // ส่งรายชื่อ Roles กลับไปทำ Dropdown ให้หน้าเว็บด้วย
         const rolesResult = await pool.query('SELECT role_name FROM roles ORDER BY id ASC');
         const roleList = rolesResult.rows.map(r => r.role_name);
 
         res.json({ success: true, data: data, roleList: roleList });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
+    }
 });
 
 app.post('/api/users', async (req, res) => {
@@ -121,7 +151,6 @@ app.post('/api/users', async (req, res) => {
             const [id, username, full_name, email, role_text, status] = row;
             if (!username) continue;
 
-            // ค้นหา role_id จากชื่อ Role (ถ้าไม่เจอให้ default เป็น 2)
             const roleRes = await client.query('SELECT id FROM roles WHERE role_name = $1', [role_text]);
             const role_id = roleRes.rows.length > 0 ? roleRes.rows[0].id : 2;
             const userStatus = status || 'ACTIVE';
@@ -141,86 +170,132 @@ app.post('/api/users', async (req, res) => {
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
-    } finally { client.release(); }
+    } finally { 
+        client.release(); 
+    }
 });
 
 // ==========================================
-// 🚛 API: ฐานข้อมูลคนขับ (Drivers), 🏢 API: ลูกค้า (Customers), 💰 API: เรทราคา (Rates)
-// (ใช้โค้ดเดิมของคุณทั้งหมด)
+// 🚛 API: Master Data (Drivers)
 // ==========================================
 app.get('/api/drivers', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT default_plate_number AS plate, default_vehicle_type AS truck_type, driver_name, nickname FROM drivers ORDER BY id ASC');
-        const data = result.rows.map(r => [r.plate, r.truck_type, r.driver_name, r.nickname]);
-        res.json({ success: true, data: data });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    try { 
+        const result = await pool.query('SELECT default_plate_number AS plate, default_vehicle_type AS truck_type, driver_name, nickname FROM drivers ORDER BY id ASC'); 
+        res.json({ success: true, data: result.rows.map(r => [r.plate, r.truck_type, r.driver_name, r.nickname]) }); 
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
+    }
 });
 
 app.post('/api/drivers', async (req, res) => {
-    const { data } = req.body;
+    const { data } = req.body; 
     const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        await client.query('DELETE FROM drivers');
-        for (let row of data) {
-            const [plate, truck_type, driver_name, nickname] = row;
-            if (!plate && !driver_name) continue;
-            await client.query('INSERT INTO drivers (default_plate_number, default_vehicle_type, driver_name, nickname) VALUES ($1, $2, $3, $4)', [plate || '', truck_type || '', driver_name || '', nickname || '']);
-        }
-        await client.query('COMMIT');
-        res.json({ success: true, message: '💾 บันทึกข้อมูลคนขับและรถเรียบร้อยแล้ว!' });
-    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ success: false, message: err.message }); } finally { client.release(); }
+    try { 
+        await client.query('BEGIN'); 
+        await client.query('DELETE FROM drivers'); 
+        
+        for (let row of data) { 
+            const [plate, truck_type, driver_name, nickname] = row; 
+            if (!plate && !driver_name) continue; 
+            await client.query('INSERT INTO drivers (default_plate_number, default_vehicle_type, driver_name, nickname) VALUES ($1, $2, $3, $4)', [plate || '', truck_type || '', driver_name || '', nickname || '']); 
+        } 
+        
+        await client.query('COMMIT'); 
+        res.json({ success: true, message: '💾 บันทึกข้อมูลคนขับและรถเรียบร้อยแล้ว!' }); 
+    } catch (err) { 
+        await client.query('ROLLBACK'); 
+        res.status(500).json({ success: false, message: err.message }); 
+    } finally { 
+        client.release(); 
+    }
 });
 
+// ==========================================
+// 🏢 API: Master Data (Customers)
+// ==========================================
 app.get('/api/customers', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id FROM customers ORDER BY id ASC');
-        const data = result.rows.map(r => [r.customer_no, r.customer_name, r.short_name, r.billing_name, r.phone_number, r.address, r.tax_id]);
-        res.json({ success: true, data: data });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    try { 
+        const result = await pool.query('SELECT customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id FROM customers ORDER BY id ASC'); 
+        res.json({ success: true, data: result.rows.map(r => [r.customer_no, r.customer_name, r.short_name, r.billing_name, r.phone_number, r.address, r.tax_id]) }); 
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
+    }
 });
 
 app.post('/api/customers', async (req, res) => {
-    const { data } = req.body;
+    const { data } = req.body; 
     const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        for (let row of data) {
-            const [c_no, c_name, s_name, b_name, phone, addr, tax] = row;
-            if (!c_no) continue;
-            await client.query('INSERT INTO customers (customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (customer_no) DO UPDATE SET customer_name = EXCLUDED.customer_name, short_name = EXCLUDED.short_name, billing_name = EXCLUDED.billing_name, phone_number = EXCLUDED.phone_number, address = EXCLUDED.address, tax_id = EXCLUDED.tax_id', [c_no, c_name, s_name, b_name, phone, addr, tax]);
-        }
-        await client.query('COMMIT');
-        res.json({ success: true, message: '💾 บันทึกข้อมูลลูกค้าเรียบร้อย!' });
-    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ success: false, message: err.message }); } finally { client.release(); }
+    try { 
+        await client.query('BEGIN'); 
+        
+        for (let row of data) { 
+            const [c_no, c_name, s_name, b_name, phone, addr, tax] = row; 
+            if (!c_no) continue; 
+            
+            await client.query(`
+                INSERT INTO customers (customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7) 
+                ON CONFLICT (customer_no) DO UPDATE 
+                SET customer_name = EXCLUDED.customer_name, 
+                    short_name = EXCLUDED.short_name, 
+                    billing_name = EXCLUDED.billing_name, 
+                    phone_number = EXCLUDED.phone_number, 
+                    address = EXCLUDED.address, 
+                    tax_id = EXCLUDED.tax_id
+            `, [c_no, c_name, s_name, b_name, phone, addr, tax]); 
+        } 
+        
+        await client.query('COMMIT'); 
+        res.json({ success: true, message: '💾 บันทึกข้อมูลลูกค้าเรียบร้อย!' }); 
+    } catch (err) { 
+        await client.query('ROLLBACK'); 
+        res.status(500).json({ success: false, message: err.message }); 
+    } finally { 
+        client.release(); 
+    }
 });
 
+// ==========================================
+// 💰 API: Master Data (Rates)
+// ==========================================
 app.get('/api/rates', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT job_name, customer_name, origin, destination, run_type, container_count, job_type, trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash FROM rates ORDER BY id ASC');
-        const data = result.rows.map(r => [r.job_name, r.customer_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash]);
-        res.json({ success: true, data: data });
-    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+    try { 
+        const result = await pool.query('SELECT job_name, customer_name, origin, destination, run_type, container_count, job_type, trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash FROM rates ORDER BY id ASC'); 
+        res.json({ success: true, data: result.rows.map(r => [r.job_name, r.customer_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash]) }); 
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
+    }
 });
 
 app.post('/api/rates', async (req, res) => {
-    const { data } = req.body;
+    const { data } = req.body; 
     const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        for (let row of data) {
-            const [job_name, customer_name, origin, dest, run_type, count, job_type, tr_6, tr_10, tr_12, tr_c, tf_6, tf_10, tf_12, tf_c] = row;
-            if (!job_name) continue;
-            const parseNum = (val) => (val === '' || val === null || isNaN(val)) ? null : Number(val);
-            await client.query('INSERT INTO rates (job_name, customer_name, origin, destination, run_type, container_count, job_type, trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) ON CONFLICT (job_name) DO UPDATE SET customer_name = EXCLUDED.customer_name, origin = EXCLUDED.origin, destination = EXCLUDED.destination, run_type = EXCLUDED.run_type, container_count = EXCLUDED.container_count, job_type = EXCLUDED.job_type, trip_fee_6w = EXCLUDED.trip_fee_6w, trip_fee_10w = EXCLUDED.trip_fee_10w, trip_fee_12w = EXCLUDED.trip_fee_12w, trip_fee_cash = EXCLUDED.trip_fee_cash, trans_fee_6w = EXCLUDED.trans_fee_6w, trans_fee_10w = EXCLUDED.trans_fee_10w, trans_fee_12w = EXCLUDED.trans_fee_12w, trans_fee_cash = EXCLUDED.trans_fee_cash', [job_name, customer_name, origin, dest, run_type, parseNum(count), job_type, parseNum(tr_6), parseNum(tr_10), parseNum(tr_12), parseNum(tr_c), parseNum(tf_6), parseNum(tf_10), parseNum(tf_12), parseNum(tf_c)]);
-        }
-        await client.query('COMMIT');
-        res.json({ success: true, message: '💾 บันทึกข้อมูลเรทราคาเรียบร้อย!' });
-    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ success: false, message: err.message }); } finally { client.release(); }
+    try { 
+        await client.query('BEGIN'); 
+        
+        for (let row of data) { 
+            const [job_name, customer_name, origin, dest, run_type, count, job_type, tr_6, tr_10, tr_12, tr_c, tf_6, tf_10, tf_12, tf_c] = row; 
+            if (!job_name) continue; 
+            const parseNum = (val) => (val === '' || val === null || isNaN(val)) ? null : Number(val); 
+            
+            await client.query(`
+                INSERT INTO rates (job_name, customer_name, origin, destination, run_type, container_count, job_type, trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
+                ON CONFLICT (job_name) DO UPDATE 
+                SET customer_name = EXCLUDED.customer_name, origin = EXCLUDED.origin, destination = EXCLUDED.destination, run_type = EXCLUDED.run_type, container_count = EXCLUDED.container_count, job_type = EXCLUDED.job_type, trip_fee_6w = EXCLUDED.trip_fee_6w, trip_fee_10w = EXCLUDED.trip_fee_10w, trip_fee_12w = EXCLUDED.trip_fee_12w, trip_fee_cash = EXCLUDED.trip_fee_cash, trans_fee_6w = EXCLUDED.trans_fee_6w, trans_fee_10w = EXCLUDED.trans_fee_10w, trans_fee_12w = EXCLUDED.trans_fee_12w, trans_fee_cash = EXCLUDED.trans_fee_cash
+            `, [job_name, customer_name, origin, dest, run_type, parseNum(count), job_type, parseNum(tr_6), parseNum(tr_10), parseNum(tr_12), parseNum(tr_c), parseNum(tf_6), parseNum(tf_10), parseNum(tf_12), parseNum(tf_c)]); 
+        } 
+        
+        await client.query('COMMIT'); 
+        res.json({ success: true, message: '💾 บันทึกข้อมูลเรทราคาเรียบร้อย!' }); 
+    } catch (err) { 
+        await client.query('ROLLBACK'); 
+        res.status(500).json({ success: false, message: err.message }); 
+    } finally { 
+        client.release(); 
+    }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => { console.log(`🚀 TERN TMS Server running on http://localhost:${PORT}`); });
 
 // ==========================================
 // 📦 API: ฐานข้อมูลรายการรับงาน (Shipments / Bookings)
@@ -233,17 +308,17 @@ app.get('/api/shipments', async (req, res) => {
         let query = 'SELECT raw_data FROM shipments';
         let params = [];
         
-        if (month && year) {
-            query += ' WHERE EXTRACT(MONTH FROM run_date) = $1 AND EXTRACT(YEAR FROM run_date) = $2';
-            params.push(month, year);
+        if (month && year) { 
+            query += ' WHERE EXTRACT(MONTH FROM run_date) = $1 AND EXTRACT(YEAR FROM run_date) = $2'; 
+            params.push(month, year); 
         }
+        
         query += ' ORDER BY order_id ASC';
         
         const result = await pool.query(query, params);
-        const data = result.rows.map(r => r.raw_data);
-        res.json({ success: true, data: data });
-    } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.json({ success: true, data: result.rows.map(r => r.raw_data) });
+    } catch (err) { 
+        res.status(500).json({ success: false, message: err.message }); 
     }
 });
 
@@ -251,18 +326,19 @@ app.get('/api/shipments', async (req, res) => {
 app.post('/api/shipments', async (req, res) => {
     const { data } = req.body;
     const client = await pool.connect();
+    
     try {
         await client.query('BEGIN');
+        
         for (let row of data) {
-            const order_id = row[1];
+            // ดึงค่าตามโครงสร้าง 61 คอลัมน์ (0 = Checkbox, 1 = Order ID, 4 = วันที่วิ่งงาน, 6 = ลูกค้า, 7 = Booking, 60 = สถานะ)
+            const order_id = row[1] ? String(row[1]).trim() : null;
+            if (!order_id) continue; 
+
             const run_date = row[4] || null; 
             const customer_name = row[6] || ''; 
             const booking_no = row[7] || ''; 
-            
-            // 💡 แก้บั๊ก: รองรับโครงสร้าง Array 61 คอลัมน์ (Status อยู่ช่องสุดท้าย)
-            const status = row.length > 57 ? row[60] : (row[56] || 'รอจัดรถ'); 
-
-            if (!order_id) continue;
+            const status = row[60] || 'รอจัดรถ';
 
             await client.query(`
                 INSERT INTO shipments (order_id, run_date, customer_name, booking_no, status, raw_data)
@@ -276,11 +352,14 @@ app.post('/api/shipments', async (req, res) => {
                     updated_at = NOW()
             `, [order_id, run_date, customer_name, booking_no, status, JSON.stringify(row)]);
         }
+        
         await client.query('COMMIT');
-        res.json({ success: true, message: '💾 บันทึกข้อมูลตาราง Operation ลงฐานข้อมูลเรียบร้อย!' });
+        res.json({ success: true, message: '💾 บันทึกข้อมูลตาราง Operation ลงฐานข้อมูลสำเร็จ!' });
+        
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: err.message });
+        console.error('Shipment Save Error:', err);
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด: ' + err.message });
     } finally {
         client.release();
     }
@@ -298,4 +377,9 @@ app.delete('/api/shipments', async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => { 
+    console.log(`🚀 TERN TMS Server running on http://localhost:${PORT}`); 
 });

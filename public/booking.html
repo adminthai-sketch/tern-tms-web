@@ -211,7 +211,6 @@
             <!-- TAB 2: LIST VIEW -->
             <div id="tab-content-grid" class="hidden flex-1 flex flex-col h-full">
                 
-                <!-- 💡 ฟิลเตอร์เดือนและ Smart Filter -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 shrink-0">
                     <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
                         <h3 class="text-sm font-bold text-primary flex items-center gap-2"><i class="fa-solid fa-filter"></i> กรองข้อมูลอัจฉริยะ</h3>
@@ -244,18 +243,29 @@
                             <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fa-solid fa-hand-pointer"></i> ดับเบิ้ลคลิกที่แถวตารางเพื่อแก้ไขข้อมูล</span>
                         </div>
                         <div class="flex gap-2">
+                            <button onclick="exportToExcel()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-file-excel"></i> ดาวน์โหลด Excel</button>
                             <button onclick="deleteCheckedRows()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่เลือก</button>
                             <button onclick="saveShipments()" id="btn-save-booking" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-floppy-disk"></i> บันทึกตารางลงฐานข้อมูล</button>
                         </div>
                     </div>
                     <div class="flex-1 relative w-full h-full bg-white z-0">
-                        <!-- 💡 เปลี่ยน id ให้ dynamic ตาม user เพื่อให้จัดคอลัมน์ของใครของมัน -->
                         <div id="hot-booking-container" class="absolute inset-0"></div>
                     </div>
                 </div>
 
             </div>
         </main>
+    </div>
+
+    <!-- Modal ซ่อน/แสดงคอลัมน์ -->
+    <div id="col-toggle-modal" class="hidden absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-lg"><i class="fa-solid fa-eye mr-2 text-primary"></i> ซ่อน/แสดงคอลัมน์ Operation</h3>
+                <button onclick="closeColToggleModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="col-toggle-container" class="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto bg-white"></div>
+        </div>
     </div>
 
     <script>
@@ -425,8 +435,6 @@
         async function initBookingTable() {
             const user = JSON.parse(localStorage.getItem('tms_user'));
             const container = document.getElementById('hot-booking-container');
-            
-            // 💡 สร้าง ID แยกตาม User เพื่อให้ฟีเจอร์ persistentState จำการจัดคอลัมน์ของแต่ละคน
             container.id = 'hot-booking-grid-' + user.username; 
             
             let lastClickTime = 0;
@@ -434,12 +442,8 @@
             hotBookingInstance = new Handsontable(container, {
                 data: [], colHeaders: ['✔ เลือก', ...allHeaders], columns: [{ type: 'checkbox', className: 'htCenter htMiddle' }, ...columnsConfig],
                 rowHeaders: true, minSpareRows: 0, width: '100%', height: '100%', 
-                
-                // 💡 เปิดระบบย้ายคอลัมน์และปรับขนาด
                 manualColumnResize: true, 
                 manualColumnMove: true, 
-                
-                // 💡 หัวใจสำคัญ: จำค่าการจัดคอลัมน์และขนาดให้อัตโนมัติ (ผูกกับ ID ด้านบน)
                 persistentState: true, 
 
                 filters: true,
@@ -468,7 +472,7 @@
                     lastClickTime = now;
                 }
             });
-            refreshTableColumnsByMode(''); // ซ่อนคอลัมน์ตอนเริ่มต้น
+            refreshTableColumnsByMode(''); 
         }
 
         function loadRowToForm(physicalRow) {
@@ -671,6 +675,22 @@
                 alert(result.message);
                 if (result.success) loadShipments();
             } catch(e) { alert('❌ เกิดข้อผิดพลาดในการบันทึก: ' + e.message); } finally { btn.innerHTML = ot; btn.disabled = false; }
+        }
+
+        // 📥 ดาวน์โหลดเป็น Excel (CSV Format ที่เปิดใน Excel ได้สมบูรณ์)
+        function exportToExcel() {
+            if (!hotBookingInstance) return;
+            const exportPlugin = hotBookingInstance.getPlugin('exportFile');
+            const monthVal = document.getElementById('monthFilter').value || 'All';
+            exportPlugin.downloadFile('csv', {
+                bom: true, // ทำให้ Excel อ่านภาษาไทยได้สมบูรณ์ (UTF-8)
+                columnDelimiter: ',',
+                columnHeaders: true,
+                exportHiddenColumns: false, // เอาเฉพาะคอลัมน์ที่มองเห็น
+                exportHiddenRows: false,
+                filename: 'TMS_Operation_Report_' + monthVal + '_[YYYY]-[MM]-[DD]',
+                mimeType: 'text/csv'
+            });
         }
     </script>
 </body>

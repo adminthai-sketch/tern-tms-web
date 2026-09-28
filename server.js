@@ -329,16 +329,16 @@ app.post('/api/shipments', async (req, res) => {
     
     try {
         await client.query('BEGIN');
-        
         for (let row of data) {
-            // ดึงค่าตามโครงสร้าง 61 คอลัมน์ (0 = Checkbox, 1 = Order ID, 4 = วันที่วิ่งงาน, 6 = ลูกค้า, 7 = Booking, 60 = สถานะ)
             const order_id = row[1] ? String(row[1]).trim() : null;
             if (!order_id) continue; 
 
             const run_date = row[4] || null; 
             const customer_name = row[6] || ''; 
             const booking_no = row[7] || ''; 
-            const status = row[60] || 'รอจัดรถ';
+            
+            // 💡 แก้บั๊กแบบยั่งยืน: ดึงสถานะจาก "ช่องสุดท้าย" ของ Array เสมอ ไม่ว่าจะมีกี่คอลัมน์
+            const status = row[row.length - 1] || 'รอจัดรถ';
 
             await client.query(`
                 INSERT INTO shipments (order_id, run_date, customer_name, booking_no, status, raw_data)
@@ -352,13 +352,11 @@ app.post('/api/shipments', async (req, res) => {
                     updated_at = NOW()
             `, [order_id, run_date, customer_name, booking_no, status, JSON.stringify(row)]);
         }
-        
         await client.query('COMMIT');
         res.json({ success: true, message: '💾 บันทึกข้อมูลตาราง Operation ลงฐานข้อมูลสำเร็จ!' });
         
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('Shipment Save Error:', err);
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด: ' + err.message });
     } finally {
         client.release();

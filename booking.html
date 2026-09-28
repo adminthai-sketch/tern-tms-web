@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERN TMS - สร้างบุคกิ้ง (Booking)</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
+    </script>
+
+    <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+
+    <style>
+        .ht-row-selected { background-color: #e0f2fe !important; transition: 0.2s; }
+        .handsontable th { font-weight: bold !important; }
+        .export-theme { background: #fffdf5; border: 1px solid #ffeeba; }
+        .import-theme { background: #f2f7ff; border: 1px solid #cce5ff; }
+        .transfer-theme { background: #fdf5f5; border: 1px solid #ffccbc; }
+    </style>
+</head>
+<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
+
+    <!-- 🟢 TOP HEADER -->
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-truck-fast"></i></div>
+            <span class="font-bold text-xl text-primary tracking-wide">TERN TMS <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">OPERATION</span></span>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <div class="text-right hidden sm:block">
+                <div id="user-fullname" class="text-sm font-bold text-slate-700">กำลังโหลด...</div>
+                <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-500">ROLE</div>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-power-off text-lg"></i></button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- 🟢 SIDEBAR -->
+        <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Main Applications</div>
+            
+            <a href="/monitor.html" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors">
+                <i class="fa-solid fa-desktop w-5 text-center"></i> 1. มอนิเตอร์งาน
+            </a>
+            <a href="/booking.html" class="sidebar-item active flex items-center gap-3 px-6 py-3 bg-blue-50 text-primary border-r-4 border-primary font-semibold">
+                <i class="fa-solid fa-file-signature w-5 text-center"></i> 2. สร้างบุคกิ้ง
+            </a>
+            <a href="/dispatch.html" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors">
+                <i class="fa-solid fa-truck-ramp-box w-5 text-center"></i> 3. จัดคนขับ
+            </a>
+            <a href="/billing.html" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors">
+                <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i> 4. วางบิล
+            </a>
+
+            <div id="admin-menu-section" class="hidden">
+                <div class="px-6 mt-8 mb-2 text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved"></i> 5. Admin Only
+                </div>
+                <a href="/admin/admin.html" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
+                    <i class="fa-solid fa-database w-5 text-center"></i> จัดการข้อมูลหลังบ้าน
+                </a>
+            </div>
+        </nav>
+
+        <!-- 🟢 MAIN WORKSPACE -->
+        <main class="flex-1 p-6 overflow-y-auto bg-bglight flex flex-col gap-6 relative">
+            
+            <!-- 📦 ส่วนที่ 1: ฟอร์มสร้างงาน -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex-shrink-0">
+                <h2 class="text-lg font-bold text-primary mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <i class="fa-solid fa-folder-plus"></i> ส่วนที่ 1: สร้างรายการรับงาน (Job Order / Booking)
+                </h2>
+                
+                <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-4 flex flex-wrap gap-4 items-end">
+                    <div class="w-64">
+                        <label class="block text-sm font-bold text-primary mb-1">🌐 เลือกลักษณะงาน (MODE)</label>
+                        <select id="pMode" onchange="toggleModeUI()" class="w-full px-3 py-2 border border-blue-300 rounded-lg text-primary font-bold focus:outline-none focus:ring-2 focus:ring-primary shadow-sm bg-white">
+                            <option value="">-- กรุณาเลือก Mode --</option>
+                            <option value="EXPORT">🚢 EXPORT (ขาออก)</option>
+                            <option value="IMPORT">🛬 IMPORT (ขาเข้า)</option>
+                            <option value="TRANSFER">🚚 TRANSFER (ขนถ่าย)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">📅 วันที่วิ่งงาน</label>
+                        <input type="date" id="runDate" class="w-40 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-primary mb-1">จำนวนตู้ที่จะสร้าง (ใบ)</label>
+                        <input type="number" id="rowCount" value="1" min="1" class="w-24 px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm font-bold text-center">
+                    </div>
+                    <div class="flex-1 min-w-[250px]">
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">🔍 ค้นหาชื่องาน (เพื่อดึงราคา/ต้นทาง/ปลายทางอัตโนมัติ)</label>
+                        <input type="text" id="jobNameInput" list="jobList" onchange="previewJobData()" onkeyup="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูล..." class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                        <datalist id="jobList"></datalist>
+                    </div>
+                </div>
+
+                <!-- 🗂️ โซนกรอกข้อมูลเฉพาะ Mode -->
+                <div id="jobPreviewBox" class="hidden animate-[fadeIn_0.3s_ease-out]">
+                    
+                    <!-- EXPORT -->
+                    <div id="export-zone" class="export-theme p-4 rounded-xl mb-4 hidden">
+                        <div class="font-bold text-amber-700 mb-3"><i class="fa-solid fa-ship mr-2"></i>ข้อมูลสำหรับงาน EXPORT</div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div><label class="block text-slate-600 mb-1">BOOKING NO.</label><input type="text" id="pBookingExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">AGENT</label><input type="text" id="pAgentExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">DEPOT</label><input type="text" id="pDepotExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">RETURN PORT</label><input type="text" id="pReturnExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">CY DATE</label><input type="datetime-local" id="pCyExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">LOAD DATE</label><input type="datetime-local" id="pLoadExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-red-600 font-bold mb-1">VGM CUTOFF</label><input type="datetime-local" id="pVgmExp" class="w-full px-3 py-1.5 border border-red-300 rounded-lg"></div>
+                            <div><label class="block text-red-600 font-bold mb-1">CUTOFF TIME</label><input type="datetime-local" id="pCutoffExp" class="w-full px-3 py-1.5 border border-red-300 rounded-lg"></div>
+                        </div>
+                    </div>
+
+                    <!-- IMPORT -->
+                    <div id="import-zone" class="import-theme p-4 rounded-xl mb-4 hidden">
+                        <div class="font-bold text-blue-700 mb-3"><i class="fa-solid fa-plane-arrival mr-2"></i>ข้อมูลสำหรับงาน IMPORT</div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div><label class="block text-slate-600 mb-1">BL NO.</label><input type="text" id="pBookingImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">AGENT</label><input type="text" id="pAgentImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">PORT (รับตู้)</label><input type="text" id="pPortImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">DEPOT (คืนตู้)</label><input type="text" id="pDepotImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">CY DATE</label><input type="datetime-local" id="pCyImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-slate-600 mb-1">UNLOAD DATE</label><input type="datetime-local" id="pUnloadImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
+                            <div><label class="block text-red-600 font-bold mb-1">RENT CUTOFF</label><input type="datetime-local" id="pRentImp" class="w-full px-3 py-1.5 border border-red-300 rounded-lg"></div>
+                            <div><label class="block text-red-600 font-bold mb-1">DEMURRAGE</label><input type="datetime-local" id="pDemImp" class="w-full px-3 py-1.5 border border-red-300 rounded-lg"></div>
+                        </div>
+                    </div>
+
+                    <!-- TRANSFER -->
+                    <div id="transfer-zone" class="transfer-theme p-4 rounded-xl mb-4 hidden">
+                        <div class="font-bold text-orange-700 mb-3"><i class="fa-solid fa-truck-arrow-right mr-2"></i>ข้อมูลสำหรับงาน TRANSFER</div>
+                        <div><label class="block text-slate-600 mb-1">REF NO. (เลขอ้างอิง)</label><input type="text" id="pRefTrans" class="w-64 px-3 py-1.5 border border-slate-300 rounded-lg text-sm"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div><label class="block text-slate-600 mb-1">ลูกค้า</label><input type="text" id="pCustomer" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg" readonly></div>
+                        <div><label class="block text-slate-600 mb-1">ต้นทาง</label><input type="text" id="pOrigin" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg" readonly></div>
+                        <div><label class="block text-slate-600 mb-1">ปลายทาง</label><input type="text" id="pDest" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg" readonly></div>
+                        <div>
+                            <label class="block text-slate-600 mb-1">ประเภทรถ</label>
+                            <select id="pPriceType" onchange="updateFeeDropdowns()" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white">
+                                <option value="">-- เลือก --</option>
+                                <option value="6W">6W</option>
+                                <option value="10W">10W</option>
+                                <option value="12W*2">12W*2</option>
+                                <option value="เงินสด">เงินสด</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-600 mb-1">ค่าเที่ยว (คนขับ)</label>
+                            <input type="text" id="pTripFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-green-700 bg-green-50">
+                        </div>
+                        <div>
+                            <label class="block text-slate-600 mb-1">ค่าขนส่ง (ลูกค้า)</label>
+                            <input type="text" id="pTransFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-blue-700 bg-blue-50">
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex justify-end">
+                        <button onclick="generateData(this)" class="bg-primary hover:bg-blue-900 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transition-colors">
+                            <i class="fa-solid fa-plus-circle"></i> สร้างรายการลงตาราง
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 📋 ส่วนที่ 2: ตาราง Operation -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 min-h-[500px]">
+                <div class="flex justify-between items-center p-5 border-b border-slate-100">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-table text-primary"></i> ตารางจัดการข้อมูลรับงาน (Operation Grid)
+                    </h2>
+                    <div class="flex gap-2">
+                        <button onclick="openColToggleModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm">
+                            <i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center bg-slate-50 px-5 py-3 border-b border-slate-200">
+                    <div class="text-sm font-semibold text-slate-500">
+                        <i class="fa-solid fa-check-square text-primary mr-1"></i> ติ๊กเลือกรายการด้านซ้ายเพื่อลบ
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="deleteCheckedRows()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm">
+                            <i class="fa-solid fa-trash-can"></i> ลบรายการที่ติ๊ก
+                        </button>
+                        <button onclick="saveShipments()" id="btn-save-booking" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors">
+                            <i class="fa-solid fa-floppy-disk"></i> บันทึกตารางเข้าสู่ระบบ
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 relative w-full overflow-hidden bg-white rounded-b-xl">
+                    <div id="hot-booking-container" class="w-full h-full z-0 relative"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal ซ่อน/แสดงคอลัมน์ -->
+    <div id="col-toggle-modal" class="hidden absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-lg"><i class="fa-solid fa-eye mr-2 text-primary"></i> ซ่อน/แสดงคอลัมน์ Operation</h3>
+                <button onclick="closeColToggleModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="col-toggle-container" class="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto bg-white"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 🔒 Guard & Init ---
+        let rateDataMap = {}; // เก็บข้อมูลเรทราคา
+        let hotBookingInstance = null;
+
+        // กำหนดคอลัมน์สำหรับหน้า Operation
+        const opHeaders = ['Order ID', 'โหมด (MODE)', 'วันที่วิ่งงาน', 'ลูกค้า', 'BOOKING NO', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'ประเภทตู้', 'ต้นทาง', 'ปลายทาง', 'ค่าเที่ยว', 'ค่าขนส่ง', 'AGENT', 'RETURN PORT', 'CY DATE', 'สถานะงาน'];
+        const opColumns = [
+            { readOnly: true }, // Order ID
+            { type: 'text', readOnly: true }, // MODE
+            { type: 'date', dateFormat: 'YYYY-MM-DD' }, // Run Date
+            { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' },
+            { type: 'text' }, { type: 'text' }, { type: 'numeric', numericFormat: {pattern: '0,0.00'} }, { type: 'numeric', numericFormat: {pattern: '0,0.00'} },
+            { type: 'text' }, { type: 'text' }, { type: 'text' },
+            { type: 'dropdown', source: ['รอจัดรถ', 'กำลังวิ่งงาน', 'คืนตู้แล้ว', 'เสร็จสิ้น', 'ยกเลิก'] }
+        ];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('tms_user');
+            if (!savedUser) { window.location.href = '/login.html'; return; }
+            const user = JSON.parse(savedUser);
+            document.getElementById('user-fullname').innerText = user.fullName;
+            document.getElementById('user-role-badge').innerText = user.role.toUpperCase();
+            if (user.role === 'Admin') document.getElementById('admin-menu-section').classList.remove('hidden');
+            
+            document.getElementById('runDate').valueAsDate = new Date(); // Set default date
+            loadMasterRates(); // ดึงข้อมูลชื่องาน
+            initBookingTable(); // สร้างตารางเปล่าๆ รอรับข้อมูล
+        });
+
+        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
+
+        // --- 🔄 Master Data (Rates) ---
+        async function loadMasterRates() {
+            try {
+                const response = await fetch('/api/rates');
+                const result = await response.json();
+                const dl = document.getElementById('jobList');
+                dl.innerHTML = ''; rateDataMap = {};
+                
+                if (result.success && result.data) {
+                    result.data.forEach(r => {
+                        if(r[0]) {
+                            // r = [job_name, customer_name, origin, dest, run_type, count, job_type, tr_6, tr_10, tr_12, tr_c, tf_6, tf_10, tf_12, tf_c]
+                            rateDataMap[r[0]] = { customer: r[1], origin: r[2], dest: r[3], trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10], trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14] };
+                            let opt = document.createElement('option'); opt.value = r[0]; dl.appendChild(opt);
+                        }
+                    });
+                }
+            } catch(e) { console.error('Failed to load rates', e); }
+        }
+
+        // --- 🖱️ UI Interactions ---
+        function toggleModeUI() {
+            const mode = document.getElementById('pMode').value;
+            document.getElementById('export-zone').classList.add('hidden');
+            document.getElementById('import-zone').classList.add('hidden');
+            document.getElementById('transfer-zone').classList.add('hidden');
+            document.getElementById('jobPreviewBox').classList.remove('hidden');
+            
+            if(mode === 'EXPORT') document.getElementById('export-zone').classList.remove('hidden');
+            else if(mode === 'IMPORT') document.getElementById('import-zone').classList.remove('hidden');
+            else if(mode === 'TRANSFER') document.getElementById('transfer-zone').classList.remove('hidden');
+            else document.getElementById('jobPreviewBox').classList.add('hidden');
+        }
+
+        function previewJobData() {
+            const val = document.getElementById('jobNameInput').value;
+            if(!val || !rateDataMap[val]) return;
+            const rate = rateDataMap[val];
+            document.getElementById('pCustomer').value = rate.customer || '';
+            document.getElementById('pOrigin').value = rate.origin || '';
+            document.getElementById('pDest').value = rate.dest || '';
+            document.getElementById('pPriceType').value = ''; 
+            updateFeeDropdowns();
+        }
+
+        function updateFeeDropdowns() {
+            const val = document.getElementById('jobNameInput').value;
+            const type = document.getElementById('pPriceType').value;
+            const trpInp = document.getElementById('pTripFee');
+            const trnInp = document.getElementById('pTransFee');
+            trpInp.value = ''; trnInp.value = '';
+            
+            if(!val || !rateDataMap[val] || !type) return;
+            const rate = rateDataMap[val];
+            if(type === '6W') { trpInp.value = rate.trp6 || ''; trnInp.value = rate.trn6 || ''; }
+            if(type === '10W') { trpInp.value = rate.trp10 || ''; trnInp.value = rate.trn10 || ''; }
+            if(type === '12W*2') { trpInp.value = rate.trp12 || ''; trnInp.value = rate.trn12 || ''; }
+            if(type === 'เงินสด') { trpInp.value = rate.trpCash || ''; trnInp.value = rate.trnCash || ''; }
+        }
+
+        // --- 📊 Handsontable Initialization ---
+        function getUIState(tableName) {
+            const user = JSON.parse(localStorage.getItem('tms_user'));
+            return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {};
+        }
+        function saveUIState(tableName, stateData) {
+            const user = JSON.parse(localStorage.getItem('tms_user'));
+            const existing = getUIState(tableName);
+            localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData }));
+        }
+
+        async function initBookingTable() {
+            const container = document.getElementById('hot-booking-container');
+            const uiState = getUIState('booking_grid');
+            
+            // รอเชื่อม API ดึงข้อมูล Booking ของวันนี้ (ตอนนี้ใส่ Mock ว่างๆ ไว้ก่อน)
+            let initialData = [];
+
+            hotBookingInstance = new Handsontable(container, {
+                data: initialData,
+                colHeaders: ['✔ เลือก', ...opHeaders],
+                columns: [{ type: 'checkbox', className: 'htCenter htMiddle' }, ...opColumns],
+                rowHeaders: true,
+                minSpareRows: 0,
+                width: '100%', height: '100%',
+                manualColumnResize: true, manualColumnMove: true,
+                filters: true,
+                dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar', '---------', 'clear_column'],
+                hiddenColumns: { columns: uiState.hiddenColumns || [], indicators: true },
+                colWidths: uiState.colWidths || undefined,
+                licenseKey: 'non-commercial-and-evaluation',
+                cells: function(row, col) {
+                    let cp = {};
+                    if (this.instance && this.instance.getDataAtCell(row, 0) === true) { cp.className = (cp.className || '') + ' ht-row-selected'; }
+                    return cp;
+                },
+                afterChange: function(changes, source) { if (source !== 'loadData' && changes) { if (changes.some(c => c[1] === 0)) this.render(); } },
+                afterColumnResize: function() { saveUIState('booking_grid', { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); }
+            });
+        }
+
+        // --- ➕ สร้างรายการลงตาราง (Generate Job) ---
+        function generateData(btn) {
+            const mode = document.getElementById('pMode').value;
+            const runDate = document.getElementById('runDate').value;
+            let bookingNo = "";
+            
+            if (mode === 'EXPORT') bookingNo = document.getElementById('pBookingExp').value;
+            else if (mode === 'IMPORT') bookingNo = document.getElementById('pBookingImp').value;
+            else if (mode === 'TRANSFER') bookingNo = document.getElementById('pRefTrans').value;
+
+            if(!mode || !runDate || !bookingNo) { alert('⚠️ กรุณาเลือก Mode, ใส่วันที่วิ่งงาน และ เลขอ้างอิง (Booking/BL/Ref)'); return; }
+
+            const rowCount = parseInt(document.getElementById('rowCount').value) || 1;
+            const customer = document.getElementById('pCustomer').value;
+            const origin = document.getElementById('pOrigin').value;
+            const dest = document.getElementById('pDest').value;
+            const tripFee = document.getElementById('pTripFee').value;
+            const transFee = document.getElementById('pTransFee').value;
+            
+            const agent = mode === 'EXPORT' ? document.getElementById('pAgentExp').value : (mode === 'IMPORT' ? document.getElementById('pAgentImp').value : '');
+            const returnPort = mode === 'EXPORT' ? document.getElementById('pReturnExp').value : (mode === 'IMPORT' ? document.getElementById('pPortImp').value : '');
+            const cyDate = mode === 'EXPORT' ? document.getElementById('pCyExp').value : (mode === 'IMPORT' ? document.getElementById('pCyImp').value : '');
+
+            // สร้าง Array แถวใหม่
+            let newRows = [];
+            const datePrefix = runDate.replace(/-/g, '').substring(2); // 2026-09-28 -> 260928
+            
+            // หาเลข Order สูงสุดในตาราง (สมมติจำลอง)
+            let maxSeq = hotBookingInstance.countRows() + 1;
+
+            for (let i = 0; i < rowCount; i++) {
+                let orderId = `ORD-${datePrefix}-${("000" + maxSeq++).slice(-3)}`;
+                newRows.push([
+                    false, // Checkbox
+                    orderId, mode, runDate, customer, bookingNo, 
+                    '', '', '', // ตู้ 1, ตู้ 2, ประเภทตู้
+                    origin, dest, tripFee, transFee, 
+                    agent, returnPort, cyDate, 'รอจัดรถ'
+                ]);
+            }
+
+            // แทรกข้อมูลลงตาราง Handsontable
+            hotBookingInstance.alter('insert_row_above', 0, rowCount);
+            hotBookingInstance.populateFromArray(0, 0, newRows);
+            
+            // เคลียร์ฟอร์ม
+            document.getElementById('jobNameInput').value = '';
+            document.getElementById('jobPreviewBox').classList.add('hidden');
+        }
+
+        // --- 🗑️ ระบบลบ (Checkbox) ---
+        function deleteCheckedRows() {
+            if (!hotBookingInstance) return;
+            const data = hotBookingInstance.getData();
+            let rowsToDelete = [];
+            for (let i = 0; i < data.length; i++) { if (data[i][0] === true) rowsToDelete.push(i); }
+            if (rowsToDelete.length === 0) { alert('🖱️ กรุณาติ๊กช่องซ้ายสุดของแถวที่ต้องการลบก่อนครับ'); return; }
+            if (confirm(`⚠️ ยืนยันการลบ ${rowsToDelete.length} รายการที่เลือกใช่หรือไม่?`)) {
+                rowsToDelete.sort((a, b) => b - a).forEach(rowIndex => hotBookingInstance.alter('remove_row', rowIndex));
+            }
+        }
+
+        // --- 💾 ระบบบันทึก (รอ API) ---
+        async function saveShipments() {
+            alert('💡 ระบบ Frontend พร้อมแล้ว! สเตปถัดไปเราจะสร้าง API Backend มารับข้อมูลตารางนี้ลง Database ครับ');
+        }
+
+        // --- 🎛️ Modal ซ่อน/แสดงคอลัมน์ ---
+        function openColToggleModal() {
+            const plugin = hotBookingInstance.getPlugin('hiddenColumns');
+            const hiddenCols = plugin.getHiddenColumns() || [];
+            let html = '';
+            opHeaders.forEach((header, index) => {
+                const actualIndex = index + 1; // ข้าม Checkbox
+                const isChecked = !hiddenCols.includes(actualIndex) ? 'checked' : '';
+                html += `
+                    <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-blue-50 cursor-pointer transition-colors">
+                        <input type="checkbox" class="w-5 h-5 accent-primary rounded" ${isChecked} onchange="toggleMasterColumn(${actualIndex}, this.checked)">
+                        <span class="font-medium text-slate-700 text-sm">${header}</span>
+                    </label>`;
+            });
+            document.getElementById('col-toggle-container').innerHTML = html;
+            document.getElementById('col-toggle-modal').classList.remove('hidden');
+        }
+        function closeColToggleModal() { document.getElementById('col-toggle-modal').classList.add('hidden'); }
+        function toggleMasterColumn(colIndex, isVisible) {
+            const plugin = hotBookingInstance.getPlugin('hiddenColumns');
+            if (isVisible) plugin.showColumns([colIndex]); else plugin.hideColumns([colIndex]);
+            hotBookingInstance.render();
+            saveUIState('booking_grid', { hiddenColumns: plugin.getHiddenColumns() || [] });
+        }
+    </script>
+</body>
+</html>

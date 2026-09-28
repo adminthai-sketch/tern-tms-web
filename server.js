@@ -75,12 +75,21 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ==========================================
-// 🚛 API: ฐานข้อมูลคนขับ (Drivers)
+// 🚛 API: ฐานข้อมูลคนขับและรถ (Drivers Management)
 // ==========================================
 app.get('/api/drivers', async (req, res) => {
     try {
-        const result = await pool.query('SELECT plate_no, truck_type, driver_name, nickname FROM drivers ORDER BY id ASC');
-        const data = result.rows.map(r => [r.plate_no, r.truck_type, r.driver_name, r.nickname]);
+        // ใช้ AS เพื่อแปลงชื่อคอลัมน์จาก DB (default_plate_number) มาเป็น plate ให้หน้าเว็บอ่านได้พอดี
+        const result = await pool.query(`
+            SELECT 
+                default_plate_number AS plate, 
+                default_vehicle_type AS truck_type, 
+                driver_name, 
+                nickname 
+            FROM drivers 
+            ORDER BY id ASC
+        `);
+        const data = result.rows.map(r => [r.plate, r.truck_type, r.driver_name, r.nickname]);
         res.json({ success: true, data: data });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -92,18 +101,52 @@ app.post('/api/drivers', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        // เคลียร์ข้อมูลเดิมแล้วบันทึกใหม่
+        await client.query('DELETE FROM drivers');
+        
         for (let row of data) {
-            const [plate_no, truck_type, driver_name, nickname] = row;
-            if (!plate_no) continue;
+            const [plate, truck_type, driver_name, nickname] = row;
+            if (!plate && !driver_name) continue;
+
+            // บันทึกลงคอลัมน์ default_plate_number และ default_vehicle_type ให้ตรงกับ DB
             await client.query(`
-                INSERT INTO drivers (plate_no, truck_type, driver_name, nickname)
+                INSERT INTO drivers (default_plate_number, default_vehicle_type, driver_name, nickname)
                 VALUES ($1, $2, $3, $4)
-                ON CONFLICT (plate_no) DO UPDATE 
-                SET truck_type = EXCLUDED.truck_type, driver_name = EXCLUDED.driver_name, nickname = EXCLUDED.nickname
-            `, [plate_no, truck_type, driver_name, nickname]);
+            `, [plate || '', truck_type || '', driver_name || '', nickname || '']);
         }
+        
         await client.query('COMMIT');
-        res.json({ success: true, message: '💾 บันทึกข้อมูลคนขับเรียบร้อย!' });
+        res.json({ success: true, message: '💾 บันทึกข้อมูลคนขับและรถเรียบร้อยแล้ว!' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.post('/api/drivers', async (req, res) => {
+    const { data } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // เคลียร์ข้อมูลเดิมแล้วบันทึกใหม่
+        await client.query('DELETE FROM drivers');
+        
+        for (let row of data) {
+            const [plate, truck_type, driver_name, nickname] = row;
+            if (!plate && !driver_name) continue;
+
+            await client.query(`
+                INSERT INTO drivers (plate, truck_type, driver_name, nickname)
+                VALUES ($1, $2, $3, $4)
+            `, [plate || '', truck_type || '', driver_name || '', nickname || '']);
+        }
+        
+        await client.query('COMMIT');
+        res.json({ success: true, message: '💾 บันทึกข้อมูลคนขับและรถเรียบร้อยแล้ว!' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });

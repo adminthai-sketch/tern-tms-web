@@ -22,7 +22,6 @@
         .export-theme { background: #fffdf5; border: 1px solid #ffeeba; }
         .import-theme { background: #f2f7ff; border: 1px solid #cce5ff; }
         .transfer-theme { background: #fdf5f5; border: 1px solid #ffccbc; }
-        /* สไตล์สำหรับ Smart Filters Tags */
         .filter-tag { padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; background: #f1f5f9; color: #475569; font-weight: 600; border: 1px solid transparent; transition: 0.2s; }
         .filter-tag:hover { background: #e2e8f0; }
         .filter-tag.active { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(15,76,129,0.25); transform: scale(1.05); }
@@ -31,7 +30,6 @@
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
 
-    <!-- Header -->
     <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-truck-fast"></i></div>
@@ -48,7 +46,6 @@
 
     <div class="flex-1 flex overflow-hidden">
         
-        <!-- Sidebar -->
         <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
             <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Main Applications</div>
             <a href="/monitor.html" id="menu-monitor" class="sidebar-item hidden items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors"><i class="fa-solid fa-desktop w-5 text-center"></i> 1. มอนิเตอร์งาน</a>
@@ -63,7 +60,6 @@
 
         <main class="flex-1 p-6 overflow-hidden flex flex-col relative bg-bglight">
             
-            <!-- 🗂️ TAB MENUS (Form View / List View) -->
             <div class="flex gap-2 mb-4 bg-white p-1.5 rounded-xl border border-slate-200 w-fit shadow-sm">
                 <button onclick="switchSubTab('form')" id="subtab-form" class="subtab-btn active bg-blue-50 text-primary font-semibold px-5 py-2.5 rounded-lg text-sm shadow-sm transition-all flex items-center gap-2">
                     <i class="fa-solid fa-pen-to-square"></i> 1. ฟอร์มจัดการรับงาน
@@ -73,12 +69,8 @@
                 </button>
             </div>
 
-            <!-- ============================================================== -->
-            <!-- 📄 TAB 1: FORM VIEW -->
-            <!-- ============================================================== -->
+            <!-- TAB 1: FORM VIEW -->
             <div id="tab-content-form" class="flex-1 overflow-y-auto bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                
-                <!-- หัวข้อ -->
                 <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
                     <h2 class="text-lg font-bold text-primary flex items-center gap-2">
                         <i class="fa-solid fa-folder-plus"></i> <span id="form-title">สร้างรายการรับงานใหม่ (New Booking)</span>
@@ -216,14 +208,20 @@
                 </div>
             </div>
 
-            <!-- ============================================================== -->
-            <!-- 📋 TAB 2: LIST VIEW (ตาราง + Smart Filters) -->
-            <!-- ============================================================== -->
+            <!-- TAB 2: LIST VIEW -->
             <div id="tab-content-grid" class="hidden flex-1 flex flex-col h-full">
                 
-                <!-- 🔍 SMART FILTERS -->
+                <!-- 💡 ฟิลเตอร์เดือนและ Smart Filter -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 shrink-0">
-                    <h3 class="text-sm font-bold text-primary mb-3 flex items-center gap-2"><i class="fa-solid fa-filter"></i> กรองข้อมูลอัจฉริยะ</h3>
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                        <h3 class="text-sm font-bold text-primary flex items-center gap-2"><i class="fa-solid fa-filter"></i> กรองข้อมูลอัจฉริยะ</h3>
+                        <div class="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm">
+                            <i class="fa-solid fa-calendar-days text-emerald-700"></i>
+                            <span class="text-sm font-bold text-emerald-800">เลือกดูตารางข้อมูลประจำเดือน:</span>
+                            <input type="month" id="monthFilter" onchange="loadShipments()" class="text-sm border-none bg-transparent font-bold text-emerald-700 focus:outline-none cursor-pointer">
+                        </div>
+                    </div>
+                    
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <span class="block text-xs font-bold text-slate-500 mb-2 uppercase">📅 วันที่วิ่งงาน</span>
@@ -240,24 +238,18 @@
                     </div>
                 </div>
 
-                <!-- 📋 ตาราง Operation -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden min-h-[400px]">
                     <div class="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
                         <div class="flex items-center gap-4">
-                            <div class="flex items-center gap-2 bg-blue-100/50 px-3 py-1.5 rounded-lg border border-blue-200">
-                                <i class="fa-solid fa-calendar-days text-primary"></i>
-                                <span class="text-sm font-bold text-slate-700">โหลดข้อมูลเดือน:</span>
-                                <input type="month" id="monthFilter" onchange="loadShipments()" class="text-sm border-none bg-transparent font-bold text-primary focus:outline-none cursor-pointer">
-                            </div>
-                            <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fa-solid fa-hand-pointer"></i> ดับเบิ้ลคลิกที่แถวเพื่อแก้ไขข้อมูล</span>
+                            <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fa-solid fa-hand-pointer"></i> ดับเบิ้ลคลิกที่แถวตารางเพื่อแก้ไขข้อมูล</span>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm"><i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์</button>
                             <button onclick="deleteCheckedRows()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่เลือก</button>
                             <button onclick="saveShipments()" id="btn-save-booking" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-floppy-disk"></i> บันทึกตารางลงฐานข้อมูล</button>
                         </div>
                     </div>
                     <div class="flex-1 relative w-full h-full bg-white z-0">
+                        <!-- 💡 เปลี่ยน id ให้ dynamic ตาม user เพื่อให้จัดคอลัมน์ของใครของมัน -->
                         <div id="hot-booking-container" class="absolute inset-0"></div>
                     </div>
                 </div>
@@ -266,23 +258,10 @@
         </main>
     </div>
 
-    <!-- Modal ซ่อน/แสดงคอลัมน์ -->
-    <div id="col-toggle-modal" class="hidden absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]">
-            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 class="font-bold text-slate-800 text-lg"><i class="fa-solid fa-eye mr-2 text-primary"></i> ซ่อน/แสดงคอลัมน์ Operation</h3>
-                <button onclick="closeColToggleModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            <div id="col-toggle-container" class="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto bg-white"></div>
-        </div>
-    </div>
-
     <script>
-        // --- 🔒 Guard & Init ---
         let rateDataMap = {}; 
         let hotBookingInstance = null;
 
-        // 📋 โครงสร้าง 60 คอลัมน์ (+1 Checkbox) พร้อมแทรก ต้นทาง/ปลายทาง ให้ตารางสมบูรณ์
         const allHeaders = [
             'Order ID','MODE','วันที่Booking','วันที่วิ่งงาน','ชื่องาน','ลูกค้า','BOOKING/BL NO.',
             'ต้นทาง (Origin)','ปลายทาง (Dest)',
@@ -319,7 +298,6 @@
             return { type: 'text' }; 
         });
 
-        // Smart Filter States
         let filterStates = { date: null, cust: null, book: null };
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -348,7 +326,6 @@
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
-        // --- 🗂️ TAB SWITCHING ---
         function switchSubTab(tabName) {
             document.querySelectorAll('.subtab-btn').forEach(b => {
                 b.classList.remove('bg-blue-50', 'text-primary', 'font-semibold', 'shadow-sm');
@@ -433,9 +410,6 @@
             if(type === 'เงินสด') { trpInp.value = rate.trpCash || ''; trnInp.value = rate.trnCash || ''; }
         }
 
-        function getUIState(tableName) { const user = JSON.parse(localStorage.getItem('tms_user')); return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {}; }
-        function saveUIState(tableName, stateData) { const user = JSON.parse(localStorage.getItem('tms_user')); const existing = getUIState(tableName); localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData })); }
-
         function refreshTableColumnsByMode(mode) {
             if (!hotBookingInstance) return;
             const plugin = hotBookingInstance.getPlugin('hiddenColumns');
@@ -449,17 +423,29 @@
         }
 
         async function initBookingTable() {
+            const user = JSON.parse(localStorage.getItem('tms_user'));
             const container = document.getElementById('hot-booking-container');
-            const uiState = getUIState('booking_grid');
-            const colsToHide = allHeaders.map((_, i) => i + 1).filter(i => !basicCols.map(x => x + 1).includes(i));
-
+            
+            // 💡 สร้าง ID แยกตาม User เพื่อให้ฟีเจอร์ persistentState จำการจัดคอลัมน์ของแต่ละคน
+            container.id = 'hot-booking-grid-' + user.username; 
+            
             let lastClickTime = 0;
 
             hotBookingInstance = new Handsontable(container, {
                 data: [], colHeaders: ['✔ เลือก', ...allHeaders], columns: [{ type: 'checkbox', className: 'htCenter htMiddle' }, ...columnsConfig],
-                rowHeaders: true, minSpareRows: 0, width: '100%', height: '100%', manualColumnResize: true, manualColumnMove: true, filters: true,
+                rowHeaders: true, minSpareRows: 0, width: '100%', height: '100%', 
+                
+                // 💡 เปิดระบบย้ายคอลัมน์และปรับขนาด
+                manualColumnResize: true, 
+                manualColumnMove: true, 
+                
+                // 💡 หัวใจสำคัญ: จำค่าการจัดคอลัมน์และขนาดให้อัตโนมัติ (ผูกกับ ID ด้านบน)
+                persistentState: true, 
+
+                filters: true,
                 dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar', '---------', 'clear_column'],
-                hiddenColumns: { columns: colsToHide, indicators: true }, colWidths: uiState.colWidths || undefined, licenseKey: 'non-commercial-and-evaluation',
+                hiddenColumns: { indicators: true }, 
+                licenseKey: 'non-commercial-and-evaluation',
                 cells: function(row, col) { let cp = {}; if (this.instance && this.instance.getDataAtCell(row, 0) === true) cp.className = (cp.className || '') + ' ht-row-selected'; return cp; },
                 afterChange: function(changes, source) { 
                     if (source !== 'loadData' && changes) { 
@@ -467,33 +453,30 @@
                         changes.forEach(([row, prop, oldValue, newValue]) => { 
                             if (prop === 0 && oldValue !== newValue) this.render(); 
                             const col = this.propToCol(prop);
-                            if (col === 10 || col === 11) { // 10=เบอร์ตู้1, 11=เบอร์ตู้2
+                            if (col === 10 || col === 11) { 
                                 let t1 = this.getDataAtCell(row, 10); let t2 = this.getDataAtCell(row, 11);
                                 let count = (t1 && String(t1).trim() !== "" ? 1 : 0) + (t2 && String(t2).trim() !== "" ? 1 : 0);
-                                updates.push([row, 12, count > 0 ? count : ""]); // 12=จำนวนตู้
+                                updates.push([row, 12, count > 0 ? count : ""]); 
                             }
                         }); 
                         if(updates.length > 0) this.setDataAtCell(updates, 'autoFill');
                     } 
                 },
-                afterColumnResize: function() { saveUIState('booking_grid', { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); },
-                // 🖱️ ระบบ Double Click เพื่อแก้ไข
                 afterOnCellMouseDown: function(event, coords, td) {
                     const now = new Date().getTime();
                     if (now - lastClickTime < 300 && coords.row >= 0) { loadRowToForm(coords.row); }
                     lastClickTime = now;
                 }
             });
+            refreshTableColumnsByMode(''); // ซ่อนคอลัมน์ตอนเริ่มต้น
         }
 
-        // --- ✏️ ระบบแก้ไข (Double Click) ---
         function loadRowToForm(physicalRow) {
             const data = hotBookingInstance.getDataAtRow(physicalRow);
-            if (!data[1]) return; // ข้ามถ้าเป็นแถวเปล่าไม่มี Order ID
+            if (!data[1]) return; 
 
-            document.getElementById('editingOrderId').value = physicalRow; // เก็บ Index แถว
+            document.getElementById('editingOrderId').value = physicalRow; 
             
-            // เปลี่ยนหน้าตา UI เล็กน้อย
             document.getElementById('form-title').innerText = "แก้ไขข้อมูลบุคกิ้ง (Edit Booking)";
             document.getElementById('editing-badge').classList.remove('hidden');
             document.getElementById('editing-order-text').innerText = data[1];
@@ -501,9 +484,8 @@
             document.getElementById('btn-submit-form').classList.replace('bg-primary', 'bg-emerald-600');
             document.getElementById('btn-submit-form').classList.replace('hover:bg-blue-900', 'hover:bg-emerald-700');
             document.getElementById('btn-cancel-edit').classList.remove('hidden');
-            document.getElementById('box-row-count').classList.add('hidden'); // ซ่อนช่องจำนวนตู้ตอนแก้
+            document.getElementById('box-row-count').classList.add('hidden'); 
 
-            // ดึงค่ามาลงฟอร์ม
             document.getElementById('pMode').value = data[2] || '';
             document.getElementById('runDate').value = data[4] || '';
             document.getElementById('jobNameInput').value = data[5] || '';
@@ -518,7 +500,6 @@
             document.getElementById('pDest').value = data[9] || '';
             document.getElementById('pJobType').value = data[14] || '';
             
-            // คืนค่าวันที่ต่างๆ
             if (data[2] === 'EXPORT') {
                 document.getElementById('pAgentExp').value = data[15] || '';
                 document.getElementById('pCyExp').value = data[21] || '';
@@ -539,7 +520,7 @@
             document.getElementById('pTransFee').value = data[59] || '';
 
             toggleModeUI();
-            switchSubTab('form'); // สลับหน้าไปแท็บ Form
+            switchSubTab('form'); 
         }
 
         function cancelEdit() {
@@ -580,7 +561,6 @@
             const jobType = document.getElementById('pJobType').value; const origin = document.getElementById('pOrigin').value; const dest = document.getElementById('pDest').value;
             const tripFee = document.getElementById('pTripFee').value; const transFee = document.getElementById('pTransFee').value;
 
-            // 💾 กรณี: แกัไขแถวเดิม (Edit Mode)
             if (editingRow !== "") {
                 let rIdx = parseInt(editingRow);
                 let rowData = hotBookingInstance.getDataAtRow(rIdx);
@@ -599,7 +579,6 @@
                 return;
             }
 
-            // ➕ กรณี: สร้างแถวใหม่ (Create Mode)
             const rowCount = parseInt(document.getElementById('rowCount').value) || 1;
             let newRows = [];
             const today = new Date().toISOString().split('T')[0];
@@ -626,20 +605,18 @@
             document.getElementById('jobNameInput').value = '';
             document.getElementById('jobPreviewBox').classList.add('hidden');
             
-            // เปลี่ยนไปแท็บตารางทันทีเพื่อดูผลงาน
             switchSubTab('grid');
         }
 
-        // --- 🔍 SMART FILTERS ---
         function buildSmartFilters() {
             if(!hotBookingInstance) return;
             const data = hotBookingInstance.getData();
             let dates = new Set(), custs = new Set(), books = new Set();
 
             data.forEach(r => {
-                if(r[4]) dates.add(r[4]); // วันที่วิ่งงาน
-                if(r[6]) custs.add(r[6]); // ลูกค้า
-                if(r[7]) books.add(r[7]); // Booking
+                if(r[4]) dates.add(r[4]); 
+                if(r[6]) custs.add(r[6]); 
+                if(r[7]) books.add(r[7]); 
             });
 
             renderTags('tag-container-date', dates, 'date', 'ทุกวันที่');
@@ -659,11 +636,11 @@
             filterStates[type] = val;
             const plugin = hotBookingInstance.getPlugin('filters');
             plugin.clearConditions();
-            if(filterStates.date) plugin.addCondition(4, 'eq', [filterStates.date]); // Col 4: วันที่วิ่งงาน
-            if(filterStates.cust) plugin.addCondition(6, 'eq', [filterStates.cust]); // Col 6: ลูกค้า
-            if(filterStates.book) plugin.addCondition(7, 'eq', [filterStates.book]); // Col 7: Booking
+            if(filterStates.date) plugin.addCondition(4, 'eq', [filterStates.date]); 
+            if(filterStates.cust) plugin.addCondition(6, 'eq', [filterStates.cust]); 
+            if(filterStates.book) plugin.addCondition(7, 'eq', [filterStates.book]); 
             plugin.filter();
-            buildSmartFilters(); // Re-render tag UI
+            buildSmartFilters(); 
         }
 
         function deleteCheckedRows() {
@@ -687,33 +664,13 @@
         async function saveShipments() { 
             const btn = document.getElementById('btn-save-booking'); const ot = btn.innerHTML;
             btn.innerHTML = '⏳ กำลังบันทึก...'; btn.disabled = true;
-            const cleanData = hotBookingInstance.getData().filter(r => r[1]); // เอาเฉพาะแถวมี Order
+            const cleanData = hotBookingInstance.getData().filter(r => r[1]); 
             try {
                 const res = await fetch('/api/shipments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData }) });
                 const result = await res.json();
                 alert(result.message);
                 if (result.success) loadShipments();
             } catch(e) { alert('❌ เกิดข้อผิดพลาดในการบันทึก: ' + e.message); } finally { btn.innerHTML = ot; btn.disabled = false; }
-        }
-
-        function openColToggleModal() {
-            const plugin = hotBookingInstance.getPlugin('hiddenColumns');
-            const hiddenCols = plugin.getHiddenColumns() || [];
-            let html = '';
-            allHeaders.forEach((header, index) => {
-                const actualIndex = index + 1; 
-                const isChecked = !hiddenCols.includes(actualIndex) ? 'checked' : '';
-                html += `<label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-blue-50 cursor-pointer transition-colors"><input type="checkbox" class="w-5 h-5 accent-primary rounded" ${isChecked} onchange="toggleMasterColumn(${actualIndex}, this.checked)"><span class="font-medium text-slate-700 text-sm">${header}</span></label>`;
-            });
-            document.getElementById('col-toggle-container').innerHTML = html;
-            document.getElementById('col-toggle-modal').classList.remove('hidden');
-        }
-        function closeColToggleModal() { document.getElementById('col-toggle-modal').classList.add('hidden'); }
-        function toggleMasterColumn(colIndex, isVisible) {
-            const plugin = hotBookingInstance.getPlugin('hiddenColumns');
-            if (isVisible) plugin.showColumns([colIndex]); else plugin.hideColumns([colIndex]);
-            hotBookingInstance.render();
-            saveUIState('booking_grid', { hiddenColumns: plugin.getHiddenColumns() || [] });
         }
     </script>
 </body>

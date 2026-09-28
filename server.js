@@ -255,10 +255,12 @@ app.post('/api/shipments', async (req, res) => {
         await client.query('BEGIN');
         for (let row of data) {
             const order_id = row[1];
-            const run_date = row[4] || null; // วันที่วิ่งงานอยู่ Index 4
-            const customer_name = row[6] || ''; // ลูกค้าอยู่ Index 6
-            const booking_no = row[7] || ''; // Booking อยู่ Index 7
-            const status = row[56] || 'รอจัดรถ';
+            const run_date = row[4] || null; 
+            const customer_name = row[6] || ''; 
+            const booking_no = row[7] || ''; 
+            
+            // 💡 แก้บั๊ก: รองรับโครงสร้าง Array 61 คอลัมน์ (Status อยู่ช่องสุดท้าย)
+            const status = row.length > 57 ? row[60] : (row[56] || 'รอจัดรถ'); 
 
             if (!order_id) continue;
 

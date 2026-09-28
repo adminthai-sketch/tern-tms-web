@@ -221,3 +221,79 @@ app.post('/api/rates', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => { console.log(`🚀 TERN TMS Server running on http://localhost:${PORT}`); });
+
+// ==========================================
+// 📦 API: ฐานข้อมูลรายการรับงาน (Shipments / Bookings)
+// ==========================================
+
+// ดึงข้อมูลตามเดือนและปี
+app.get('/api/shipments', async (req, res) => {
+    try {
+        const { month, year } = req.query;
+        let query = 'SELECT raw_data FROM shipments';
+        let params = [];
+        
+        if (month && year) {
+            query += ' WHERE EXTRACT(MONTH FROM run_date) = $1 AND EXTRACT(YEAR FROM run_date) = $2';
+            params.push(month, year);
+        }
+        query += ' ORDER BY order_id ASC';
+        
+        const result = await pool.query(query, params);
+        const data = result.rows.map(r => r.raw_data);
+        res.json({ success: true, data: data });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// บันทึก/อัปเดตข้อมูล (Upsert)
+app.post('/api/shipments', async (req, res) => {
+    const { data } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (let row of data) {
+            const order_id = row[1];
+            const run_date = row[4] || null; // วันที่วิ่งงานอยู่ Index 4
+            const customer_name = row[6] || ''; // ลูกค้าอยู่ Index 6
+            const booking_no = row[7] || ''; // Booking อยู่ Index 7
+            const status = row[56] || 'รอจัดรถ';
+
+            if (!order_id) continue;
+
+            await client.query(`
+                INSERT INTO shipments (order_id, run_date, customer_name, booking_no, status, raw_data)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (order_id) DO UPDATE 
+                SET run_date = EXCLUDED.run_date,
+                    customer_name = EXCLUDED.customer_name,
+                    booking_no = EXCLUDED.booking_no,
+                    status = EXCLUDED.status,
+                    raw_data = EXCLUDED.raw_data,
+                    updated_at = NOW()
+            `, [order_id, run_date, customer_name, booking_no, status, JSON.stringify(row)]);
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, message: '💾 บันทึกข้อมูลตาราง Operation ลงฐานข้อมูลเรียบร้อย!' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ลบรายการที่ติ๊กเลือก
+app.delete('/api/shipments', async (req, res) => {
+    const { order_ids } = req.body;
+    if (!order_ids || order_ids.length === 0) return res.json({ success: true });
+    
+    try {
+        const placeholders = order_ids.map((_, i) => `$${i + 1}`).join(',');
+        await pool.query(`DELETE FROM shipments WHERE order_id IN (${placeholders})`, order_ids);
+        res.json({ success: true, message: 'ลบข้อมูลสำเร็จ' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});

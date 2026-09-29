@@ -26,6 +26,9 @@
         .filter-tag:hover { background: #e2e8f0; }
         .filter-tag.active { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(15,76,129,0.25); transform: scale(1.05); }
         .filter-tag-all { background: #94a3b8; color: white; }
+        
+        /* สไตล์ตาราง Handsontable ให้เต็มพื้นที่ */
+        #hot-booking-container { width: 100%; height: 500px; z-index: 0; }
     </style>
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
@@ -46,6 +49,7 @@
 
     <div class="flex-1 flex overflow-hidden">
         
+        <!-- Sidebar -->
         <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
             <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Main Applications</div>
             <a href="/monitor.html" id="menu-monitor" class="sidebar-item hidden items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors"><i class="fa-solid fa-desktop w-5 text-center"></i> 1. มอนิเตอร์งาน</a>
@@ -58,22 +62,14 @@
             </div>
         </nav>
 
-        <main class="flex-1 p-6 overflow-hidden flex flex-col relative bg-bglight">
+        <!-- Main Content (Scrollable) -->
+        <main class="flex-1 p-6 overflow-y-auto relative bg-bglight">
             
-            <div class="flex gap-2 mb-4 bg-white p-1.5 rounded-xl border border-slate-200 w-fit shadow-sm">
-                <button onclick="switchSubTab('form')" id="subtab-form" class="subtab-btn active bg-blue-50 text-primary font-semibold px-5 py-2.5 rounded-lg text-sm shadow-sm transition-all flex items-center gap-2">
-                    <i class="fa-solid fa-pen-to-square"></i> 1. ฟอร์มจัดการรับงาน
-                </button>
-                <button onclick="switchSubTab('grid')" id="subtab-grid" class="subtab-btn text-slate-600 font-medium px-5 py-2.5 rounded-lg text-sm transition-all flex items-center gap-2 hover:text-primary hover:bg-slate-50">
-                    <i class="fa-solid fa-table-list"></i> 2. ตาราง Operation
-                </button>
-            </div>
-
-            <!-- TAB 1: FORM VIEW -->
-            <div id="tab-content-form" class="flex-1 overflow-y-auto bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <!-- SECTION 1: ฟอร์มจัดการรับงาน -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
                 <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
                     <h2 class="text-lg font-bold text-primary flex items-center gap-2">
-                        <i class="fa-solid fa-folder-plus"></i> <span id="form-title">สร้างรายการรับงานใหม่ (New Booking)</span>
+                        <i class="fa-solid fa-folder-plus"></i> <span id="form-title">ส่วนที่ 1: สร้างรายการรับงาน (Job Order)</span>
                     </h2>
                     <span id="editing-badge" class="hidden bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">
                         <i class="fa-solid fa-pen"></i> โหมดแก้ไข (Editing) <span id="editing-order-text"></span>
@@ -181,7 +177,6 @@
                     <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <input type="hidden" id="pJobType" value="ทั่วไป">
                         <div><label class="block text-slate-600 mb-1">ลูกค้า</label><input type="text" id="pCustomer" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white" readonly></div>
-                        <!-- เราเก็บ origin และ dest ไว้ที่ ฟอร์ม แต่จะไม่พ่นลงตาราง Grid เพื่อรักษาโครงสร้าง 78 คอลัมน์เดิม -->
                         <div><label class="block text-slate-600 mb-1">ต้นทาง (Origin)</label><input type="text" id="pOrigin" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
                         <div><label class="block text-slate-600 mb-1">ปลายทาง (Dest)</label><input type="text" id="pDest" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
                         <div>
@@ -209,53 +204,52 @@
                 </div>
             </div>
 
-            <!-- TAB 2: LIST VIEW -->
-            <div id="tab-content-grid" class="hidden flex-1 flex flex-col h-full">
+            <!-- SECTION 2: SMART FILTERS -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                    <h3 class="text-sm font-bold text-primary flex items-center gap-2"><i class="fa-solid fa-filter"></i> กรองข้อมูลอัจฉริยะ (Smart Filters)</h3>
+                    <div class="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm">
+                        <i class="fa-solid fa-calendar-days text-emerald-700"></i>
+                        <span class="text-sm font-bold text-emerald-800">โหลดตารางข้อมูลเดือน:</span>
+                        <input type="month" id="monthFilter" onchange="loadShipments()" class="text-sm border-none bg-transparent font-bold text-emerald-700 focus:outline-none cursor-pointer">
+                    </div>
+                </div>
                 
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 shrink-0">
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                        <h3 class="text-sm font-bold text-primary flex items-center gap-2"><i class="fa-solid fa-filter"></i> กรองข้อมูลอัจฉริยะ</h3>
-                        <div class="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-200 shadow-sm">
-                            <i class="fa-solid fa-calendar-days text-emerald-700"></i>
-                            <span class="text-sm font-bold text-emerald-800">เลือกดูตารางข้อมูลประจำเดือน:</span>
-                            <input type="month" id="monthFilter" onchange="loadShipments()" class="text-sm border-none bg-transparent font-bold text-emerald-700 focus:outline-none cursor-pointer">
-                        </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <span class="block text-xs font-bold text-slate-500 mb-2 uppercase">📅 วันที่วิ่งงาน</span>
+                        <div id="tag-container-date" class="flex flex-wrap gap-1.5"></div>
                     </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                            <span class="block text-xs font-bold text-slate-500 mb-2 uppercase">📅 วันที่วิ่งงาน</span>
-                            <div id="tag-container-date" class="flex flex-wrap gap-1.5"></div>
-                        </div>
-                        <div>
-                            <span class="block text-xs font-bold text-slate-500 mb-2 uppercase">🏢 ลูกค้า</span>
-                            <div id="tag-container-cust" class="flex flex-wrap gap-1.5"></div>
-                        </div>
-                        <div>
-                            <span class="block text-xs font-bold text-slate-500 mb-2 uppercase">📦 BOOKING / BL</span>
-                            <div id="tag-container-book" class="flex flex-wrap gap-1.5"></div>
-                        </div>
+                    <div>
+                        <span class="block text-xs font-bold text-slate-500 mb-2 uppercase">🏢 ลูกค้า</span>
+                        <div id="tag-container-cust" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-slate-500 mb-2 uppercase">📦 BOOKING / BL</span>
+                        <div id="tag-container-book" class="flex flex-wrap gap-1.5"></div>
                     </div>
                 </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden min-h-[400px]">
-                    <div class="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
-                        <div class="flex items-center gap-4">
-                            <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200"><i class="fa-solid fa-hand-pointer"></i> ดับเบิ้ลคลิกที่แถวตารางเพื่อแก้ไขข้อมูล</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm"><i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์</button>
-                            <button onclick="exportToExcel()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-file-excel"></i> ดาวน์โหลด Excel</button>
-                            <button onclick="deleteCheckedRows()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่เลือก</button>
-                            <button onclick="saveShipments()" id="btn-save-booking" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-floppy-disk"></i> บันทึกตารางลงฐานข้อมูล</button>
-                        </div>
-                    </div>
-                    <div class="flex-1 relative w-full h-full bg-white z-0">
-                        <div id="hot-booking-container" class="absolute inset-0"></div>
-                    </div>
-                </div>
-
             </div>
+
+            <!-- SECTION 3: ตาราง OPERATION -->
+            <div id="grid-section" class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col mb-10">
+                <div class="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50 rounded-t-xl">
+                    <div class="flex items-center gap-4">
+                        <h3 class="text-md font-bold text-primary flex items-center gap-2"><i class="fa-solid fa-table"></i> ตาราง Operation (ข้อมูลการรับงาน)</h3>
+                        <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">ดับเบิ้ลคลิกแถวเพื่อแก้ไขในฟอร์ม</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm"><i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์</button>
+                        <button onclick="exportToExcel()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-file-excel"></i> ดาวน์โหลด Excel</button>
+                        <button onclick="deleteCheckedRows()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่เลือก</button>
+                        <button onclick="saveShipments()" id="btn-save-booking" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-floppy-disk"></i> บันทึกตารางลงฐานข้อมูล</button>
+                    </div>
+                </div>
+                <div class="relative w-full bg-white z-0 rounded-b-xl" style="height: 600px;">
+                    <div id="hot-booking-container" class="absolute inset-0"></div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -276,7 +270,7 @@
 
         // 💡 78 คอลัมน์แบบจัดเต็มเหมือน Book1.xlsx ต้นฉบับ
         const allHeaders = [
-            'Order ID','MODE','วันที่Booking','วันที่วิ่งงาน','ชื่องาน','ลูกค้า','BOOKING/BL NO.',
+            'Order ID','MODE','วันที่Booking','วันที่วิ่งงาน','ชื่องาน','ลูกค้า','BOOKING NO.',
             'เบอร์ตู้1','เบอร์ตู้2','จำนวนตู้/ใบ','ขนาดตู้','ประเภทงาน','AGENT','POD','SEAL NO.',
             'TARE','MAX GROSS','น้ำหนักตู้',
             'CY DATE (EX/IM)',         
@@ -322,16 +316,23 @@
             
             const user = JSON.parse(savedUser);
             document.getElementById('user-fullname').innerText = user.fullName;
-            document.getElementById('user-role-badge').innerText = user.role.toUpperCase();
+            document.getElementById('user-role-badge').innerText = (user.role || 'USER').toUpperCase();
 
             const p = user.permissions || {};
-            if (p.admin || user.role === 'Admin') document.getElementById('menu-admin').classList.remove('hidden');
-            if (p.monitor || user.role === 'Admin') { document.getElementById('menu-monitor').classList.remove('hidden'); document.getElementById('menu-monitor').style.display = 'flex'; }
-            if (p.booking || user.role === 'Admin') { document.getElementById('menu-booking').classList.remove('hidden'); document.getElementById('menu-booking').style.display = 'flex'; }
-            if (p.dispatch || user.role === 'Admin') { document.getElementById('menu-dispatch').classList.remove('hidden'); document.getElementById('menu-dispatch').style.display = 'flex'; }
-            if (p.billing || user.role === 'Admin') { document.getElementById('menu-billing').classList.remove('hidden'); document.getElementById('menu-billing').style.display = 'flex'; }
+            // 💡 แก้บั๊กพิมพ์เล็ก-พิมพ์ใหญ่ โดยแปลงให้เป็นตัวพิมพ์ใหญ่ทั้งหมดก่อนเช็ค!
+            const roleName = (user.role || '').toUpperCase();
+            
+            if (p.admin || roleName === 'ADMIN') document.getElementById('menu-admin').classList.remove('hidden');
+            if (p.monitor || roleName === 'ADMIN') { document.getElementById('menu-monitor').classList.remove('hidden'); document.getElementById('menu-monitor').style.display = 'flex'; }
+            if (p.booking || roleName === 'ADMIN') { document.getElementById('menu-booking').classList.remove('hidden'); document.getElementById('menu-booking').style.display = 'flex'; }
+            if (p.dispatch || roleName === 'ADMIN') { document.getElementById('menu-dispatch').classList.remove('hidden'); document.getElementById('menu-dispatch').style.display = 'flex'; }
+            if (p.billing || roleName === 'ADMIN') { document.getElementById('menu-billing').classList.remove('hidden'); document.getElementById('menu-billing').style.display = 'flex'; }
 
-            if (!p.booking && user.role !== 'Admin') { alert('⛔ คุณไม่มีสิทธิ์เข้าถึงหน้า Booking'); window.location.href = '/index.html'; return; }
+            if (!p.booking && roleName !== 'ADMIN') { 
+                alert('⛔ คุณไม่มีสิทธิ์เข้าถึงหน้า Booking'); 
+                window.location.href = '/index.html'; 
+                return; 
+            }
             
             document.getElementById('runDate').valueAsDate = new Date(); 
             const today = new Date(); document.getElementById('monthFilter').value = today.toISOString().slice(0, 7);
@@ -339,24 +340,8 @@
             loadMasterRates(); 
             initBookingTable().then(() => loadShipments()); 
         });
-
+        
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
-
-        function switchSubTab(tabName) {
-            document.querySelectorAll('.subtab-btn').forEach(b => {
-                b.classList.remove('bg-blue-50', 'text-primary', 'font-semibold', 'shadow-sm');
-                b.classList.add('text-slate-600', 'font-medium');
-            });
-            const activeBtn = document.getElementById('subtab-' + tabName);
-            activeBtn.classList.remove('text-slate-600', 'font-medium');
-            activeBtn.classList.add('bg-blue-50', 'text-primary', 'font-semibold', 'shadow-sm');
-
-            document.getElementById('tab-content-form').classList.add('hidden');
-            document.getElementById('tab-content-grid').classList.add('hidden');
-            document.getElementById('tab-content-' + tabName).classList.remove('hidden');
-
-            if(tabName === 'grid' && hotBookingInstance) { hotBookingInstance.render(); buildSmartFilters(); }
-        }
 
         async function loadMasterRates() {
             try {
@@ -451,6 +436,9 @@
             
             let lastClickTime = 0;
 
+            // กู้ข้อมูลการจัดคอลัมน์ของ User คนนี้
+            const uiState = JSON.parse(localStorage.getItem(`tms_ui_booking_grid_${user.username}`)) || {};
+
             hotBookingInstance = new Handsontable(container, {
                 data: [], colHeaders: ['✔ เลือก', ...allHeaders], columns: [{ type: 'checkbox', className: 'htCenter htMiddle' }, ...columnsConfig],
                 rowHeaders: true, minSpareRows: 0, width: '100%', height: '100%', 
@@ -460,7 +448,8 @@
 
                 filters: true,
                 dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar', '---------', 'clear_column'],
-                hiddenColumns: { indicators: true }, 
+                hiddenColumns: { columns: uiState.hiddenColumns || [], indicators: true }, 
+                colWidths: uiState.colWidths || undefined,
                 licenseKey: 'non-commercial-and-evaluation',
                 cells: function(row, col) { let cp = {}; if (this.instance && this.instance.getDataAtCell(row, 0) === true) cp.className = (cp.className || '') + ' ht-row-selected'; return cp; },
                 afterChange: function(changes, source) { 
@@ -477,6 +466,13 @@
                         }); 
                         if(updates.length > 0) this.setDataAtCell(updates, 'autoFill');
                     } 
+                },
+                afterColumnResize: function() { 
+                    const plugin = this.getPlugin('manualColumnResize');
+                    const user = JSON.parse(localStorage.getItem('tms_user'));
+                    const state = JSON.parse(localStorage.getItem(`tms_ui_booking_grid_${user.username}`)) || {};
+                    state.colWidths = plugin.manualColumnWidths;
+                    localStorage.setItem(`tms_ui_booking_grid_${user.username}`, JSON.stringify(state));
                 },
                 afterOnCellMouseDown: function(event, coords, td) {
                     const now = new Date().getTime();
@@ -534,7 +530,9 @@
             document.getElementById('pTransFee').value = data[57] || '';
 
             toggleModeUI();
-            switchSubTab('form'); 
+            
+            // Scroll กลับขึ้นไปที่ฟอร์มเพื่อให้แก้สะดวก
+            document.getElementById('tab-content-form').scrollIntoView({ behavior: 'smooth' });
         }
 
         function cancelEdit() {
@@ -587,17 +585,18 @@
                 rowData[56] = tripFee; rowData[57] = transFee;
                 
                 hotBookingInstance.populateFromArray(rIdx, 1, [[...rowData.slice(1)]]);
-                alert('✅ แก้ไขลงตารางสำเร็จ! (อย่าลืมกดบันทึกฐานข้อมูล)');
+                alert('✅ แก้ไขลงตารางสำเร็จ! (อย่าลืมกดปุ่มบันทึกตารางลงฐานข้อมูล)');
                 cancelEdit();
-                switchSubTab('grid');
+                document.getElementById('grid-section').scrollIntoView({ behavior: 'smooth' });
                 return;
             }
+
+            let maxSeq = hotBookingInstance.countRows() + 1;
 
             const rowCount = parseInt(document.getElementById('rowCount').value) || 1;
             let newRows = [];
             const today = new Date().toISOString().split('T')[0];
             const datePrefix = runDate.replace(/-/g, '').substring(2); 
-            let maxSeq = hotBookingInstance.countRows() + 1;
 
             for (let i = 0; i < rowCount; i++) {
                 let orderId = `ORD-${datePrefix}-${("000" + maxSeq++).slice(-3)}`;
@@ -616,11 +615,14 @@
 
             hotBookingInstance.alter('insert_row_above', 0, rowCount);
             hotBookingInstance.populateFromArray(0, 0, newRows);
-            document.getElementById('jobNameInput').value = '';
-            document.getElementById('jobPreviewBox').classList.add('hidden');
-            document.getElementById('pMode').value = ''; // Reset MODE
             
-            switchSubTab('grid');
+            // เคลียร์ฟอร์มบางส่วนเพื่อรับงานใหม่ แต่ยังคงอยู่ในหน้าจอเดิม
+            document.getElementById('jobNameInput').value = '';
+            document.getElementById('pMode').value = ''; 
+            toggleModeUI();
+            
+            // 💡 เด้งจอลงไปที่ตารางอัตโนมัติ เพื่อให้พิมพ์เบอร์ตู้ต่อได้เลย!
+            document.getElementById('grid-section').scrollIntoView({ behavior: 'smooth' });
         }
 
         function buildSmartFilters() {
@@ -703,9 +705,14 @@
         function closeColToggleModal() { document.getElementById('col-toggle-modal').classList.add('hidden'); }
         function toggleMasterColumn(colIndex, isVisible) {
             const plugin = hotBookingInstance.getPlugin('hiddenColumns');
+            const user = JSON.parse(localStorage.getItem('tms_user'));
+            const state = JSON.parse(localStorage.getItem(`tms_ui_booking_grid_${user.username}`)) || {};
+            
             if (isVisible) plugin.showColumns([colIndex]); else plugin.hideColumns([colIndex]);
             hotBookingInstance.render();
-            saveUIState('booking_grid', { hiddenColumns: plugin.getHiddenColumns() || [] });
+            
+            state.hiddenColumns = plugin.getHiddenColumns() || [];
+            localStorage.setItem(`tms_ui_booking_grid_${user.username}`, JSON.stringify(state));
         }
 
         function exportToExcel() {
@@ -725,4 +732,3 @@
     </script>
 </body>
 </html>
-]

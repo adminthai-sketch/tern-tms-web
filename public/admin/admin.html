@@ -23,9 +23,7 @@
             <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-shield-halved"></i></div>
             <span class="font-bold text-xl text-slate-800 tracking-wide">TERN TMS <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold ml-1">ADMIN BACKOFFICE</span></span>
         </div>
-        
         <div class="flex items-center gap-4">
-            <!-- 💡 เปลี่ยนลิงก์กลับหน้าหลักไปที่หน้า booking -->
             <a href="/booking.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200">
                 <i class="fa-solid fa-arrow-left"></i> กลับเข้าแอปพลิเคชัน
             </a>
@@ -38,19 +36,29 @@
     </header>
 
     <div class="flex-1 flex overflow-hidden">
+        <!-- 🟢 SIDEBAR แบบใหม่ -->
         <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-            <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Master Data</div>
             
+            <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">System Setup</div>
             <a href="#" onclick="switchMasterTab('users')" id="menu-users" class="sidebar-item active flex items-center gap-3 px-6 py-3 bg-emerald-50 text-emerald-700 border-r-4 border-emerald-600 font-semibold">
                 <i class="fa-solid fa-users w-5 text-center"></i> ผู้ใช้งาน (Users)
             </a>
-            <!-- 💡 เพิ่มเมนูสิทธิ์การเข้าถึง -->
             <a href="#" onclick="switchMasterTab('roles')" id="menu-roles" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                <i class="fa-solid fa-user-shield w-5 text-center"></i> สิทธิ์ (Roles/Permissions)
+                <i class="fa-solid fa-user-shield w-5 text-center"></i> สิทธิ์ (Roles)
             </a>
-            <a href="#" onclick="switchMasterTab('drivers')" id="menu-drivers" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                <i class="fa-solid fa-id-card w-5 text-center"></i> คนขับ/รถ (Drivers)
+            
+            <div class="px-6 mt-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Fleet Management</div>
+            <a href="#" onclick="switchMasterTab('trucks')" id="menu-trucks" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                <i class="fa-solid fa-truck w-5 text-center"></i> ข้อมูลรถ (Trucks)
             </a>
+            <a href="#" onclick="switchMasterTab('driver_info')" id="menu-driver_info" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                <i class="fa-solid fa-id-card w-5 text-center"></i> พนักงานขับรถ (Drivers)
+            </a>
+            <a href="#" onclick="switchMasterTab('truck_assignments')" id="menu-truck_assignments" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                <i class="fa-solid fa-link w-5 text-center"></i> จับคู่รถ-คนขับ (Assign)
+            </a>
+
+            <div class="px-6 mt-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">General Master</div>
             <a href="#" onclick="switchMasterTab('customers')" id="menu-customers" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
                 <i class="fa-solid fa-building w-5 text-center"></i> ลูกค้า (Customers)
             </a>
@@ -118,7 +126,6 @@
             const user = JSON.parse(savedUser);
             const userRole = (user.role || '').toUpperCase();
             
-            // 💡 แก้บั๊กตัวพิมพ์เล็กใหญ่
             if (userRole !== 'ADMIN') {
                 alert('⛔ คุณไม่มีสิทธิ์เข้าถึงหน้า Admin Backoffice');
                 window.location.href = '/booking.html';
@@ -129,15 +136,14 @@
             switchMasterTab('users');
         });
 
-        function logout() {
-            localStorage.removeItem('tms_user');
-            window.location.href = '/login.html';
-        }
+        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
         let currentMasterType = 'users';
         let hotMasterInstance = null;
         let originalTableData = []; 
-        let globalRolesList = ['ADMIN', 'USER', 'OPERATION']; // เก็บไว้โหลดเป็น Dropdown
+        let globalRolesList = ['ADMIN', 'USER', 'OPERATION']; 
+        let globalTruckList = [];
+        let globalDriverList = [];
 
         const masterConfigs = {
             users: {
@@ -146,23 +152,29 @@
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'กลุ่มสิทธิ์ (Role)', 'สถานะ (Status)'],
                 columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', source: () => globalRolesList }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }]
             },
-            // 💡 เพิ่มการตั้งค่าสำหรับตาราง Roles
             roles: {
                 title: 'จัดการกลุ่มสิทธิ์ (Roles & Permissions)', icon: 'fa-user-shield',
                 endpoint: '/api/roles',
                 headers: ['ID', 'ชื่อกลุ่มสิทธิ์', '1.มอนิเตอร์', '2.สร้างบุคกิ้ง', '3.จัดคนขับ', '4.วางบิล', '5.จัดการระบบ(Admin)'],
-                columns: [
-                    { readOnly: true }, { type: 'text' }, 
-                    { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, 
-                    { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, 
-                    { type: 'checkbox', className: 'htCenter htMiddle' }
-                ]
+                columns: [ { readOnly: true }, { type: 'text' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' } ]
             },
-            drivers: {
-                title: 'จัดการคนขับและทะเบียนรถ (Drivers)', icon: 'fa-id-card',
-                endpoint: '/api/drivers',
-                headers: ['ป้ายทะเบียน', 'ประเภทรถ', 'ชื่อ.พนง.', 'ชื่อเล่น'],
-                columns: [{ type: 'text' }, { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'text' }, { type: 'text' }]
+            trucks: {
+                title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck',
+                endpoint: '/api/trucks',
+                headers: ['ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ'],
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }]
+            },
+            driver_info: {
+                title: 'จัดการพนักงานขับรถ (Drivers)', icon: 'fa-id-card',
+                endpoint: '/api/driver_info',
+                headers: ['ID', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'เบอร์โทรศัพท์', 'สถานะ'],
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }]
+            },
+            truck_assignments: {
+                title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link',
+                endpoint: '/api/truck_assignments',
+                headers: ['ID', 'ป้ายทะเบียนรถ', 'คนขับประจำคัน'],
+                columns: [{ readOnly: true }, { type: 'dropdown', source: () => globalTruckList }, { type: 'dropdown', source: () => globalDriverList }]
             },
             customers: {
                 title: 'จัดการข้อมูลลูกค้า (Customers)', icon: 'fa-building',
@@ -178,15 +190,8 @@
             }
         };
 
-        function getUIState(tableName) {
-            const user = JSON.parse(localStorage.getItem('tms_user'));
-            return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {};
-        }
-        function saveUIState(tableName, stateData) {
-            const user = JSON.parse(localStorage.getItem('tms_user'));
-            const existing = getUIState(tableName);
-            localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData }));
-        }
+        function getUIState(tableName) { const user = JSON.parse(localStorage.getItem('tms_user')); return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {}; }
+        function saveUIState(tableName, stateData) { const user = JSON.parse(localStorage.getItem('tms_user')); const existing = getUIState(tableName); localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData })); }
 
         async function switchMasterTab(type) {
             currentMasterType = type;
@@ -206,9 +211,10 @@
                 const response = await fetch(cfg.endpoint);
                 const result = await response.json();
                 
-                // ดึงรายชื่อ Roles มาให้ Dropdown หน้า Users
-                if(type === 'users' && result.roleList) {
-                    globalRolesList = result.roleList;
+                if(type === 'users' && result.roleList) globalRolesList = result.roleList;
+                if(type === 'truck_assignments' && result.truckList && result.driverList) {
+                    globalTruckList = result.truckList;
+                    globalDriverList = result.driverList;
                 }
                 
                 const container = document.getElementById('hot-master-container');
@@ -233,9 +239,7 @@
                     colWidths: uiState.colWidths || undefined,
                     stretchH: type === 'rates' ? 'all' : 'none',
                     licenseKey: 'non-commercial-and-evaluation',
-                    afterColumnResize: function() {
-                        saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths });
-                    }
+                    afterColumnResize: function() { saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); }
                 });
             } catch (err) { alert('❌ โหลดข้อมูลไม่สำเร็จ: ' + err.message); }
         }

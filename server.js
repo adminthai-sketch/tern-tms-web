@@ -6,7 +6,7 @@ const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // เผื่อข้อมูลตารางขนาดใหญ่
+app.use(express.json({ limit: '50mb' }));
 app.use(express.static('public'));
 
 const pool = new Pool({ 
@@ -333,4 +333,8 @@ app.delete('/api/shipments', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => { console.log(`🚀 TERN TMS Server running on http://localhost:${PORT}`); });
+app.listen(PORT, () => { 
+    console.log(`🚀 TERN TMS Server running on http://localhost:${PORT}`); 
+});
+
+module.exports = app;

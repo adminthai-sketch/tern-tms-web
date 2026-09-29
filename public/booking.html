@@ -26,6 +26,7 @@
         .filter-tag:hover { background: #e2e8f0; }
         .filter-tag.active { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(15,76,129,0.25); transform: scale(1.05); }
         .filter-tag-all { background: #94a3b8; color: white; }
+        .ht-unsaved { background-color: #fef08a !important; }
         
         #hot-booking-container { width: 100%; height: 500px; z-index: 0; }
     </style>
@@ -438,20 +439,47 @@
                 hiddenColumns: { columns: uiState.hiddenColumns || [], indicators: true }, 
                 colWidths: uiState.colWidths || undefined,
                 licenseKey: 'non-commercial-and-evaluation',
-                cells: function(row, col) { let cp = {}; if (this.instance && this.instance.getDataAtCell(row, 0) === true) cp.className = (cp.className || '') + ' ht-row-selected'; return cp; },
+                cells: function(row, col) { 
+                    let cp = {}; 
+                    if (this.instance) {
+                        let isSelected = this.instance.getDataAtCell(row, 0) === true;
+                        let physicalRow = this.instance.toPhysicalRow(row);
+                        let rowData = this.instance.getSourceDataAtRow(physicalRow);
+                        
+                        if (isSelected) {
+                            cp.className = (cp.className || '') + ' ht-row-selected';
+                        } else if (rowData && rowData._isUnsaved) {
+                            cp.className = (cp.className || '') + ' ht-unsaved';
+                        }
+                    }
+                    return cp; 
+                },
                 afterChange: function(changes, source) { 
                     if (source !== 'loadData' && changes) { 
                         let updates = [];
+                        let needsRender = false;
                         changes.forEach(([row, prop, oldValue, newValue]) => { 
-                            if (prop === 0 && oldValue !== newValue) this.render(); 
-                            const col = this.propToCol(prop);
-                            if (col === 8 || col === 9) { 
-                                let t1 = this.getDataAtCell(row, 8); let t2 = this.getDataAtCell(row, 9);
-                                let count = (t1 && String(t1).trim() !== "" ? 1 : 0) + (t2 && String(t2).trim() !== "" ? 1 : 0);
-                                updates.push([row, 10, count > 0 ? count : ""]); 
+                            if (oldValue !== newValue) {
+                                if (prop !== 0) { // ถ้าไม่ใช่คอลัมน์ Checkbox ให้มาร์คว่ายังไม่เซฟ
+                                    let physicalRow = this.toPhysicalRow(row);
+                                    let rowData = this.getSourceDataAtRow(physicalRow);
+                                    if (rowData) rowData._isUnsaved = true;
+                                }
+                                needsRender = true;
+                                
+                                const col = this.propToCol(prop);
+                                if (col === 8 || col === 9) { 
+                                    let t1 = this.getDataAtCell(row, 8); let t2 = this.getDataAtCell(row, 9);
+                                    let count = (t1 && String(t1).trim() !== "" ? 1 : 0) + (t2 && String(t2).trim() !== "" ? 1 : 0);
+                                    updates.push([row, 10, count > 0 ? count : ""]); 
+                                }
                             }
                         }); 
-                        if(updates.length > 0) this.setDataAtCell(updates, 'autoFill');
+                        if(updates.length > 0) {
+                            this.setDataAtCell(updates, 'autoFill');
+                        } else if(needsRender) {
+                            this.render();
+                        }
                     } 
                 },
                 afterColumnResize: function() { 
@@ -594,7 +622,9 @@
                 if (mode === 'EXPORT') { row[20] = vgmCutoff; row[21] = cutoffTime; row[22] = loadDate; row[23] = openGate; } 
                 else if (mode === 'IMPORT') { row[24] = rentCutoff; row[25] = demurrage; row[26] = unloadDate; row[27] = returnDate; }
                 
-                row[56] = tripFee; row[57] = transFee; row[78] = 'รอจัดรถ';
+                row[56] = tripFee; row[57] = transFee; 
+                row[78] = 'รอจัดรถ';
+                row._isUnsaved = true;
                 newRows.push(row);
             }
 
@@ -668,7 +698,7 @@
                 const res = await fetch('/api/shipments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData }) });
                 const result = await res.json();
                 alert(result.message);
-                if (result.success) loadShipments();
+                if (result.success) loadShipments(); // การรีโหลดข้อมูลใหม่จะเคลียร์ค่าแถบสีเหลืองให้โดยอัตโนมัติ
             } catch(e) { alert('❌ เกิดข้อผิดพลาดในการบันทึก: ' + e.message); } finally { btn.innerHTML = ot; btn.disabled = false; }
         }
 

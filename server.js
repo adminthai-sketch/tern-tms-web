@@ -119,14 +119,13 @@ app.post('/api/users', async (req, res) => {
             const [id, username, full_name, email, role_text, status] = row;
             if (!username) continue;
             
-            // 💡 FIX: ค้นหาสิทธิ์โดยไม่สนตัวพิมพ์เล็กใหญ่
+            // 💡 FIX: ค้นหาสิทธิ์โดยไม่สนตัวพิมพ์เล็กใหญ่ และแก้ปัญหา Foreign Key
             const roleRes = await client.query('SELECT id FROM roles WHERE LOWER(role_name) = LOWER($1)', [String(role_text || '').trim()]);
             
             let role_id = null;
             if (roleRes.rows.length > 0) {
                 role_id = roleRes.rows[0].id;
             } else {
-                // 💡 FIX: ถ้าระบุสิทธิ์มามั่วๆ หรือไม่มีในฐานข้อมูล ให้ดึงสิทธิ์ตัวแรกสุดมาใช้เพื่อป้องกัน Error 
                 const fallbackRole = await client.query('SELECT id FROM roles LIMIT 1');
                 if (fallbackRole.rows.length > 0) {
                     role_id = fallbackRole.rows[0].id;
@@ -353,4 +352,5 @@ app.listen(PORT, () => {
     console.log(`🚀 TERN TMS Server running on http://localhost:${PORT}`); 
 });
 
+// สำหรับ Vercel Serverless
 module.exports = app;

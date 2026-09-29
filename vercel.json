@@ -19,5 +19,16 @@
       "src": "/(.*)",
       "dest": "public/$1"
     }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+        }
+      ]
+    }
   ]
 }

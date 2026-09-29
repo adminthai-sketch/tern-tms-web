@@ -118,8 +118,24 @@ app.post('/api/users', async (req, res) => {
         for (let row of data) {
             const [id, username, full_name, email, role_text, status] = row;
             if (!username) continue;
-            const roleRes = await client.query('SELECT id FROM roles WHERE role_name = $1', [role_text]);
-            const role_id = roleRes.rows.length > 0 ? roleRes.rows[0].id : 2;
+            
+            // 💡 FIX: ค้นหาสิทธิ์โดยไม่สนตัวพิมพ์เล็กใหญ่
+            const roleRes = await client.query('SELECT id FROM roles WHERE LOWER(role_name) = LOWER($1)', [String(role_text || '').trim()]);
+            
+            let role_id = null;
+            if (roleRes.rows.length > 0) {
+                role_id = roleRes.rows[0].id;
+            } else {
+                // 💡 FIX: ถ้าระบุสิทธิ์มามั่วๆ หรือไม่มีในฐานข้อมูล ให้ดึงสิทธิ์ตัวแรกสุดมาใช้เพื่อป้องกัน Error 
+                const fallbackRole = await client.query('SELECT id FROM roles LIMIT 1');
+                if (fallbackRole.rows.length > 0) {
+                    role_id = fallbackRole.rows[0].id;
+                } else {
+                    const newRole = await client.query(`INSERT INTO roles (role_name, permissions) VALUES ('User', '{}') RETURNING id`);
+                    role_id = newRole.rows[0].id;
+                }
+            }
+            
             const userStatus = status || 'ACTIVE';
 
             if (id) {

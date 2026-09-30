@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .ht-unsaved { background-color: #fef08a !important; }
+        .handsontableInput { min-width: 150px !important; max-width: 300px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important; }
     </style>
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
@@ -165,7 +166,13 @@
                 title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users',
                 endpoint: '/api/users',
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'กลุ่มสิทธิ์ (Role)', 'สถานะ (Status)'],
-                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', source: () => globalRolesList }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }]
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { 
+                    type: 'autocomplete', strict: true, 
+                    source: function(query, process) { 
+                        if (!query) return process(globalRolesList);
+                        process(globalRolesList.filter(r => r.toLowerCase().includes(query.toLowerCase())));
+                    } 
+                }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }]
             },
             roles: {
                 title: 'จัดการกลุ่มสิทธิ์ (Roles & Permissions)', icon: 'fa-user-shield',
@@ -189,7 +196,23 @@
                 title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link',
                 endpoint: '/api/truck_assignments',
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'คนขับประจำคัน'],
-                columns: [{ readOnly: true }, { type: 'dropdown', source: () => globalTruckList }, { type: 'dropdown', source: () => globalDriverList }]
+                columns: [
+                    { readOnly: true }, 
+                    { 
+                        type: 'autocomplete', strict: false, filter: false,
+                        source: function(query, process) { 
+                            if (!query) return process(globalTruckList);
+                            process(globalTruckList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
+                        } 
+                    }, 
+                    { 
+                        type: 'autocomplete', strict: false, filter: false,
+                        source: function(query, process) { 
+                            if (!query) return process(globalDriverList);
+                            process(globalDriverList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
+                        } 
+                    }
+                ]
             },
             customers: {
                 title: 'จัดการข้อมูลลูกค้า (Customers)', icon: 'fa-building',

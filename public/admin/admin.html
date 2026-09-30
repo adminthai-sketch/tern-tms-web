@@ -15,7 +15,6 @@
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
     <link rel="stylesheet" href="../css/style.css">
-    
     <style>
         .ht-unsaved { background-color: #fef08a !important; }
         
@@ -34,6 +33,66 @@
         .btn-action-delete:hover {
             background-color: #fecaca;
             color: #b91c1c;
+        }
+
+        /* ปรับแต่งกล่อง Dropdown/Autocomplete ให้กว้างลดลงและสูงขึ้น */
+        .handsontable.listbox {
+            min-width: 200px !important; /* ลดความกว้างลง */
+            max-width: 350px !important; /* จำกัดความกว้างสูงสุด */
+            width: auto !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid #cbd5e1 !important;
+            margin-top: 4px !important;
+            z-index: 10000 !important;
+            overflow: hidden !important;
+        }
+
+        .handsontable.listbox .ht_master table {
+            background-color: #ffffff !important;
+            border-collapse: collapse !important;
+            width: 100% !important;
+        }
+
+        /* เพิ่มความสูงของกล่องรายการ */
+        .handsontable.listbox .ht_master .wtHolder {
+            max-height: 400px !important; /* เพิ่มความสูงให้เห็นหลายรายการ */
+            overflow-x: hidden !important; 
+        }
+
+        .handsontable.listbox td {
+            padding: 8px 12px !important;
+            font-size: 13.5px !important;
+            color: #475569 !important;
+            border: none !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            white-space: nowrap !important;
+        }
+
+        .handsontable.listbox tr:last-child td {
+            border-bottom: none !important;
+        }
+
+        .handsontable.listbox tr:hover td,
+        .handsontable.listbox tr td.current {
+            background-color: #e0f2fe !important;
+            color: #0369a1 !important;
+            font-weight: 600 !important;
+        }
+        
+        /* ปรับกล่อง Input ให้พอดี */
+        .handsontableInput { 
+            border-radius: 6px !important;
+            border: 2px solid #0ea5e9 !important; 
+            min-width: 180px !important; /* ลดความกว้างของช่องกรอก */
+            max-width: 300px !important; 
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
+            padding: 6px 10px !important;
+            font-size: 14px !important;
+            color: #0f4c81 !important;
+            z-index: 9999 !important;
         }
     </style>
 </head>
@@ -182,7 +241,6 @@
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'กลุ่มสิทธิ์ (Role)', 'สถานะ (Status)'],
                 columns: [
                     { readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
-                    // กลับมาใช้ Dropdown แบบมาตรฐานทั้งหมด 👇
                     { type: 'dropdown', source: function(query, process) { process(globalRolesList); } }, 
                     { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }
                 ]
@@ -211,7 +269,6 @@
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'คนขับประจำคัน'],
                 columns: [
                     { readOnly: true }, 
-                    // กลับมาใช้ Dropdown แบบมาตรฐานทั้งหมด 👇
                     { type: 'dropdown', source: function(query, process) { process(globalTruckList); } }, 
                     { type: 'dropdown', source: function(query, process) { process(globalDriverList); } }
                 ]

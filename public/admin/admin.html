@@ -35,13 +35,23 @@
             color: #b91c1c;
         }
 
-        /* ปรับแต่งกล่อง Dropdown/Autocomplete ให้กว้างลดลงและสูงขึ้น */
+        /* 🎯 ปรับแต่งกล่องพิมพ์ (Input) ให้กว้างพอดีและไม่ล้นจอ */
+        .handsontableInput { 
+            border-radius: 6px !important;
+            border: 2px solid #0ea5e9 !important; 
+            min-width: 250px !important; /* ปรับความกว้างให้กำลังดี */
+            max-width: 350px !important; 
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
+            padding: 8px 12px !important;
+            font-size: 14px !important;
+            color: #0f4c81 !important;
+            z-index: 9999 !important;
+        }
+
+        /* 🎯 ปรับแต่งกล่อง Dropdown Autocomplete ให้สูงขึ้นแบบพอดี */
         .handsontable.listbox {
-            min-width: 200px !important; /* ลดความกว้างลง */
-            max-width: 350px !important; /* จำกัดความกว้างสูงสุด */
-            width: auto !important;
             border-radius: 8px !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
             border: 1px solid #cbd5e1 !important;
             margin-top: 4px !important;
             z-index: 10000 !important;
@@ -54,20 +64,13 @@
             width: 100% !important;
         }
 
-        /* เพิ่มความสูงของกล่องรายการ */
-        .handsontable.listbox .ht_master .wtHolder {
-            max-height: 400px !important; /* เพิ่มความสูงให้เห็นหลายรายการ */
-            overflow-x: hidden !important; 
-        }
-
         .handsontable.listbox td {
-            padding: 8px 12px !important;
-            font-size: 13.5px !important;
-            color: #475569 !important;
+            padding: 8px 16px !important;
+            font-size: 14px !important;
+            color: #334155 !important;
             border: none !important;
             border-bottom: 1px solid #f1f5f9 !important;
             cursor: pointer !important;
-            transition: all 0.2s ease !important;
             white-space: nowrap !important;
         }
 
@@ -81,18 +84,12 @@
             color: #0369a1 !important;
             font-weight: 600 !important;
         }
-        
-        /* ปรับกล่อง Input ให้พอดี */
-        .handsontableInput { 
-            border-radius: 6px !important;
-            border: 2px solid #0ea5e9 !important; 
-            min-width: 180px !important; /* ลดความกว้างของช่องกรอก */
-            max-width: 300px !important; 
-            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
-            padding: 6px 10px !important;
-            font-size: 14px !important;
-            color: #0f4c81 !important;
-            z-index: 9999 !important;
+
+        /* เพิ่มความสูงให้ Listbox */
+        .handsontable.listbox .ht_master .wtHolder {
+            max-height: 250px !important; /* เพิ่มความสูงให้เห็นตัวเลือกชัดขึ้น */
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
         }
     </style>
 </head>

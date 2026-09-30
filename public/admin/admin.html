@@ -18,60 +18,63 @@
     <style>
         .ht-unsaved { background-color: #fef08a !important; }
                 
-        /* ตกแต่งกล่อง Pop-up Dropdown (Autocomplete) ให้ดูทันสมัย */
+        /* 🎯 ตกแต่งกล่อง Pop-up Dropdown ให้บังคับกว้างและสูงขึ้น 100% */
+        div.handsontable.listbox,
         .handsontable.listbox {
+            min-width: 380px !important; /* บังคับให้กว้าง 380px เสมอ */
+            width: auto !important;
             border-radius: 8px !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2) !important;
+            border: 1.5px solid #0ea5e9 !important;
             margin-top: 4px !important;
             z-index: 10000 !important;
             overflow: hidden !important;
-            
-            /* ✨ เพิ่มบรรทัดนี้: บังคับให้กล่อง Dropdown กว้างอย่างน้อย 250px หรือพอดีกับกล่องพิมพ์ */
-            min-width: 250px !important; 
         }
+
         .handsontable.listbox .ht_master table {
             background-color: #ffffff !important;
             border-collapse: collapse !important;
             width: 100% !important;
         }
+
+        /* เพิ่มความสูงให้มองเห็นหลายรายการ */
+        .handsontable.listbox .ht_master .wtHolder {
+            max-height: 350px !important; 
+        }
+
         .handsontable.listbox td {
-            padding: 10px 16px !important;
-            font-size: 13.5px !important;
-            color: #475569 !important;
+            padding: 12px 16px !important;
+            font-size: 14px !important;
+            color: #334155 !important;
             border: none !important;
             border-bottom: 1px solid #f1f5f9 !important;
             cursor: pointer !important;
             transition: all 0.2s ease !important;
-            white-space: nowrap !important; /* ป้องกันข้อความตกบรรทัด */
+            white-space: nowrap !important;
         }
+
         .handsontable.listbox tr:last-child td {
             border-bottom: none !important;
         }
-        /* สีตอนเอาเมาส์ชี้ หรือใช้ลูกศรเลื่อน */
+
         .handsontable.listbox tr:hover td,
         .handsontable.listbox tr td.current {
-            background-color: #e0f2fe !important; /* สีฟ้าน้ำทะเลอ่อนๆ */
+            background-color: #e0f2fe !important;
             color: #0369a1 !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
         }
 
-        /* ตกแต่งกล่องพิมพ์ (Input) ให้เด่นชัดและกว้างพอ */
+        /* ตกแต่งกล่องพิมพ์ (Input) ให้กว้างสมส่วน */
         .handsontableInput { 
             border-radius: 6px !important;
-            border: 2px solid #0ea5e9 !important; /* ขอบสีฟ้าตอนพิมพ์ */
-            min-width: 220px !important; 
-            max-width: 400px !important; 
+            border: 2px solid #0ea5e9 !important; 
+            min-width: 250px !important; 
+            max-width: 500px !important; 
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
             padding: 8px 12px !important;
             font-size: 14px !important;
             color: #0f4c81 !important;
             z-index: 9999 !important;
-        }
-
-        /* เพิ่มความสูงให้กล่อง pop-up มองเห็นรายการได้เยอะขึ้น */
-        .handsontable.listbox .ht_master .wtHolder {
-            max-height: 250px !important; 
         }
         
         /* ปุ่มลบแถว (Action Button) */
@@ -80,8 +83,9 @@
             color: #ef4444;
             border: 1px solid #fca5a5;
             border-radius: 4px;
-            padding: 2px 8px;
+            padding: 4px 10px;
             font-size: 12px;
+            font-weight: 600;
             cursor: pointer;
             transition: 0.2s;
         }
@@ -238,7 +242,7 @@
                 endpoint: '/api/users',
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'กลุ่มสิทธิ์ (Role)', 'สถานะ (Status)'],
                 columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { 
-                    type: 'autocomplete', strict: true, 
+                    type: 'autocomplete', strict: true, trimDropdown: false,
                     source: function(query, process) { 
                         if (!query) return process(globalRolesList);
                         process(globalRolesList.filter(r => r.toLowerCase().includes(query.toLowerCase())));
@@ -270,14 +274,14 @@
                 columns: [
                     { readOnly: true }, 
                     { 
-                        type: 'autocomplete', strict: false, filter: false,
+                        type: 'autocomplete', strict: false, filter: false, trimDropdown: false,
                         source: function(query, process) { 
                             if (!query) return process(globalTruckList);
                             process(globalTruckList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
                         } 
                     }, 
                     { 
-                        type: 'autocomplete', strict: false, filter: false,
+                        type: 'autocomplete', strict: false, filter: false, trimDropdown: false,
                         source: function(query, process) { 
                             if (!query) return process(globalDriverList);
                             process(globalDriverList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
@@ -332,7 +336,6 @@
                     globalTruckList = result.truckList;
                     globalDriverList = result.driverList;
                     
-                    // Create map for auto-fill (using existing table data)
                     window.truckToDriverMap = {};
                     window.driverToTruckMap = {};
                     if(result.data) {
@@ -352,9 +355,7 @@
                 originalTableData = JSON.parse(JSON.stringify(safeData)); 
 
                 const uiState = getUIState('master_' + type);
-
                 
-                // แทรกรหัสคอลัมน์ปุ่ม "ลบ" แบบอัตโนมัติในทุกๆ หน้า
                 let dynamicHeaders = [...cfg.headers, 'จัดการ'];
                 let dynamicColumns = [...cfg.columns, { 
                     readOnly: true, 
@@ -402,7 +403,6 @@
                                     if (rowData) rowData._isUnsaved = true;
                                     needsRender = true;
 
-                                    // Auto-fill logic for Truck Assignments
                                     if (currentMasterType === 'truck_assignments') {
                                         const col = this.propToCol(prop);
                                         if (col === 1 && newValue && window.truckToDriverMap && window.truckToDriverMap[newValue]) {
@@ -450,8 +450,6 @@
             hotMasterInstance.render(); 
         }
 
-        
-        // ฟังก์ชันลบแถวเดี่ยว
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
             if (confirm(`⚠️ ยืนยันการลบข้อมูลในแถวที่ ${row + 1} ใช่หรือไม่?\n(ข้อมูลจะถูกลบออกจากตารางชั่วคราว คุณต้องกด 'บันทึกตาราง' เพื่อลบออกจากฐานข้อมูลจริงๆ)`)) {
@@ -469,7 +467,7 @@
                 const endRow = Math.max(selected[0][0], selected[0][2]);
                 const amount = endRow - startRow + 1;
 
-                if (confirm(`⚠️️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n(คุณต้องกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อยืนยันการลบออกจากระบบจริงๆ)`)) {
+                if (confirm(`⚠ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n(คุณต้องกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อยืนยันการลบออกจากระบบจริงๆ)`)) {
                     hotMasterInstance.alter('remove_row', startRow, amount);
                     originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
                 }

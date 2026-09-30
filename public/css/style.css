@@ -56,3 +56,21 @@
     font-family: 'Prompt', sans-serif; 
     box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
 }
+
+/* -----------------------------------------
+   Fix Handsontable Listbox Dropdown Height
+----------------------------------------- */
+div.handsontable.listbox,
+div.handsontable.listbox .ht_master,
+div.handsontable.listbox .wtHolder,
+div.handsontable.listbox .wtHider,
+div.handsontable.listbox .wtSpreader {
+    height: auto !important;
+    min-height: 220px !important; /* บังคับความสูงขั้นต่ำ ให้ยาวลงมาเห็นหลายรายการ */
+    max-height: 400px !important; /* ความสูงสูงสุด ป้องกันไม่ให้ยาวทะลุจอ */
+}
+
+div.handsontable.listbox .wtHolder {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}

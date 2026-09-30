@@ -18,38 +18,46 @@
     <style>
         .ht-unsaved { background-color: #fef08a !important; }
                 
-        /* 🎯 ปลดล็อกความกว้าง Dropdown Autocomplete ขั้นเด็ดขาด */
+        /* 🎯 ปรับแต่งกล่อง Pop-up Dropdown (Autocomplete) สัดส่วนใหม่ */
         .handsontable.listbox {
-            min-width: 350px !important;
-            width: max-content !important; /* ให้ขยายตามเนื้อหาอัตโนมัติ */
             border-radius: 8px !important;
-            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.25) !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
             border: 1.5px solid #0ea5e9 !important;
             margin-top: 4px !important;
             z-index: 10000 !important;
+            overflow: hidden !important;
+            
+            /* ลดความกว้างลงให้พอดี และไม่ล้นจอ */
+            min-width: 250px !important; 
+            max-width: 500px !important;
+            width: auto !important;
         }
 
         .handsontable.listbox .ht_master table {
             background-color: #ffffff !important;
             border-collapse: collapse !important;
             width: 100% !important;
-            table-layout: auto !important; /* ให้เซลล์ขยายได้ */
         }
 
+        /* เพิ่มความยาว (ความสูง) ให้เห็นรายการเยอะขึ้น */
         .handsontable.listbox .ht_master .wtHolder {
-            max-height: 320px !important; 
+            max-height: 450px !important; 
             overflow-x: hidden !important;
         }
 
         .handsontable.listbox td {
-            padding: 12px 16px !important;
-            font-size: 14.5px !important;
-            color: #1e293b !important;
+            padding: 10px 16px !important;
+            font-size: 14px !important;
+            color: #334155 !important;
             border: none !important;
-            border-bottom: 1px solid #f8fafc !important;
+            border-bottom: 1px solid #f1f5f9 !important;
             cursor: pointer !important;
+            transition: all 0.2s ease !important;
             white-space: nowrap !important;
-            overflow: visible !important; /* ป้องกันการโดนตัดคำ */
+        }
+
+        .handsontable.listbox tr:last-child td {
+            border-bottom: none !important;
         }
 
         .handsontable.listbox tr:hover td,
@@ -59,18 +67,20 @@
             font-weight: 600 !important;
         }
 
-        /* ตกแต่งกล่องพิมพ์ (Input) */
+        /* ตกแต่งกล่องพิมพ์ (Input) ให้กว้างและมองเห็นชัด */
         .handsontableInput { 
             border-radius: 6px !important;
-            border: 2px solid #0ea5e9 !important; 
-            min-width: 250px !important; 
+            border: 2px solid #0ea5e9 !important;
+            min-width: 220px !important; 
+            max-width: 400px !important; 
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
             padding: 8px 12px !important;
             font-size: 14px !important;
             color: #0f4c81 !important;
             z-index: 9999 !important;
         }
-        
+
+        /* ปุ่มลบแถว (Action Button) */
         .btn-action-delete {
             background-color: #fee2e2;
             color: #ef4444;
@@ -90,6 +100,7 @@
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
 
+    <!-- 🟢 TOP HEADER -->
     <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-shield-halved"></i></div>
@@ -104,13 +115,15 @@
                 <div id="user-fullname" class="text-sm font-bold text-slate-700">Admin</div>
                 <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">ADMIN</div>
             </div>
-            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-power-off text-lg"></i></button>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ"><i class="fa-solid fa-power-off text-lg"></i></button>
         </div>
     </header>
 
     <div class="flex-1 flex overflow-hidden">
+        <!-- 🟢 SIDEBAR -->
         <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
             <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">System Setup</div>
+            
             <a href="#" onclick="switchMasterTab('users')" id="menu-users" class="sidebar-item active flex items-center gap-3 px-6 py-3 bg-emerald-50 text-emerald-700 border-r-4 border-emerald-600 font-semibold">
                 <i class="fa-solid fa-users w-5 text-center"></i> ผู้ใช้งาน (Users)
             </a>
@@ -138,11 +151,16 @@
             </a>
         </nav>
 
+        <!-- 🟢 MAIN WORKSPACE -->
         <main class="flex-1 p-6 overflow-hidden flex flex-col relative bg-bglight">
             <div class="h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200">
+                
+                <!-- หัวข้อตาราง -->
                 <div class="flex justify-between items-center p-5 border-b border-slate-100">
                     <div>
-                        <h2 id="table-title" class="text-xl font-bold text-emerald-600 flex items-center gap-2"></h2>
+                        <h2 id="table-title" class="text-xl font-bold text-emerald-600 flex items-center gap-2">
+                            <i class="fa-solid fa-users"></i> จัดการผู้ใช้งานระบบ
+                        </h2>
                         <p id="table-desc" class="text-xs text-slate-400 mt-1">ดับเบิ้ลคลิกที่เซลล์ในตารางเพื่อ ✏️ แก้ไขข้อมูล</p>
                     </div>
                     <div class="flex gap-2">
@@ -155,11 +173,14 @@
                     </div>
                 </div>
 
+                <!-- 🛠️ ACTION TOOLBAR -->
                 <div class="flex justify-between items-center bg-slate-50 px-5 py-3 border-b border-slate-200">
+                    <!-- ค้นหา -->
                     <div class="relative w-72">
                         <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400"></i>
                         <input type="text" id="global-search" placeholder="ค้นหาข้อมูลในตารางนี้..." class="pl-9 pr-3 py-2 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
                     </div>
+                    <!-- ปุ่ม Action -->
                     <div class="flex gap-2">
                         <button onclick="addNewRow()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm">
                             <i class="fa-solid fa-plus"></i> เพิ่มรายการ
@@ -170,6 +191,7 @@
                     </div>
                 </div>
 
+                <!-- Handsontable Container -->
                 <div class="flex-1 relative w-full overflow-hidden bg-white">
                     <div id="hot-master-container" class="w-full h-full z-0 relative"></div>
                 </div>
@@ -179,7 +201,7 @@
 
     <!-- Modal ซ่อน/แสดงคอลัมน์ -->
     <div id="col-toggle-modal" class="hidden absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]">
             <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                 <h3 class="font-bold text-slate-800 text-lg"><i class="fa-solid fa-eye mr-2 text-emerald-600"></i> ซ่อน/แสดงคอลัมน์</h3>
                 <button onclick="closeColToggleModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
@@ -189,6 +211,7 @@
     </div>
 
     <script>
+        // --- 🔒 Guard & Auth ---
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('tms_user');
             if (!savedUser) { window.location.href = '/login.html'; return; }
@@ -218,54 +241,66 @@
 
         const masterConfigs = {
             users: {
-                title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users', endpoint: '/api/users',
+                title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users',
+                endpoint: '/api/users',
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'กลุ่มสิทธิ์ (Role)', 'สถานะ (Status)'],
-                columns: [
-                    { readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
-                    { type: 'autocomplete', strict: true, trimDropdown: false, source: function(query, process) { 
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { 
+                    type: 'autocomplete', trimDropdown: false, strict: true, 
+                    source: function(query, process) { 
                         if (!query) return process(globalRolesList);
                         process(globalRolesList.filter(r => r.toLowerCase().includes(query.toLowerCase())));
-                    }}, 
-                    { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }
-                ]
+                    } 
+                }, { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE'] }]
             },
             roles: {
-                title: 'จัดการกลุ่มสิทธิ์ (Roles)', icon: 'fa-user-shield', endpoint: '/api/roles',
+                title: 'จัดการกลุ่มสิทธิ์ (Roles & Permissions)', icon: 'fa-user-shield',
+                endpoint: '/api/roles',
                 headers: ['ID', 'ชื่อกลุ่มสิทธิ์', '1.มอนิเตอร์', '2.สร้างบุคกิ้ง', '3.จัดคนขับ', '4.วางบิล', '5.จัดการระบบ(Admin)'],
                 columns: [ { readOnly: true }, { type: 'text' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' } ]
             },
             trucks: {
-                title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck', endpoint: '/api/trucks',
+                title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck',
+                endpoint: '/api/trucks',
                 headers: ['ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ'],
-                columns: [{ readOnly: true }, { type: 'text' }, { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }]
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'dropdown', trimDropdown: false, source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }]
             },
             driver_info: {
-                title: 'จัดการพนักงานขับรถ (Drivers)', icon: 'fa-id-card', endpoint: '/api/driver_info',
+                title: 'จัดการพนักงานขับรถ (Drivers)', icon: 'fa-id-card',
+                endpoint: '/api/driver_info',
                 headers: ['ID', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'เบอร์โทรศัพท์', 'สถานะ'],
-                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }]
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }]
             },
             truck_assignments: {
-                title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link', endpoint: '/api/truck_assignments',
+                title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link',
+                endpoint: '/api/truck_assignments',
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'คนขับประจำคัน'],
                 columns: [
                     { readOnly: true }, 
-                    { type: 'autocomplete', strict: false, filter: false, trimDropdown: false, source: function(query, process) { 
-                        if (!query) return process(globalTruckList);
-                        process(globalTruckList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
-                    }}, 
-                    { type: 'autocomplete', strict: false, filter: false, trimDropdown: false, source: function(query, process) { 
-                        if (!query) return process(globalDriverList);
-                        process(globalDriverList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
-                    }}
+                    { 
+                        type: 'autocomplete', trimDropdown: false, strict: false, filter: false,
+                        source: function(query, process) { 
+                            if (!query) return process(globalTruckList);
+                            process(globalTruckList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
+                        } 
+                    }, 
+                    { 
+                        type: 'autocomplete', trimDropdown: false, strict: false, filter: false,
+                        source: function(query, process) { 
+                            if (!query) return process(globalDriverList);
+                            process(globalDriverList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
+                        } 
+                    }
                 ]
             },
             customers: {
-                title: 'จัดการข้อมูลลูกค้า (Customers)', icon: 'fa-building', endpoint: '/api/customers',
+                title: 'จัดการข้อมูลลูกค้า (Customers)', icon: 'fa-building',
+                endpoint: '/api/customers',
                 headers: ['Customer No.', 'Customer Name', 'ชื่อลูกค้าย่อ', 'Billing Name', 'Phone Number', 'Address', 'Tax ID'],
                 columns: Array(7).fill({ type: 'text' })
             },
             rates: {
-                title: 'จัดการเรทราคาค่าเที่ยว (Rates)', icon: 'fa-hand-holding-dollar', endpoint: '/api/rates',
+                title: 'จัดการเรทราคาค่าเที่ยว (Rates)', icon: 'fa-hand-holding-dollar',
+                endpoint: '/api/rates',
                 headers: ["ชื่องาน", "ลูกค้า", "ต้นทาง", "ปลายทาง", "วิ่งงาน", "จำนวนตู้/ใบ", "ประเภทงาน", "ค่าเที่ยว 6W", "ค่าเที่ยว 10W", "ค่าเที่ยว 12W*2", "ค่าเที่ยวเงินสด", "ค่าขนส่ง 6W", "ค่าขนส่ง 10W", "ค่าขนส่ง 12W*2", "งานเงินสด"],
                 columns: Array(15).fill({ type: 'text' })
             }
@@ -323,7 +358,8 @@
                 originalTableData = JSON.parse(JSON.stringify(safeData)); 
 
                 const uiState = getUIState('master_' + type);
-                
+
+                // แทรกรหัสคอลัมน์ปุ่ม "ลบ" แบบอัตโนมัติในทุกๆ หน้า
                 let dynamicHeaders = [...cfg.headers, 'จัดการ'];
                 let dynamicColumns = [...cfg.columns, { 
                     readOnly: true, 
@@ -353,7 +389,9 @@
                         if (this.instance) {
                             let physicalRow = this.instance.toPhysicalRow(row);
                             let rowData = this.instance.getSourceDataAtRow(physicalRow);
-                            if (rowData && rowData._isUnsaved) { cp.className = 'ht-unsaved'; }
+                            if (rowData && rowData._isUnsaved) {
+                                cp.className = 'ht-unsaved';
+                            }
                         }
                         return cp;
                     },
@@ -361,6 +399,7 @@
                         if (source !== 'loadData' && changes) {
                             let needsRender = false;
                             let autoFills = [];
+                            
                             changes.forEach(([row, prop, oldValue, newValue]) => {
                                 if (oldValue !== newValue) {
                                     let physicalRow = this.toPhysicalRow(row);
@@ -378,8 +417,12 @@
                                     }
                                 }
                             });
-                            if (autoFills.length > 0) this.setDataAtCell(autoFills, 'autoFill');
-                            else if (needsRender) this.render();
+                            
+                            if (autoFills.length > 0) {
+                                this.setDataAtCell(autoFills, 'autoFill');
+                            } else if (needsRender) {
+                                this.render();
+                            }
                         }
                     },
                     afterColumnResize: function() { saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); }
@@ -411,9 +454,10 @@
             hotMasterInstance.render(); 
         }
 
+        // ฟังก์ชันลบแถวเดี่ยว
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
-            if (confirm(`⚠️ ยืนยันการลบข้อมูลในแถวที่ ${row + 1} ใช่หรือไม่?\n(ต้องกด 'บันทึกตาราง' ด้วย)`)) {
+            if (confirm(`⚠️ ยืนยันการลบข้อมูลในแถวที่ ${row + 1} ใช่หรือไม่?\n(ข้อมูลจะถูกลบออกจากตารางชั่วคราว คุณต้องกด 'บันทึกตาราง' เพื่อลบออกจากฐานข้อมูลจริงๆ)`)) {
                 hotMasterInstance.alter('remove_row', row, 1);
                 originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
             }
@@ -422,14 +466,17 @@
         function deleteSelectedRow() {
             if (!hotMasterInstance) return;
             const selected = hotMasterInstance.getSelected(); 
+            
             if (selected && selected.length > 0) {
                 const startRow = Math.min(selected[0][0], selected[0][2]);
-                const amount = Math.max(selected[0][0], selected[0][2]) - startRow + 1;
-                if (confirm(`⚠ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?`)) {
+                const endRow = Math.max(selected[0][0], selected[0][2]);
+                const amount = endRow - startRow + 1;
+
+                if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n(คุณต้องกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อยืนยันการลบออกจากระบบจริงๆ)`)) {
                     hotMasterInstance.alter('remove_row', startRow, amount);
                     originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
                 }
-            } else { alert('🖱️ กรุณาคลิกเลือกแถวในตารางก่อนครับ'); }
+            } else { alert('🖱️ กรุณาคลิกเลือกแถวในตารางที่ต้องการลบก่อนครับ'); }
         }
 
         async function saveCurrentMaster() {
@@ -464,7 +511,7 @@
             masterConfigs[currentMasterType].headers.forEach((header, index) => {
                 const isChecked = !hiddenCols.includes(index) ? 'checked' : '';
                 html += `
-                    <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 cursor-pointer">
+                    <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 cursor-pointer transition-colors">
                         <input type="checkbox" class="w-5 h-5 accent-emerald-600 rounded" ${isChecked} onchange="toggleMasterColumn(${index}, this.checked)">
                         <span class="font-medium text-slate-700 text-sm">${header}</span>
                     </label>`;

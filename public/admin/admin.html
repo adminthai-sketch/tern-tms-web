@@ -48,7 +48,7 @@
             z-index: 9999 !important;
         }
 
-        /* 🎯 ปลดล็อกความสูงของกล่อง Dropdown (Overriding Inline Style Height) */
+        /* 🎯 ปลดล็อกความสูงของกล่อง Dropdown */
         div.handsontable.listbox,
         .handsontable.listbox {
             height: auto !important;
@@ -106,7 +106,6 @@
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
 
-    <!-- 🟢 TOP HEADER -->
     <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-shield-halved"></i></div>
@@ -126,7 +125,6 @@
     </header>
 
     <div class="flex-1 flex overflow-hidden">
-        <!-- 🟢 SIDEBAR -->
         <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
             <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">System Setup</div>
             
@@ -157,11 +155,8 @@
             </a>
         </nav>
 
-        <!-- 🟢 MAIN WORKSPACE -->
         <main class="flex-1 p-6 overflow-hidden flex flex-col relative bg-bglight">
             <div class="h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200">
-                
-                <!-- หัวข้อตาราง -->
                 <div class="flex justify-between items-center p-5 border-b border-slate-100">
                     <div>
                         <h2 id="table-title" class="text-xl font-bold text-emerald-600 flex items-center gap-2">
@@ -179,7 +174,6 @@
                     </div>
                 </div>
 
-                <!-- 🛠️ ACTION TOOLBAR -->
                 <div class="flex justify-between items-center bg-slate-50 px-5 py-3 border-b border-slate-200">
                     <div class="relative w-72">
                         <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400"></i>
@@ -195,7 +189,6 @@
                     </div>
                 </div>
 
-                <!-- Handsontable Container -->
                 <div class="flex-1 relative w-full overflow-hidden bg-white">
                     <div id="hot-master-container" class="w-full h-full z-0 relative"></div>
                 </div>
@@ -242,7 +235,7 @@
         let globalTruckList = [];
         let globalDriverList = [];
 
-        // 🎯 เก็บข้อมูลประเภทรถของแต่ละทะเบียน เพื่อใช้โชว์อัตโนมัติ
+        // 🎯 เก็บข้อมูลประเภทรถ
         let globalTruckTypeMap = {}; 
 
         const masterConfigs = {
@@ -277,12 +270,10 @@
             truck_assignments: {
                 title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link',
                 endpoint: '/api/truck_assignments',
-                // 🎯 เพิ่ม Header "ประเภทรถ"
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'ประเภทรถ', 'คนขับประจำคัน'],
                 columns: [
                     { readOnly: true }, 
                     { type: 'dropdown', source: function(query, process) { process(globalTruckList); } }, 
-                    // 🎯 ตั้งคอลัมน์ประเภทรถให้อ่านอย่างเดียว (ดึงค่ามาแสดง) 
                     { type: 'text', readOnly: true, className: 'htMiddle' }, 
                     { type: 'dropdown', source: function(query, process) { process(globalDriverList); } }
                 ]
@@ -329,7 +320,6 @@
                 const response = await fetch(cfg.endpoint);
                 const result = await response.json();
                 
-                // โหลดข้อมูลเสริมจาก API สำหรับตารางที่มี Dropdown
                 if(type === 'users' && result.roleList) globalRolesList = result.roleList;
                 if(type === 'truck_assignments' && result.truckList && result.driverList) {
                     globalTruckList = result.truckList;
@@ -337,10 +327,9 @@
                     
                     window.truckToDriverMap = {};
                     window.driverToTruckMap = {};
-                    
                     if(result.data) {
                         result.data.forEach(row => {
-                            if(row[1] && row[3]) { // ป้ายทะเบียน [1] ผูกกับคนขับ [3]
+                            if(row[1] && row[3]) { // แก้ให้ดึงคนขับจากช่อง 3
                                 window.truckToDriverMap[row[1]] = row[3];
                                 window.driverToTruckMap[row[3]] = row[1];
                             }
@@ -348,14 +337,14 @@
                     }
                 }
 
-                // 🎯 เมื่อเปิดหน้าอื่นๆ ขอแอบโหลดข้อมูลรถมาสร้าง Map ประเภทรถไว้ใช้ตอนดึงแสดงผล
+                // แอบโหลดประเภทรถมาเตรียมไว้
                 if (type === 'truck_assignments') {
                     try {
                         const truckRes = await fetch('/api/trucks');
                         const truckResult = await truckRes.json();
                         if (truckResult.data) {
                             truckResult.data.forEach(t => {
-                                if(t[1] && t[2]) globalTruckTypeMap[t[1]] = t[2]; // ทะเบียน : ประเภทรถ
+                                if(t[1] && t[2]) globalTruckTypeMap[t[1]] = t[2];
                             });
                         }
                     } catch(e) {}
@@ -366,12 +355,11 @@
 
                 let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(cfg.headers.length).fill("")];
                 
-                // 🎯 หากโหลดข้อมูลตาราง Assignments ให้ดึงประเภทรถมาโชว์ใน Index 2 ก่อน
-                if (type === 'truck_assignments') {
-                    safeData.forEach(row => {
-                        if(row[1] && globalTruckTypeMap[row[1]]) {
-                            row[2] = globalTruckTypeMap[row[1]]; // เติมประเภทรถ
-                        }
+                // 🎯 แทรกประเภทรถเข้าไปใน Index 2 และดันชื่อคนขับไป Index 3
+                if (type === 'truck_assignments' && result.data && result.data.length > 0) {
+                    safeData = safeData.map(row => {
+                        let tType = (row[1] && globalTruckTypeMap[row[1]]) ? globalTruckTypeMap[row[1]] : "";
+                        return [row[0], row[1], tType, row[2]]; 
                     });
                 }
                 
@@ -412,7 +400,6 @@
                                 cp.className = 'ht-unsaved';
                             }
                             
-                            // เปลี่ยนสีพื้นหลังคอลัมน์ประเภทรถให้ดูเป็นแถบอ่านได้อย่างเดียว
                             if (currentMasterType === 'truck_assignments' && col === 2) {
                                 cp.className = (cp.className || '') + ' bg-slate-50 text-slate-500';
                             }
@@ -433,20 +420,16 @@
 
                                     if (currentMasterType === 'truck_assignments') {
                                         const col = this.propToCol(prop);
-                                        // ถ้าเลือกรถ (Col 1)
                                         if (col === 1 && newValue) {
-                                            // ดึงประเภทรถใส่ Col 2
                                             if (globalTruckTypeMap[newValue]) {
                                                 autoFills.push([row, 2, globalTruckTypeMap[newValue]]);
                                             } else {
                                                 autoFills.push([row, 2, ""]);
                                             }
-                                            // ดึงคนขับอัตโนมัติใส่ Col 3
                                             if (window.truckToDriverMap && window.truckToDriverMap[newValue]) {
                                                 autoFills.push([row, 3, window.truckToDriverMap[newValue]]);
                                             }
                                         } 
-                                        // ถ้าเลือกคนขับ (Col 3) ให้ดึงรถและประเภทรถใส่กลับไป
                                         else if (col === 3 && newValue && window.driverToTruckMap && window.driverToTruckMap[newValue]) {
                                             let truckPlate = window.driverToTruckMap[newValue];
                                             autoFills.push([row, 1, truckPlate]);
@@ -527,13 +510,13 @@
 
             const cfg = masterConfigs[currentMasterType];
             
-            // 🎯 ก่อนบันทึก หากเป็นตาราง Assignments ให้ถอดคอลัมน์ "ประเภทรถ" (Index 2) ออกก่อนส่ง API เพราะฐานข้อมูลไม่ได้เก็บฟิลด์นี้ซ้ำ
+            // ถอดคอลัมน์ "ประเภทรถ" ออกก่อนบันทึก
             let dataToSave = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
             
             if (currentMasterType === 'truck_assignments') {
                 dataToSave = dataToSave.map(r => {
                     let cleaned = [...r];
-                    cleaned.splice(2, 1); // ตัด Index 2 ทิ้ง
+                    cleaned.splice(2, 1); 
                     return cleaned;
                 });
             }

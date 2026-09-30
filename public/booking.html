@@ -617,12 +617,16 @@
 
             hotBookingInstance.alter('insert_row_above', 0, rowCount);
             hotBookingInstance.populateFromArray(0, 0, newRows);
+            
             document.getElementById('jobNameInput').value = '';
             document.getElementById('jobPreviewBox').classList.add('hidden');
             document.getElementById('pMode').value = ''; 
             
-            document.getElementById('tab-content-grid').scrollIntoView({ behavior: 'smooth' });
-            alert(`✅ สร้างรายการสำเร็จ! ข้อมูลถูกพ่นลงตารางด้านล่าง ${rowCount} แถว เรียบร้อยแล้ว`);
+            // 💡 เด้งจอลงไปที่ตารางอัตโนมัติ
+            document.getElementById('grid-section').scrollIntoView({ behavior: 'smooth' });
+
+            // 🟢 เพิ่มบรรทัดนี้ลงไป เพื่อสั่งให้ระบบบันทึกลงฐานข้อมูลทันที!
+            saveShipments(); 
         }
 
         function buildSmartFilters() {

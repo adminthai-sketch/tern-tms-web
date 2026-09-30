@@ -39,8 +39,8 @@
         .handsontableInput { 
             border-radius: 6px !important;
             border: 2px solid #0ea5e9 !important; 
-            min-width: 220px !important; 
-            max-width: 350px !important; 
+            min-width: 250px !important; 
+            max-width: 400px !important; 
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
             padding: 8px 12px !important;
             font-size: 14px !important;
@@ -49,8 +49,10 @@
         }
 
         /* 🎯 ปลดล็อกความสูงของกล่อง Dropdown (Overriding Inline Style Height) */
+        div.handsontable.listbox,
         .handsontable.listbox {
             height: auto !important;
+            min-height: 250px !important;
             max-height: 400px !important;
             border-radius: 8px !important;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
@@ -60,14 +62,16 @@
             overflow: visible !important;
         }
 
-        .handsontable.listbox .ht_master {
+        div.handsontable.listbox .ht_master,
+        div.handsontable.listbox .wtHolder,
+        div.handsontable.listbox .wtHider,
+        div.handsontable.listbox .wtSpreader {
             height: auto !important;
-            max-height: 400px !important;
+            min-height: 230px !important;
+            max-height: 380px !important;
         }
 
-        .handsontable.listbox .wtHolder {
-            height: auto !important;
-            max-height: 400px !important;
+        div.handsontable.listbox .wtHolder {
             overflow-y: auto !important;
             overflow-x: hidden !important;
         }
@@ -163,7 +167,7 @@
                         <h2 id="table-title" class="text-xl font-bold text-emerald-600 flex items-center gap-2">
                             <i class="fa-solid fa-users"></i> จัดการผู้ใช้งานระบบ
                         </h2>
-                        <p id="table-desc" class="text-xs text-slate-400 mt-1">ดับเบิ้ลคลิกที่เซลล์ในตารางเพื่อ ✏️️ แก้ไขข้อมูล</p>
+                        <p id="table-desc" class="text-xs text-slate-400 mt-1">ดับเบิ้ลคลิกที่เซลล์ในตารางเพื่อ ✏ แก้ไขข้อมูล</p>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm">
@@ -238,6 +242,9 @@
         let globalTruckList = [];
         let globalDriverList = [];
 
+        // 🎯 เก็บข้อมูลประเภทรถของแต่ละทะเบียน เพื่อใช้โชว์อัตโนมัติ
+        let globalTruckTypeMap = {}; 
+
         const masterConfigs = {
             users: {
                 title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users',
@@ -245,8 +252,8 @@
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'กลุ่มสิทธิ์ (Role)', 'สถานะ (Status)'],
                 columns: [
                     { readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
-                    { type: 'autocomplete', trimDropdown: false, strict: true, source: function(query, process) { if (!query) return process(globalRolesList); process(globalRolesList.filter(r => r.toLowerCase().includes(query.toLowerCase()))); } }, 
-                    { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE'] }
+                    { type: 'dropdown', source: function(query, process) { process(globalRolesList); } }, 
+                    { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }
                 ]
             },
             roles: {
@@ -259,34 +266,25 @@
                 title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck',
                 endpoint: '/api/trucks',
                 headers: ['ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ'],
-                columns: [{ readOnly: true }, { type: 'text' }, { type: 'dropdown', trimDropdown: false, source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }]
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }]
             },
             driver_info: {
                 title: 'จัดการพนักงานขับรถ (Drivers)', icon: 'fa-id-card',
                 endpoint: '/api/driver_info',
                 headers: ['ID', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'เบอร์โทรศัพท์', 'สถานะ'],
-                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }]
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }]
             },
             truck_assignments: {
                 title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link',
                 endpoint: '/api/truck_assignments',
-                headers: ['ID', 'ป้ายทะเบียนรถ', 'คนขับประจำคัน'],
+                // 🎯 เพิ่ม Header "ประเภทรถ"
+                headers: ['ID', 'ป้ายทะเบียนรถ', 'ประเภทรถ', 'คนขับประจำคัน'],
                 columns: [
                     { readOnly: true }, 
-                    { 
-                        type: 'autocomplete', trimDropdown: false, strict: false, filter: false,
-                        source: function(query, process) { 
-                            if (!query) return process(globalTruckList);
-                            process(globalTruckList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
-                        } 
-                    }, 
-                    { 
-                        type: 'autocomplete', trimDropdown: false, strict: false, filter: false,
-                        source: function(query, process) { 
-                            if (!query) return process(globalDriverList);
-                            process(globalDriverList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
-                        } 
-                    }
+                    { type: 'dropdown', source: function(query, process) { process(globalTruckList); } }, 
+                    // 🎯 ตั้งคอลัมน์ประเภทรถให้อ่านอย่างเดียว (ดึงค่ามาแสดง) 
+                    { type: 'text', readOnly: true, className: 'htMiddle' }, 
+                    { type: 'dropdown', source: function(query, process) { process(globalDriverList); } }
                 ]
             },
             customers: {
@@ -331,6 +329,7 @@
                 const response = await fetch(cfg.endpoint);
                 const result = await response.json();
                 
+                // โหลดข้อมูลเสริมจาก API สำหรับตารางที่มี Dropdown
                 if(type === 'users' && result.roleList) globalRolesList = result.roleList;
                 if(type === 'truck_assignments' && result.truckList && result.driverList) {
                     globalTruckList = result.truckList;
@@ -338,20 +337,44 @@
                     
                     window.truckToDriverMap = {};
                     window.driverToTruckMap = {};
+                    
                     if(result.data) {
                         result.data.forEach(row => {
-                            if(row[1] && row[2]) {
-                                window.truckToDriverMap[row[1]] = row[2];
-                                window.driverToTruckMap[row[2]] = row[1];
+                            if(row[1] && row[3]) { // ป้ายทะเบียน [1] ผูกกับคนขับ [3]
+                                window.truckToDriverMap[row[1]] = row[3];
+                                window.driverToTruckMap[row[3]] = row[1];
                             }
                         });
                     }
+                }
+
+                // 🎯 เมื่อเปิดหน้าอื่นๆ ขอแอบโหลดข้อมูลรถมาสร้าง Map ประเภทรถไว้ใช้ตอนดึงแสดงผล
+                if (type === 'truck_assignments') {
+                    try {
+                        const truckRes = await fetch('/api/trucks');
+                        const truckResult = await truckRes.json();
+                        if (truckResult.data) {
+                            truckResult.data.forEach(t => {
+                                if(t[1] && t[2]) globalTruckTypeMap[t[1]] = t[2]; // ทะเบียน : ประเภทรถ
+                            });
+                        }
+                    } catch(e) {}
                 }
                 
                 const container = document.getElementById('hot-master-container');
                 if (hotMasterInstance) hotMasterInstance.destroy();
 
                 let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(cfg.headers.length).fill("")];
+                
+                // 🎯 หากโหลดข้อมูลตาราง Assignments ให้ดึงประเภทรถมาโชว์ใน Index 2 ก่อน
+                if (type === 'truck_assignments') {
+                    safeData.forEach(row => {
+                        if(row[1] && globalTruckTypeMap[row[1]]) {
+                            row[2] = globalTruckTypeMap[row[1]]; // เติมประเภทรถ
+                        }
+                    });
+                }
+                
                 originalTableData = JSON.parse(JSON.stringify(safeData)); 
 
                 const uiState = getUIState('master_' + type);
@@ -388,6 +411,11 @@
                             if (rowData && rowData._isUnsaved) {
                                 cp.className = 'ht-unsaved';
                             }
+                            
+                            // เปลี่ยนสีพื้นหลังคอลัมน์ประเภทรถให้ดูเป็นแถบอ่านได้อย่างเดียว
+                            if (currentMasterType === 'truck_assignments' && col === 2) {
+                                cp.className = (cp.className || '') + ' bg-slate-50 text-slate-500';
+                            }
                         }
                         return cp;
                     },
@@ -405,10 +433,26 @@
 
                                     if (currentMasterType === 'truck_assignments') {
                                         const col = this.propToCol(prop);
-                                        if (col === 1 && newValue && window.truckToDriverMap && window.truckToDriverMap[newValue]) {
-                                            autoFills.push([row, 2, window.truckToDriverMap[newValue]]);
-                                        } else if (col === 2 && newValue && window.driverToTruckMap && window.driverToTruckMap[newValue]) {
-                                            autoFills.push([row, 1, window.driverToTruckMap[newValue]]);
+                                        // ถ้าเลือกรถ (Col 1)
+                                        if (col === 1 && newValue) {
+                                            // ดึงประเภทรถใส่ Col 2
+                                            if (globalTruckTypeMap[newValue]) {
+                                                autoFills.push([row, 2, globalTruckTypeMap[newValue]]);
+                                            } else {
+                                                autoFills.push([row, 2, ""]);
+                                            }
+                                            // ดึงคนขับอัตโนมัติใส่ Col 3
+                                            if (window.truckToDriverMap && window.truckToDriverMap[newValue]) {
+                                                autoFills.push([row, 3, window.truckToDriverMap[newValue]]);
+                                            }
+                                        } 
+                                        // ถ้าเลือกคนขับ (Col 3) ให้ดึงรถและประเภทรถใส่กลับไป
+                                        else if (col === 3 && newValue && window.driverToTruckMap && window.driverToTruckMap[newValue]) {
+                                            let truckPlate = window.driverToTruckMap[newValue];
+                                            autoFills.push([row, 1, truckPlate]);
+                                            if (globalTruckTypeMap[truckPlate]) {
+                                                autoFills.push([row, 2, globalTruckTypeMap[truckPlate]]);
+                                            }
                                         }
                                     }
                                 }
@@ -482,13 +526,23 @@
             btn.disabled = true;
 
             const cfg = masterConfigs[currentMasterType];
-            const cleanData = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
+            
+            // 🎯 ก่อนบันทึก หากเป็นตาราง Assignments ให้ถอดคอลัมน์ "ประเภทรถ" (Index 2) ออกก่อนส่ง API เพราะฐานข้อมูลไม่ได้เก็บฟิลด์นี้ซ้ำ
+            let dataToSave = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
+            
+            if (currentMasterType === 'truck_assignments') {
+                dataToSave = dataToSave.map(r => {
+                    let cleaned = [...r];
+                    cleaned.splice(2, 1); // ตัด Index 2 ทิ้ง
+                    return cleaned;
+                });
+            }
 
             try {
                 const response = await fetch(cfg.endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: cleanData })
+                    body: JSON.stringify({ data: dataToSave })
                 });
                 const result = await response.json();
                 if (result.success) {

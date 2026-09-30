@@ -18,19 +18,17 @@
     <style>
         .ht-unsaved { background-color: #fef08a !important; }
                 
-        /* 🎯 ปรับแต่งกล่อง Pop-up Dropdown (Autocomplete) สัดส่วนใหม่ */
+        /* 🎯 เคลียร์ปัญหา Dropdown ล้น/ตกขอบ ขั้นเด็ดขาด */
+        div.handsontable.listbox,
         .handsontable.listbox {
-            border-radius: 8px !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-            border: 1.5px solid #0ea5e9 !important;
-            margin-top: 4px !important;
-            z-index: 10000 !important;
-            overflow: hidden !important;
-            
-            /* ลดความกว้างลงให้พอดี และไม่ล้นจอ */
-            min-width: 250px !important; 
-            max-width: 500px !important;
+            min-width: 300px !important; /* ปรับให้พอดี ไม่ใหญ่เกินไป */
+            max-width: 450px !important;
             width: auto !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
+            border: 2px solid #0ea5e9 !important;
+            margin-top: 2px !important;
+            z-index: 99999 !important; /* ดันให้อยู่บนสุดเสมอ */
         }
 
         .handsontable.listbox .ht_master table {
@@ -39,21 +37,22 @@
             width: 100% !important;
         }
 
-        /* เพิ่มความยาว (ความสูง) ให้เห็นรายการเยอะขึ้น */
+        /* เพิ่มความยาว (ความสูง) ของกล่อง */
         .handsontable.listbox .ht_master .wtHolder {
-            max-height: 450px !important; 
+            max-height: 250px !important; /* ความสูงกำลังดี ไม่ทะลุจอ */
+            overflow-y: auto !important;
             overflow-x: hidden !important;
         }
 
         .handsontable.listbox td {
-            padding: 10px 16px !important;
+            padding: 10px 14px !important;
             font-size: 14px !important;
             color: #334155 !important;
             border: none !important;
             border-bottom: 1px solid #f1f5f9 !important;
             cursor: pointer !important;
             transition: all 0.2s ease !important;
-            white-space: nowrap !important;
+            white-space: normal !important; /* อนุญาตให้ปัดบรรทัดถ้าชื่อยาวไป */
         }
 
         .handsontable.listbox tr:last-child td {
@@ -67,20 +66,20 @@
             font-weight: 600 !important;
         }
 
-        /* ตกแต่งกล่องพิมพ์ (Input) ให้กว้างและมองเห็นชัด */
+        /* ตกแต่งกล่องพิมพ์ (Input) ที่เรากำลังพิมพ์อยู่ */
         .handsontableInput { 
             border-radius: 6px !important;
             border: 2px solid #0ea5e9 !important;
-            min-width: 220px !important; 
+            min-width: 250px !important; 
             max-width: 400px !important; 
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
             padding: 8px 12px !important;
             font-size: 14px !important;
             color: #0f4c81 !important;
-            z-index: 9999 !important;
+            z-index: 99999 !important; /* ดันให้อยู่บนสุด */
         }
 
-        /* ปุ่มลบแถว (Action Button) */
+        /* ปุ่มลบแถว */
         .btn-action-delete {
             background-color: #fee2e2;
             color: #ef4444;
@@ -175,12 +174,10 @@
 
                 <!-- 🛠️ ACTION TOOLBAR -->
                 <div class="flex justify-between items-center bg-slate-50 px-5 py-3 border-b border-slate-200">
-                    <!-- ค้นหา -->
                     <div class="relative w-72">
                         <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400"></i>
                         <input type="text" id="global-search" placeholder="ค้นหาข้อมูลในตารางนี้..." class="pl-9 pr-3 py-2 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
                     </div>
-                    <!-- ปุ่ม Action -->
                     <div class="flex gap-2">
                         <button onclick="addNewRow()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm">
                             <i class="fa-solid fa-plus"></i> เพิ่มรายการ
@@ -211,7 +208,6 @@
     </div>
 
     <script>
-        // --- 🔒 Guard & Auth ---
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('tms_user');
             if (!savedUser) { window.location.href = '/login.html'; return; }
@@ -359,7 +355,6 @@
 
                 const uiState = getUIState('master_' + type);
 
-                // แทรกรหัสคอลัมน์ปุ่ม "ลบ" แบบอัตโนมัติในทุกๆ หน้า
                 let dynamicHeaders = [...cfg.headers, 'จัดการ'];
                 let dynamicColumns = [...cfg.columns, { 
                     readOnly: true, 
@@ -454,7 +449,6 @@
             hotMasterInstance.render(); 
         }
 
-        // ฟังก์ชันลบแถวเดี่ยว
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
             if (confirm(`⚠️ ยืนยันการลบข้อมูลในแถวที่ ${row + 1} ใช่หรือไม่?\n(ข้อมูลจะถูกลบออกจากตารางชั่วคราว คุณต้องกด 'บันทึกตาราง' เพื่อลบออกจากฐานข้อมูลจริงๆ)`)) {

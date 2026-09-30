@@ -17,7 +17,75 @@
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .ht-unsaved { background-color: #fef08a !important; }
-        .handsontableInput { min-width: 150px !important; max-width: 300px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important; }
+                
+        /* ตกแต่งกล่อง Pop-up Dropdown (Autocomplete) ให้ดูทันสมัย */
+        .handsontable.listbox {
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid #cbd5e1 !important;
+            margin-top: 4px !important;
+            z-index: 10000 !important;
+            overflow: hidden !important;
+        }
+        .handsontable.listbox .ht_master table {
+            background-color: #ffffff !important;
+            border-collapse: collapse !important;
+            width: 100% !important;
+        }
+        .handsontable.listbox td {
+            padding: 10px 16px !important;
+            font-size: 13.5px !important;
+            color: #475569 !important;
+            border: none !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            white-space: nowrap !important; /* ป้องกันข้อความตกบรรทัด */
+        }
+        .handsontable.listbox tr:last-child td {
+            border-bottom: none !important;
+        }
+        /* สีตอนเอาเมาส์ชี้ หรือใช้ลูกศรเลื่อน */
+        .handsontable.listbox tr:hover td,
+        .handsontable.listbox tr td.current {
+            background-color: #e0f2fe !important; /* สีฟ้าน้ำทะเลอ่อนๆ */
+            color: #0369a1 !important;
+            font-weight: 600 !important;
+        }
+
+        /* ตกแต่งกล่องพิมพ์ (Input) ให้เด่นชัดและกว้างพอ */
+        .handsontableInput { 
+            border-radius: 6px !important;
+            border: 2px solid #0ea5e9 !important; /* ขอบสีฟ้าตอนพิมพ์ */
+            min-width: 220px !important; 
+            max-width: 400px !important; 
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
+            padding: 8px 12px !important;
+            font-size: 14px !important;
+            color: #0f4c81 !important;
+            z-index: 9999 !important;
+        }
+
+        /* เพิ่มความสูงให้กล่อง pop-up มองเห็นรายการได้เยอะขึ้น */
+        .handsontable.listbox .ht_master .wtHolder {
+            max-height: 250px !important; 
+        }
+        
+        /* ปุ่มลบแถว (Action Button) */
+        .btn-action-delete {
+            background-color: #fee2e2;
+            color: #ef4444;
+            border: 1px solid #fca5a5;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-action-delete:hover {
+            background-color: #fecaca;
+            color: #b91c1c;
+        }
     </style>
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
@@ -228,8 +296,15 @@
             }
         };
 
-        function getUIState(tableName) { const user = JSON.parse(localStorage.getItem('tms_user')); return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {}; }
-        function saveUIState(tableName, stateData) { const user = JSON.parse(localStorage.getItem('tms_user')); const existing = getUIState(tableName); localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData })); }
+        function getUIState(tableName) {
+            const user = JSON.parse(localStorage.getItem('tms_user'));
+            return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {};
+        }
+        function saveUIState(tableName, stateData) {
+            const user = JSON.parse(localStorage.getItem('tms_user'));
+            const existing = getUIState(tableName);
+            localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData }));
+        }
 
         async function switchMasterTab(type) {
             currentMasterType = type;
@@ -253,6 +328,18 @@
                 if(type === 'truck_assignments' && result.truckList && result.driverList) {
                     globalTruckList = result.truckList;
                     globalDriverList = result.driverList;
+                    
+                    // Create map for auto-fill (using existing table data)
+                    window.truckToDriverMap = {};
+                    window.driverToTruckMap = {};
+                    if(result.data) {
+                        result.data.forEach(row => {
+                            if(row[1] && row[2]) {
+                                window.truckToDriverMap[row[1]] = row[2];
+                                window.driverToTruckMap[row[2]] = row[1];
+                            }
+                        });
+                    }
                 }
                 
                 const container = document.getElementById('hot-master-container');
@@ -263,10 +350,22 @@
 
                 const uiState = getUIState('master_' + type);
 
+                
+                // แทรกรหัสคอลัมน์ปุ่ม "ลบ" แบบอัตโนมัติในทุกๆ หน้า
+                let dynamicHeaders = [...cfg.headers, 'จัดการ'];
+                let dynamicColumns = [...cfg.columns, { 
+                    readOnly: true, 
+                    renderer: function(instance, td, row, col, prop, value, cellProperties) {
+                        td.innerHTML = `<button class="btn-action-delete" onclick="deleteSingleRow(${row})" title="ลบรายการนี้"><i class="fa-solid fa-trash"></i> ลบ</button>`;
+                        td.className = 'htCenter htMiddle';
+                        return td;
+                    }
+                }];
+                
                 hotMasterInstance = new Handsontable(container, {
                     data: safeData,
-                    colHeaders: cfg.headers,
-                    columns: cfg.columns,
+                    colHeaders: dynamicHeaders,
+                    columns: dynamicColumns,
                     rowHeaders: true,
                     minSpareRows: 1,
                     width: '100%',
@@ -291,15 +390,32 @@
                     afterChange: function(changes, source) {
                         if (source !== 'loadData' && changes) {
                             let needsRender = false;
+                            let autoFills = [];
+                            
                             changes.forEach(([row, prop, oldValue, newValue]) => {
                                 if (oldValue !== newValue) {
                                     let physicalRow = this.toPhysicalRow(row);
                                     let rowData = this.getSourceDataAtRow(physicalRow);
                                     if (rowData) rowData._isUnsaved = true;
                                     needsRender = true;
+
+                                    // Auto-fill logic for Truck Assignments
+                                    if (currentMasterType === 'truck_assignments') {
+                                        const col = this.propToCol(prop);
+                                        if (col === 1 && newValue && window.truckToDriverMap && window.truckToDriverMap[newValue]) {
+                                            autoFills.push([row, 2, window.truckToDriverMap[newValue]]);
+                                        } else if (col === 2 && newValue && window.driverToTruckMap && window.driverToTruckMap[newValue]) {
+                                            autoFills.push([row, 1, window.driverToTruckMap[newValue]]);
+                                        }
+                                    }
                                 }
                             });
-                            if (needsRender) this.render();
+                            
+                            if (autoFills.length > 0) {
+                                this.setDataAtCell(autoFills, 'autoFill');
+                            } else if (needsRender) {
+                                this.render();
+                            }
                         }
                     },
                     afterColumnResize: function() { saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); }
@@ -310,8 +426,13 @@
         document.getElementById('global-search').addEventListener('input', function(e) {
             if (!hotMasterInstance) return;
             const query = e.target.value.toLowerCase().trim();
-            if (!query) { hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData))); return; }
-            const filtered = originalTableData.filter(row => { return row.some(cell => String(cell || '').toLowerCase().includes(query)); });
+            if (!query) {
+                hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData)));
+                return;
+            }
+            const filtered = originalTableData.filter(row => {
+                return row.some(cell => String(cell || '').toLowerCase().includes(query));
+            });
             hotMasterInstance.loadData(filtered.length > 0 ? filtered : [new Array(masterConfigs[currentMasterType].headers.length).fill("")]);
         });
 
@@ -326,6 +447,16 @@
             hotMasterInstance.render(); 
         }
 
+        
+        // ฟังก์ชันลบแถวเดี่ยว
+        function deleteSingleRow(row) {
+            if (!hotMasterInstance) return;
+            if (confirm(`⚠️ ยืนยันการลบข้อมูลในแถวที่ ${row + 1} ใช่หรือไม่?\n(ข้อมูลจะถูกลบออกจากตารางชั่วคราว คุณต้องกด 'บันทึกตาราง' เพื่อลบออกจากฐานข้อมูลจริงๆ)`)) {
+                hotMasterInstance.alter('remove_row', row, 1);
+                originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
+            }
+        }
+
         function deleteSelectedRow() {
             if (!hotMasterInstance) return;
             const selected = hotMasterInstance.getSelected(); 
@@ -335,11 +466,13 @@
                 const endRow = Math.max(selected[0][0], selected[0][2]);
                 const amount = endRow - startRow + 1;
 
-                if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n(คุณต้องกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อยืนยันการลบออกจากระบบจริงๆ)`)) {
+                if (confirm(`⚠️️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n(คุณต้องกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อยืนยันการลบออกจากระบบจริงๆ)`)) {
                     hotMasterInstance.alter('remove_row', startRow, amount);
                     originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
                 }
-            } else { alert('🖱️ กรุณาคลิกเลือกแถวในตารางที่ต้องการลบก่อนครับ'); }
+            } else {
+                alert('🖱️ กรุณาคลิกเลือกแถวในตารางที่ต้องการลบก่อนครับ');
+            }
         }
 
         async function saveCurrentMaster() {
@@ -353,11 +486,15 @@
             const cleanData = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
 
             try {
-                const response = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData }) });
+                const response = await fetch(cfg.endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: cleanData })
+                });
                 const result = await response.json();
                 if (result.success) {
                     alert('✅ ' + result.message);
-                    switchMasterTab(currentMasterType); // รีโหลดข้อมูลใหม่ จะเคลียร์สีเหลืองอัตโนมัติ
+                    switchMasterTab(currentMasterType);
                 } else { alert('❌ เกิดข้อผิดพลาด: ' + result.message); }
             } catch (err) { alert('❌ บันทึกข้อมูลไม่สำเร็จ: ' + err.message); } 
             finally { btn.innerHTML = originalText; btn.disabled = false; }
@@ -369,13 +506,18 @@
             let html = '';
             masterConfigs[currentMasterType].headers.forEach((header, index) => {
                 const isChecked = !hiddenCols.includes(index) ? 'checked' : '';
-                html += `<label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 cursor-pointer transition-colors"><input type="checkbox" class="w-5 h-5 accent-emerald-600 rounded" ${isChecked} onchange="toggleMasterColumn(${index}, this.checked)"><span class="font-medium text-slate-700 text-sm">${header}</span></label>`;
+                html += `
+                    <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 cursor-pointer transition-colors">
+                        <input type="checkbox" class="w-5 h-5 accent-emerald-600 rounded" ${isChecked} onchange="toggleMasterColumn(${index}, this.checked)">
+                        <span class="font-medium text-slate-700 text-sm">${header}</span>
+                    </label>`;
             });
             document.getElementById('col-toggle-container').innerHTML = html;
             document.getElementById('col-toggle-modal').classList.remove('hidden');
         }
 
         function closeColToggleModal() { document.getElementById('col-toggle-modal').classList.add('hidden'); }
+
         function toggleMasterColumn(colIndex, isVisible) {
             const plugin = hotMasterInstance.getPlugin('hiddenColumns');
             if (isVisible) plugin.showColumns([colIndex]); else plugin.hideColumns([colIndex]);

@@ -15,71 +15,11 @@
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
     <link rel="stylesheet" href="../css/style.css">
+    
     <style>
         .ht-unsaved { background-color: #fef08a !important; }
-                
-        /* 🎯 เคลียร์ปัญหา Dropdown ล้น/ตกขอบ ขั้นเด็ดขาด */
-        div.handsontable.listbox,
-        .handsontable.listbox {
-            min-width: 300px !important; /* ปรับให้พอดี ไม่ใหญ่เกินไป */
-            max-width: 450px !important;
-            width: auto !important;
-            border-radius: 8px !important;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
-            border: 2px solid #0ea5e9 !important;
-            margin-top: 2px !important;
-            z-index: 99999 !important; /* ดันให้อยู่บนสุดเสมอ */
-        }
-
-        .handsontable.listbox .ht_master table {
-            background-color: #ffffff !important;
-            border-collapse: collapse !important;
-            width: 100% !important;
-        }
-
-        /* เพิ่มความยาว (ความสูง) ของกล่อง */
-        .handsontable.listbox .ht_master .wtHolder {
-            max-height: 250px !important; /* ความสูงกำลังดี ไม่ทะลุจอ */
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-        }
-
-        .handsontable.listbox td {
-            padding: 10px 14px !important;
-            font-size: 14px !important;
-            color: #334155 !important;
-            border: none !important;
-            border-bottom: 1px solid #f1f5f9 !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-            white-space: normal !important; /* อนุญาตให้ปัดบรรทัดถ้าชื่อยาวไป */
-        }
-
-        .handsontable.listbox tr:last-child td {
-            border-bottom: none !important;
-        }
-
-        .handsontable.listbox tr:hover td,
-        .handsontable.listbox tr td.current {
-            background-color: #e0f2fe !important;
-            color: #0369a1 !important;
-            font-weight: 600 !important;
-        }
-
-        /* ตกแต่งกล่องพิมพ์ (Input) ที่เรากำลังพิมพ์อยู่ */
-        .handsontableInput { 
-            border-radius: 6px !important;
-            border: 2px solid #0ea5e9 !important;
-            min-width: 250px !important; 
-            max-width: 400px !important; 
-            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
-            padding: 8px 12px !important;
-            font-size: 14px !important;
-            color: #0f4c81 !important;
-            z-index: 99999 !important; /* ดันให้อยู่บนสุด */
-        }
-
-        /* ปุ่มลบแถว */
+        
+        /* ปุ่มลบแถว (Action Button) */
         .btn-action-delete {
             background-color: #fee2e2;
             color: #ef4444;
@@ -240,13 +180,12 @@
                 title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users',
                 endpoint: '/api/users',
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'กลุ่มสิทธิ์ (Role)', 'สถานะ (Status)'],
-                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { 
-                    type: 'autocomplete', trimDropdown: false, strict: true, 
-                    source: function(query, process) { 
-                        if (!query) return process(globalRolesList);
-                        process(globalRolesList.filter(r => r.toLowerCase().includes(query.toLowerCase())));
-                    } 
-                }, { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE'] }]
+                columns: [
+                    { readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
+                    // กลับมาใช้ Dropdown แบบมาตรฐานทั้งหมด 👇
+                    { type: 'dropdown', source: function(query, process) { process(globalRolesList); } }, 
+                    { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }
+                ]
             },
             roles: {
                 title: 'จัดการกลุ่มสิทธิ์ (Roles & Permissions)', icon: 'fa-user-shield',
@@ -258,13 +197,13 @@
                 title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck',
                 endpoint: '/api/trucks',
                 headers: ['ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ'],
-                columns: [{ readOnly: true }, { type: 'text' }, { type: 'dropdown', trimDropdown: false, source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }]
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }]
             },
             driver_info: {
                 title: 'จัดการพนักงานขับรถ (Drivers)', icon: 'fa-id-card',
                 endpoint: '/api/driver_info',
                 headers: ['ID', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'เบอร์โทรศัพท์', 'สถานะ'],
-                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', trimDropdown: false, source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }]
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }]
             },
             truck_assignments: {
                 title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link',
@@ -272,20 +211,9 @@
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'คนขับประจำคัน'],
                 columns: [
                     { readOnly: true }, 
-                    { 
-                        type: 'autocomplete', trimDropdown: false, strict: false, filter: false,
-                        source: function(query, process) { 
-                            if (!query) return process(globalTruckList);
-                            process(globalTruckList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
-                        } 
-                    }, 
-                    { 
-                        type: 'autocomplete', trimDropdown: false, strict: false, filter: false,
-                        source: function(query, process) { 
-                            if (!query) return process(globalDriverList);
-                            process(globalDriverList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
-                        } 
-                    }
+                    // กลับมาใช้ Dropdown แบบมาตรฐานทั้งหมด 👇
+                    { type: 'dropdown', source: function(query, process) { process(globalTruckList); } }, 
+                    { type: 'dropdown', source: function(query, process) { process(globalDriverList); } }
                 ]
             },
             customers: {

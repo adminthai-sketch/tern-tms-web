@@ -4,25 +4,17 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "public/**/*",
-      "use": "@vercel/static"
     }
   ],
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/server.js"
-    },
-    {
       "source": "/(.*)",
-      "destination": "/public/$1"
+      "destination": "/server.js"
     }
   ],
   "headers": [
     {
-      "source": "/(.*)\\.html",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

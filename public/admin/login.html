@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERN TMS - เข้าสู่ระบบ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
+    </script>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-2xl mb-4 shadow-sm">
+                <i class="fa-solid fa-truck-fast text-3xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-primary tracking-wide">TERN TMS</h1>
+            <p class="text-sm text-slate-500 mt-1">Operation & Logistics Management System</p>
+        </div>
+        
+        <form id="login-form" class="space-y-5">
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อผู้ใช้งาน (Username)</label>
+                <div class="relative mb-4">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400"><i class="fa-solid fa-user"></i></div>
+                    <input type="text" id="username" required placeholder="ระบุชื่อผู้ใช้..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm transition-all">
+                </div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1.5">รหัสผ่าน (Password)</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400"><i class="fa-solid fa-lock"></i></div>
+                    <input type="password" id="password" required placeholder="ระบุรหัสผ่าน..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm transition-all">
+                </div>
+            </div>
+
+            <div id="login-error" class="hidden bg-red-50 text-red-600 text-sm p-3.5 rounded-xl border border-red-100 flex items-center gap-2">
+                <i class="fa-solid fa-circle-exclamation text-base shrink-0"></i><span id="error-message"></span>
+            </div>
+            
+            <button type="submit" id="btn-login" class="w-full bg-primary hover:bg-blue-900 text-white font-bold py-3 px-4 rounded-xl transition-all flex justify-center items-center gap-2 shadow-lg shadow-primary/20">
+                <span>เข้าสู่ระบบ</span><i class="fa-solid fa-arrow-right-to-bracket"></i>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('tms_user')) window.location.href = '/booking.html';
+        });
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-login');
+            const originalText = btn.innerHTML;
+            const errorBox = document.getElementById('login-error');
+            
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังตรวจสอบ...';
+            btn.disabled = true; errorBox.classList.add('hidden');
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    localStorage.setItem('tms_user', JSON.stringify(result.user));
+                    window.location.href = '/booking.html';
+                } else {
+                    errorBox.classList.remove('hidden');
+                    document.getElementById('error-message').innerText = result.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+                }
+            } catch (error) {
+                errorBox.classList.remove('hidden'); document.getElementById('error-message').innerText = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้';
+            } finally { btn.innerHTML = originalText; btn.disabled = false; }
+        });
+    </script>
+</body>
+</html>

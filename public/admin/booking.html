@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERN TMS - ระบบจัดการบุคกิ้ง (Booking)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
+    </script>
+</head>
+<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-truck-fast"></i></div>
+            <span class="font-bold text-xl text-primary tracking-wide">TERN TMS <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">BOOKING MANAGEMENT</span></span>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <a href="/admin/admin.html" id="btn-admin-nav" class="hidden text-emerald-600 hover:text-emerald-700 font-medium text-sm flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200">
+                <i class="fa-solid fa-shield-halved"></i> Admin Backoffice
+            </a>
+            <div class="text-right hidden sm:block">
+                <div id="user-fullname" class="text-sm font-bold text-slate-700">กำลังโหลด...</div>
+                <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">USER</div>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ"><i class="fa-solid fa-power-off text-lg"></i></button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 p-6 overflow-hidden flex flex-col">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col overflow-hidden">
+            
+            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-list-check text-primary"></i> รายการบุคกิ้งทั้งหมด (Shipments & Operations)</h2>
+                    <p class="text-xs text-slate-400 mt-1">ตารางแสดงรายการบุคกิ้งและตู้สินค้าที่กำลังดำเนินงาน</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="loadShipments()" class="bg-white hover:bg-slate-100 text-slate-600 font-semibold py-2 px-4 rounded-xl border border-slate-200 text-sm flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-rotate"></i> รีเฟรชข้อมูล
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="flex-1 overflow-auto p-4">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 uppercase text-xs border-b border-slate-200">
+                            <th class="p-3 font-semibold">Shipment ID</th>
+                            <th class="p-3 font-semibold">Booking No</th>
+                            <th class="p-3 font-semibold">Mode</th>
+                            <th class="p-3 font-semibold">Customer</th>
+                            <th class="p-3 font-semibold">Origin - Dest</th>
+                            <th class="p-3 font-semibold">Container No</th>
+                            <th class="p-3 font-semibold">Truck Plate</th>
+                            <th class="p-3 font-semibold">Driver</th>
+                            <th class="p-3 font-semibold">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shipment-list-body">
+                        <tr>
+                            <td colspan="9" class="text-center py-8 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูล...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('tms_user');
+            if (!savedUser) { 
+                window.location.href = '/login.html'; 
+                return; 
+            }
+            
+            const user = JSON.parse(savedUser);
+            document.getElementById('user-fullname').innerText = user.fullName;
+            document.getElementById('user-role-badge').innerText = (user.role || 'USER').toUpperCase();
+
+            if ((user.role || '').toUpperCase() === 'ADMIN') {
+                document.getElementById('btn-admin-nav').classList.remove('hidden');
+            }
+
+            loadShipments();
+        });
+
+        function logout() {
+            localStorage.removeItem('tms_user');
+            window.location.href = '/login.html';
+        }
+
+        async function loadShipments() {
+            const tbody = document.getElementById('shipment-list-body');
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูล...</td></tr>';
+
+            try {
+                const response = await fetch('/api/shipments');
+                const result = await response.json();
+
+                if (result.success && result.data && result.data.length > 0) {
+                    tbody.innerHTML = result.data.map(item => `
+                        <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td class="p-3 font-medium text-slate-700">#${item.shipment_id || '-'}</td>
+                            <td class="p-3 font-semibold text-primary">${item.booking_no || '-'}</td>
+                            <td class="p-3"><span class="px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 text-slate-600">${item.mode || '-'}</span></td>
+                            <td class="p-3 text-slate-700">${item.customer_name || '-'}</td>
+                            <td class="p-3 text-slate-500">${item.origin || '-'} ➔ ${item.destination || '-'}</td>
+                            <td class="p-3 font-mono font-medium">${item.container_no || '-'}</td>
+                            <td class="p-3">${item.main_plate || '-'}</td>
+                            <td class="p-3">${item.main_driver || '-'}</td>
+                            <td class="p-3"><span class="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-50 text-amber-600 border border-amber-200">${item.overall_status || 'PENDING'}</span></td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400">ยังไม่มีข้อมูลรายการบุคกิ้งในระบบ</td></tr>';
+                }
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-red-500"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ไม่สามารถดึงข้อมูลจากเซิร์ฟเวอร์ได้</td></tr>';
+            }
+        }
+    </script>
+</body>
+</html>

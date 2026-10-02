@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERN TMS - Admin Backoffice</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }</script>
+    <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
+    
+    <style>
+        .ht-unsaved { background-color: #fef08a !important; }
+        .handsontable th { font-weight: bold !important; }
+        .btn-action-delete { background-color: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; width: 100%; }
+        .btn-action-delete:hover { background-color: #fecaca; color: #b91c1c; }
+        .handsontableInput { border: 2px solid #0ea5e9 !important; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; padding: 6px 12px !important; font-size: 14px !important; color: #0f4c81 !important; font-family: 'Prompt', sans-serif !important; border-radius: 4px !important; width: auto !important; max-width: 350px !important; }
+        div.handsontable.listbox, .handsontable.listbox { height: auto !important; min-height: 120px !important; max-height: 300px !important; border-radius: 8px !important; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important; border: 1px solid #cbd5e1 !important; margin-top: 4px !important; z-index: 10000 !important; }
+        div.handsontable.listbox .ht_master, div.handsontable.listbox .wtHolder { height: auto !important; min-height: 100px !important; max-height: 280px !important; overflow-y: auto !important; overflow-x: hidden !important; }
+        .handsontable.listbox td { padding: 8px 14px !important; font-size: 14px !important; color: #334155 !important; border-bottom: 1px solid #f1f5f9 !important; cursor: pointer !important; white-space: nowrap !important; }
+        .handsontable.listbox tr:hover td, .handsontable.listbox tr td.current { background-color: #e0f2fe !important; color: #0369a1 !important; font-weight: 600 !important; }
+    </style>
+</head>
+<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-shield-halved"></i></div>
+            <span class="font-bold text-xl text-slate-800 tracking-wide">TERN TMS <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold ml-1">ADMIN BACKOFFICE</span></span>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="/index.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"><i class="fa-solid fa-arrow-left"></i> กลับหน้าแรก</a>
+            <div class="text-right hidden sm:block">
+                <div id="user-fullname" class="text-sm font-bold text-slate-700">Admin</div>
+                <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">ADMIN</div>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-power-off text-lg"></i></button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">System Setup</div>
+            <a href="#" onclick="switchMasterTab('users')" id="menu-users" class="sidebar-item active flex items-center gap-3 px-6 py-3 bg-emerald-50 text-emerald-700 border-r-4 border-emerald-600 font-semibold"><i class="fa-solid fa-users w-5 text-center"></i> ผู้ใช้งาน (Users)</a>
+            <a href="#" onclick="switchMasterTab('roles')" id="menu-roles" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 transition-colors"><i class="fa-solid fa-user-shield w-5 text-center"></i> สิทธิ์ (Roles)</a>
+            <div class="px-6 mt-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Fleet Management</div>
+            <a href="#" onclick="switchMasterTab('trucks')" id="menu-trucks" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 transition-colors"><i class="fa-solid fa-truck w-5 text-center"></i> ข้อมูลรถ (Trucks)</a>
+            <a href="#" onclick="switchMasterTab('driver_info')" id="menu-driver_info" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 transition-colors"><i class="fa-solid fa-id-card w-5 text-center"></i> พนักงานขับรถ (Drivers)</a>
+            <a href="#" onclick="switchMasterTab('truck_assignments')" id="menu-truck_assignments" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 transition-colors"><i class="fa-solid fa-link w-5 text-center"></i> จับคู่รถ-คนขับ (Assign)</a>
+            <div class="px-6 mt-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">General Master</div>
+            <a href="#" onclick="switchMasterTab('customers')" id="menu-customers" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 transition-colors"><i class="fa-solid fa-building w-5 text-center"></i> ลูกค้า (Customers)</a>
+            <a href="#" onclick="switchMasterTab('rates')" id="menu-rates" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 transition-colors"><i class="fa-solid fa-hand-holding-dollar w-5 text-center"></i> เรทราคา (Rates)</a>
+        </nav>
+
+        <main class="flex-1 p-6 overflow-hidden flex flex-col relative bg-bglight">
+            <div class="h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center p-5 border-b border-slate-100">
+                    <div>
+                        <h2 id="table-title" class="text-xl font-bold text-emerald-600 flex items-center gap-2"><i class="fa-solid fa-users"></i> จัดการผู้ใช้งานระบบ</h2>
+                        <p id="table-desc" class="text-xs text-slate-400 mt-1">ดับเบิ้ลคลิกที่เซลล์ในตารางเพื่อ ✏️ แก้ไขข้อมูล</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm border border-slate-200"><i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์</button>
+                        <button onclick="saveCurrentMaster()" id="btn-save-master" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm"><i class="fa-solid fa-floppy-disk"></i> บันทึกตาราง</button>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center bg-slate-50 px-5 py-3 border-b border-slate-200">
+                    <div class="relative w-80">
+                        <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400"></i>
+                        <input type="text" id="global-search" placeholder="ค้นหาข้อมูลในตารางนี้แบบรวดเร็ว..." class="pl-9 pr-3 py-2 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="addNewRow()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm"><i class="fa-solid fa-plus"></i> เพิ่มแถวว่าง</button>
+                        <button onclick="deleteSelectedRow()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่ลากคลุม</button>
+                    </div>
+                </div>
+                <div class="flex-1 relative w-full overflow-hidden bg-white">
+                    <div id="hot-master-container" class="w-full h-full z-0 relative"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="col-toggle-modal" class="hidden absolute inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-slate-800 text-lg"><i class="fa-solid fa-eye mr-2 text-emerald-600"></i> ซ่อน/แสดงคอลัมน์</h3>
+                <button onclick="closeColToggleModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="col-toggle-container" class="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto bg-white"></div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('tms_user');
+            if (!savedUser) { window.location.href = '/index.html'; return; }
+            const user = JSON.parse(savedUser);
+            if ((user.role || '').toUpperCase() !== 'ADMIN') { alert('⛔ ไม่มีสิทธิ์เข้าถึง Admin'); window.location.href = '/index.html'; return; }
+            document.getElementById('user-fullname').innerText = user.fullName;
+            switchMasterTab('users');
+        });
+
+        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/index.html'; }
+
+        let currentMasterType = 'users', hotMasterInstance = null, originalTableData = []; 
+        let globalRolesList = ['Admin', 'User', 'Operation'], globalTruckList = [], globalDriverList = [], globalTruckTypeMap = {}; 
+
+        const masterConfigs = {
+            users: {
+                title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users', endpoint: '/api/users',
+                headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล', 'กลุ่มสิทธิ์', 'สถานะ'],
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'autocomplete', strict: true, filter: false, source: function(q, process) { process(globalRolesList.filter(r => String(r).toLowerCase().includes((q||'').toLowerCase()))); } }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }]
+            },
+            roles: {
+                title: 'จัดการกลุ่มสิทธิ์ (Roles)', icon: 'fa-user-shield', endpoint: '/api/roles',
+                headers: ['ID', 'ชื่อกลุ่มสิทธิ์', 'มอนิเตอร์', 'สร้างบุคกิ้ง', 'จัดคนขับ', 'วางบิล', 'Admin'],
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }]
+            },
+            trucks: {
+                title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck', endpoint: '/api/trucks',
+                headers: ['ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ'],
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }]
+            },
+            driver_info: {
+                title: 'จัดการพนักงานขับรถ (Drivers)', icon: 'fa-id-card', endpoint: '/api/driver_info',
+                headers: ['ID', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'เบอร์โทร', 'สถานะ'],
+                columns: [{ readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }]
+            },
+            truck_assignments: {
+                title: 'จับคู่รถ-คนขับประจำคัน', icon: 'fa-link', endpoint: '/api/truck_assignments',
+                headers: ['ID', 'ป้ายทะเบียนรถ', 'ประเภทรถ', 'คนขับประจำคัน'],
+                columns: [{ readOnly: true }, { type: 'autocomplete', strict: false, filter: false, source: function(q, process) { process(globalTruckList.filter(x => String(x).toLowerCase().includes((q||'').toLowerCase()))); } }, { type: 'text', readOnly: true, className: 'htMiddle bg-slate-50' }, { type: 'autocomplete', strict: false, filter: false, source: function(q, process) { process(globalDriverList.filter(x => String(x).toLowerCase().includes((q||'').toLowerCase()))); } }]
+            },
+            customers: {
+                title: 'จัดการลูกค้า (Customers)', icon: 'fa-building', endpoint: '/api/customers',
+                headers: ['Customer No.', 'Customer Name', 'ชื่อลูกค้าย่อ', 'Billing Name', 'Phone Number', 'Address', 'Tax ID'],
+                columns: Array(7).fill({ type: 'text' })
+            },
+            rates: {
+                title: 'จัดการเรทราคา (Rates)', icon: 'fa-hand-holding-dollar', endpoint: '/api/rates',
+                headers: ["ชื่องาน", "ลูกค้า", "ต้นทาง", "ปลายทาง", "วิ่งงาน", "จำนวนตู้", "ประเภทงาน", "เที่ยว 6W", "เที่ยว 10W", "เที่ยว 12W*2", "เที่ยวเงินสด", "ขนส่ง 6W", "ขนส่ง 10W", "ขนส่ง 12W*2", "ขนส่งเงินสด"],
+                columns: Array(15).fill({ type: 'text' })
+            }
+        };
+
+        function getUIState(name) { return JSON.parse(localStorage.getItem(`tms_ui_${name}`)) || {}; }
+        function saveUIState(name, data) { localStorage.setItem(`tms_ui_${name}`, JSON.stringify({ ...getUIState(name), ...data })); }
+
+        async function switchMasterTab(type) {
+            currentMasterType = type; const cfg = masterConfigs[type];
+            document.getElementById('table-title').innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.title}`;
+            document.getElementById('global-search').value = ''; 
+            document.querySelectorAll('.sidebar-item').forEach(b => { b.classList.remove('bg-emerald-50', 'text-emerald-700', 'border-r-4', 'border-emerald-600', 'font-semibold'); b.classList.add('text-slate-600'); });
+            document.getElementById('menu-' + type).classList.add('bg-emerald-50', 'text-emerald-700', 'border-r-4', 'border-emerald-600', 'font-semibold');
+
+            try {
+                const response = await fetch(cfg.endpoint); const result = await response.json();
+                if(type === 'users' && result.roleList) globalRolesList = result.roleList;
+                if(type === 'truck_assignments' && result.truckList && result.driverList) {
+                    globalTruckList = result.truckList; globalDriverList = result.driverList;
+                    window.truckToDriverMap = {}; window.driverToTruckMap = {};
+                    if(result.data) result.data.forEach(row => { if(row[1] && row[3]) { window.truckToDriverMap[row[1]] = row[3]; window.driverToTruckMap[row[3]] = row[1]; } });
+                }
+                if (type === 'truck_assignments') {
+                    const tRes = await fetch('/api/trucks'); const tResult = await tRes.json();
+                    if (tResult.data) tResult.data.forEach(t => { if(t[1] && t[2]) globalTruckTypeMap[t[1]] = t[2]; });
+                }
+                
+                if (hotMasterInstance) hotMasterInstance.destroy();
+                let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(cfg.headers.length).fill("")];
+                if (type === 'truck_assignments') safeData = safeData.map(r => [r[0], r[1], globalTruckTypeMap[r[1]] || "", r[2]]);
+                
+                originalTableData = JSON.parse(JSON.stringify(safeData)); 
+                const uiState = getUIState('master_' + type);
+
+                let dynamicHeaders = [...cfg.headers, 'จัดการ'];
+                let dynamicColumns = [...cfg.columns, { readOnly: true, renderer: function(instance, td, row) { td.innerHTML = `<button class="btn-action-delete" onclick="deleteSingleRow(${row})"><i class="fa-solid fa-trash"></i> ลบ</button>`; td.className = 'htCenter htMiddle'; return td; } }];
+                
+                hotMasterInstance = new Handsontable(document.getElementById('hot-master-container'), {
+                    data: safeData, colHeaders: dynamicHeaders, columns: dynamicColumns, rowHeaders: true, minSpareRows: 1, width: '100%', height: '100%', manualColumnResize: true, manualColumnMove: true,
+                    hiddenColumns: { columns: uiState.hiddenColumns || [], indicators: true }, colWidths: uiState.colWidths, stretchH: type === 'rates' ? 'all' : 'none', licenseKey: 'non-commercial-and-evaluation',
+                    cells: function(row, col) { let cp = {}; if (this.instance && this.instance.getSourceDataAtRow(this.instance.toPhysicalRow(row))?._isUnsaved) cp.className = 'ht-unsaved'; return cp; },
+                    afterChange: function(changes, source) {
+                        if (source !== 'loadData' && changes) {
+                            let autoFills = [], needsRender = false;
+                            changes.forEach(([row, prop, oldV, newV]) => {
+                                if (oldV !== newV) {
+                                    let rowData = this.getSourceDataAtRow(this.toPhysicalRow(row));
+                                    if (rowData) rowData._isUnsaved = true; needsRender = true;
+                                    if (currentMasterType === 'truck_assignments') {
+                                        const col = this.propToCol(prop);
+                                        if (col === 1 && newV) { autoFills.push([row, 2, globalTruckTypeMap[newV] || ""]); if (window.truckToDriverMap?.[newV]) autoFills.push([row, 3, window.truckToDriverMap[newV]]); } 
+                                        else if (col === 3 && newV && window.driverToTruckMap?.[newV]) { autoFills.push([row, 1, window.driverToTruckMap[newV]]); if (globalTruckTypeMap[window.driverToTruckMap[newV]]) autoFills.push([row, 2, globalTruckTypeMap[window.driverToTruckMap[newV]]]); }
+                                    }
+                                }
+                            });
+                            if (autoFills.length > 0) this.setDataAtCell(autoFills, 'autoFill'); else if (needsRender) this.render();
+                        }
+                    },
+                    afterColumnResize: function() { saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); }
+                });
+            } catch (err) { alert('❌ โหลดข้อมูลไม่สำเร็จ: ' + err.message); }
+        }
+
+        document.getElementById('global-search').addEventListener('input', e => {
+            if (!hotMasterInstance) return; const query = e.target.value.toLowerCase().trim();
+            hotMasterInstance.loadData(query ? originalTableData.filter(r => r.some(c => String(c||'').toLowerCase().includes(query))) : JSON.parse(JSON.stringify(originalTableData)));
+        });
+
+        function addNewRow() { if (hotMasterInstance) { document.getElementById('global-search').value = ''; hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData))); hotMasterInstance.alter('insert_row_above', 0); hotMasterInstance.getSourceDataAtRow(0)._isUnsaved = true; hotMasterInstance.render(); } }
+        function deleteSingleRow(r) { if (confirm(`⚠️ ยืนยันลบแถวที่เลือก?`)) { hotMasterInstance.alter('remove_row', r, 1); originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData())); } }
+        function deleteSelectedRow() { const sel = hotMasterInstance?.getSelected(); if (sel && sel.length > 0) { const sr = Math.min(sel[0][0], sel[0][2]), amt = Math.max(sel[0][0], sel[0][2]) - sr + 1; if (confirm(`⚠️ ยืนยันลบ ${amt} แถว?`)) { hotMasterInstance.alter('remove_row', sr, amt); originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData())); } } else alert('🖱️ ลากคลุมแถวที่ต้องการลบก่อนครับ'); }
+
+        async function saveCurrentMaster() {
+            const btn = document.getElementById('btn-save-master'), ot = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...'; btn.disabled = true;
+            let dataToSave = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
+            if (currentMasterType === 'truck_assignments') dataToSave = dataToSave.map(r => { let cl = [...r]; cl.splice(2, 1); return cl; });
+            try {
+                const res = await fetch(masterConfigs[currentMasterType].endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: dataToSave }) });
+                const result = await res.json();
+                if (result.success) { alert('✅ ' + result.message); switchMasterTab(currentMasterType); } else alert('❌ ผิดพลาด: ' + result.message);
+            } catch (err) { alert('❌ ล้มเหลว: ' + err.message); } finally { btn.innerHTML = ot; btn.disabled = false; }
+        }
+
+        function openColToggleModal() {
+            const hCols = hotMasterInstance.getPlugin('hiddenColumns').getHiddenColumns() || [];
+            document.getElementById('col-toggle-container').innerHTML = masterConfigs[currentMasterType].headers.map((h, i) => `<label class="flex items-center gap-3 p-3 border rounded-xl hover:bg-emerald-50 cursor-pointer"><input type="checkbox" class="w-5 h-5 accent-emerald-600" ${!hCols.includes(i) ? 'checked' : ''} onchange="toggleMasterColumn(${i}, this.checked)"><span class="text-sm font-medium">${h}</span></label>`).join('');
+            document.getElementById('col-toggle-modal').classList.remove('hidden');
+        }
+        function closeColToggleModal() { document.getElementById('col-toggle-modal').classList.add('hidden'); }
+        function toggleMasterColumn(i, isVis) { const p = hotMasterInstance.getPlugin('hiddenColumns'); isVis ? p.showColumns([i]) : p.hideColumns([i]); hotMasterInstance.render(); saveUIState('master_' + currentMasterType, { hiddenColumns: p.getHiddenColumns() || [] }); }
+    </script>
+</body>
+</html>

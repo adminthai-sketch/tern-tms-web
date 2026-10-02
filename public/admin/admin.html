@@ -15,92 +15,56 @@
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
     <link rel="stylesheet" href="../css/style.css">
+    
     <style>
         .ht-unsaved { background-color: #fef08a !important; }
+        .handsontable th { font-weight: bold !important; }
         
         /* ปุ่มลบแถว (Action Button) */
         .btn-action-delete {
-            background-color: #fee2e2;
-            color: #ef4444;
-            border: 1px solid #fca5a5;
-            border-radius: 4px;
-            padding: 4px 10px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
+            background-color: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; width: 100%;
         }
-        .btn-action-delete:hover {
-            background-color: #fecaca;
-            color: #b91c1c;
-        }
+        .btn-action-delete:hover { background-color: #fecaca; color: #b91c1c; }
 
-        /* 🎯 ตกแต่งกล่องพิมพ์ (Input) */
+        /* 🎯 แก้ไขกล่อง Input เวลาพิมพ์ ไม่ให้ล้นทะลุจอ และใช้งานง่ายขึ้น */
         .handsontableInput { 
-            border-radius: 6px !important;
             border: 2px solid #0ea5e9 !important; 
-            min-width: 250px !important; 
-            max-width: 400px !important; 
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
-            padding: 8px 12px !important;
+            padding: 6px 12px !important;
             font-size: 14px !important;
             color: #0f4c81 !important;
-            z-index: 9999 !important;
+            font-family: 'Prompt', sans-serif !important;
+            border-radius: 4px !important;
+            /* เอา min-width ออก เพื่อให้มันปรับขนาดตามเซลล์ ไม่ล้น */
+            width: auto !important; 
         }
 
-        /* 🎯 ปลดล็อกความสูงของกล่อง Dropdown */
-        div.handsontable.listbox,
-        .handsontable.listbox {
+        /* 🎯 ตั้งค่าความสูงกล่อง Dropdown และ Autocomplete ให้เหมาะสม */
+        div.handsontable.listbox, .handsontable.listbox {
             height: auto !important;
-            min-height: 250px !important;
-            max-height: 400px !important;
+            min-height: 100px !important;
+            max-height: 300px !important;
             border-radius: 8px !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
             border: 1px solid #cbd5e1 !important;
             margin-top: 4px !important;
             z-index: 10000 !important;
             overflow: visible !important;
         }
 
-        div.handsontable.listbox .ht_master,
-        div.handsontable.listbox .wtHolder,
-        div.handsontable.listbox .wtHider,
-        div.handsontable.listbox .wtSpreader {
+        div.handsontable.listbox .ht_master, div.handsontable.listbox .wtHolder {
             height: auto !important;
-            min-height: 230px !important;
-            max-height: 380px !important;
-        }
-
-        div.handsontable.listbox .wtHolder {
-            overflow-y: auto !important;
+            min-height: 80px !important;
+            max-height: 280px !important;
+            overflow-y: auto !important; 
             overflow-x: hidden !important;
         }
 
-        .handsontable.listbox .ht_master table {
-            background-color: #ffffff !important;
-            border-collapse: collapse !important;
-            width: 100% !important;
-        }
-
         .handsontable.listbox td {
-            padding: 8px 14px !important;
-            font-size: 14px !important;
-            color: #334155 !important;
-            border: none !important;
-            border-bottom: 1px solid #f1f5f9 !important;
-            cursor: pointer !important;
-            white-space: nowrap !important;
+            padding: 8px 14px !important; font-size: 14px !important; color: #334155 !important; border-bottom: 1px solid #f1f5f9 !important; cursor: pointer !important; white-space: nowrap !important;
         }
-
-        .handsontable.listbox tr:last-child td {
-            border-bottom: none !important;
-        }
-
-        .handsontable.listbox tr:hover td,
-        .handsontable.listbox tr td.current {
-            background-color: #e0f2fe !important;
-            color: #0369a1 !important;
-            font-weight: 600 !important;
+        .handsontable.listbox tr:hover td, .handsontable.listbox tr td.current {
+            background-color: #e0f2fe !important; color: #0369a1 !important; font-weight: 600 !important;
         }
     </style>
 </head>
@@ -113,9 +77,7 @@
         </div>
         
         <div class="flex items-center gap-4">
-            <a href="/booking.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200">
-                <i class="fa-solid fa-arrow-left"></i> กลับเข้าแอปพลิเคชัน
-            </a>
+            <a href="/booking.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"><i class="fa-solid fa-arrow-left"></i> กลับเข้าแอปพลิเคชัน</a>
             <div class="text-right hidden sm:block">
                 <div id="user-fullname" class="text-sm font-bold text-slate-700">Admin</div>
                 <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">ADMIN</div>
@@ -127,50 +89,29 @@
     <div class="flex-1 flex overflow-hidden">
         <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
             <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">System Setup</div>
-            
-            <a href="#" onclick="switchMasterTab('users')" id="menu-users" class="sidebar-item active flex items-center gap-3 px-6 py-3 bg-emerald-50 text-emerald-700 border-r-4 border-emerald-600 font-semibold">
-                <i class="fa-solid fa-users w-5 text-center"></i> ผู้ใช้งาน (Users)
-            </a>
-            <a href="#" onclick="switchMasterTab('roles')" id="menu-roles" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                <i class="fa-solid fa-user-shield w-5 text-center"></i> สิทธิ์ (Roles)
-            </a>
+            <a href="#" onclick="switchMasterTab('users')" id="menu-users" class="sidebar-item active flex items-center gap-3 px-6 py-3 bg-emerald-50 text-emerald-700 border-r-4 border-emerald-600 font-semibold"><i class="fa-solid fa-users w-5 text-center"></i> ผู้ใช้งาน (Users)</a>
+            <a href="#" onclick="switchMasterTab('roles')" id="menu-roles" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"><i class="fa-solid fa-user-shield w-5 text-center"></i> สิทธิ์ (Roles)</a>
 
             <div class="px-6 mt-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Fleet Management</div>
-            <a href="#" onclick="switchMasterTab('trucks')" id="menu-trucks" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                <i class="fa-solid fa-truck w-5 text-center"></i> ข้อมูลรถ (Trucks)
-            </a>
-            <a href="#" onclick="switchMasterTab('driver_info')" id="menu-driver_info" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                <i class="fa-solid fa-id-card w-5 text-center"></i> พนักงานขับรถ (Drivers)
-            </a>
-            <a href="#" onclick="switchMasterTab('truck_assignments')" id="menu-truck_assignments" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                <i class="fa-solid fa-link w-5 text-center"></i> จับคู่รถ-คนขับ (Assign)
-            </a>
+            <a href="#" onclick="switchMasterTab('trucks')" id="menu-trucks" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"><i class="fa-solid fa-truck w-5 text-center"></i> ข้อมูลรถ (Trucks)</a>
+            <a href="#" onclick="switchMasterTab('driver_info')" id="menu-driver_info" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"><i class="fa-solid fa-id-card w-5 text-center"></i> พนักงานขับรถ (Drivers)</a>
+            <a href="#" onclick="switchMasterTab('truck_assignments')" id="menu-truck_assignments" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"><i class="fa-solid fa-link w-5 text-center"></i> จับคู่รถ-คนขับ (Assign)</a>
 
             <div class="px-6 mt-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">General Master</div>
-            <a href="#" onclick="switchMasterTab('customers')" id="menu-customers" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                <i class="fa-solid fa-building w-5 text-center"></i> ลูกค้า (Customers)
-            </a>
-            <a href="#" onclick="switchMasterTab('rates')" id="menu-rates" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
-                <i class="fa-solid fa-hand-holding-dollar w-5 text-center"></i> เรทราคา (Rates)
-            </a>
+            <a href="#" onclick="switchMasterTab('customers')" id="menu-customers" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"><i class="fa-solid fa-building w-5 text-center"></i> ลูกค้า (Customers)</a>
+            <a href="#" onclick="switchMasterTab('rates')" id="menu-rates" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"><i class="fa-solid fa-hand-holding-dollar w-5 text-center"></i> เรทราคา (Rates)</a>
         </nav>
 
         <main class="flex-1 p-6 overflow-hidden flex flex-col relative bg-bglight">
             <div class="h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200">
                 <div class="flex justify-between items-center p-5 border-b border-slate-100">
                     <div>
-                        <h2 id="table-title" class="text-xl font-bold text-emerald-600 flex items-center gap-2">
-                            <i class="fa-solid fa-users"></i> จัดการผู้ใช้งานระบบ
-                        </h2>
-                        <p id="table-desc" class="text-xs text-slate-400 mt-1">ดับเบิ้ลคลิกที่เซลล์ในตารางเพื่อ ✏ แก้ไขข้อมูล</p>
+                        <h2 id="table-title" class="text-xl font-bold text-emerald-600 flex items-center gap-2"><i class="fa-solid fa-users"></i> จัดการผู้ใช้งานระบบ</h2>
+                        <p id="table-desc" class="text-xs text-slate-400 mt-1">ดับเบิ้ลคลิกที่เซลล์ในตารางเพื่อ ✏️ แก้ไขข้อมูล</p>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm">
-                            <i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์
-                        </button>
-                        <button onclick="saveCurrentMaster()" id="btn-save-master" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors">
-                            <i class="fa-solid fa-floppy-disk"></i> บันทึกตาราง
-                        </button>
+                        <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm"><i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์</button>
+                        <button onclick="saveCurrentMaster()" id="btn-save-master" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-floppy-disk"></i> บันทึกตาราง</button>
                     </div>
                 </div>
 
@@ -180,12 +121,8 @@
                         <input type="text" id="global-search" placeholder="ค้นหาข้อมูลในตารางนี้..." class="pl-9 pr-3 py-2 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="addNewRow()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm">
-                            <i class="fa-solid fa-plus"></i> เพิ่มรายการ
-                        </button>
-                        <button onclick="deleteSelectedRow()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm">
-                            <i class="fa-solid fa-trash-can"></i> ลบที่เลือก
-                        </button>
+                        <button onclick="addNewRow()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-plus"></i> เพิ่มรายการ</button>
+                        <button onclick="deleteSelectedRow()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่เลือก</button>
                     </div>
                 </div>
 
@@ -234,8 +171,6 @@
         let globalRolesList = ['ADMIN', 'USER', 'OPERATION']; 
         let globalTruckList = [];
         let globalDriverList = [];
-
-        // 🎯 เก็บข้อมูลประเภทรถ
         let globalTruckTypeMap = {}; 
 
         const masterConfigs = {
@@ -245,7 +180,13 @@
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล (รับ OTP)', 'กลุ่มสิทธิ์ (Role)', 'สถานะ (Status)'],
                 columns: [
                     { readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
-                    { type: 'dropdown', source: function(query, process) { process(globalRolesList); } }, 
+                    { 
+                        type: 'autocomplete', strict: true, filter: false,
+                        source: function(query, process) { 
+                            if (!query) return process(globalRolesList);
+                            process(globalRolesList.filter(r => String(r).toLowerCase().includes(query.toLowerCase())));
+                        } 
+                    }, 
                     { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }
                 ]
             },
@@ -273,9 +214,21 @@
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'ประเภทรถ', 'คนขับประจำคัน'],
                 columns: [
                     { readOnly: true }, 
-                    { type: 'dropdown', source: function(query, process) { process(globalTruckList); } }, 
+                    { 
+                        type: 'autocomplete', strict: false, filter: false,
+                        source: function(query, process) { 
+                            if (!query) return process(globalTruckList);
+                            process(globalTruckList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
+                        } 
+                    }, 
                     { type: 'text', readOnly: true, className: 'htMiddle' }, 
-                    { type: 'dropdown', source: function(query, process) { process(globalDriverList); } }
+                    { 
+                        type: 'autocomplete', strict: false, filter: false,
+                        source: function(query, process) { 
+                            if (!query) return process(globalDriverList);
+                            process(globalDriverList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
+                        } 
+                    }
                 ]
             },
             customers: {
@@ -329,7 +282,7 @@
                     window.driverToTruckMap = {};
                     if(result.data) {
                         result.data.forEach(row => {
-                            if(row[1] && row[3]) { // แก้ให้ดึงคนขับจากช่อง 3
+                            if(row[1] && row[3]) { 
                                 window.truckToDriverMap[row[1]] = row[3];
                                 window.driverToTruckMap[row[3]] = row[1];
                             }
@@ -337,7 +290,6 @@
                     }
                 }
 
-                // แอบโหลดประเภทรถมาเตรียมไว้
                 if (type === 'truck_assignments') {
                     try {
                         const truckRes = await fetch('/api/trucks');
@@ -355,7 +307,6 @@
 
                 let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(cfg.headers.length).fill("")];
                 
-                // 🎯 แทรกประเภทรถเข้าไปใน Index 2 และดันชื่อคนขับไป Index 3
                 if (type === 'truck_assignments' && result.data && result.data.length > 0) {
                     safeData = safeData.map(row => {
                         let tType = (row[1] && globalTruckTypeMap[row[1]]) ? globalTruckTypeMap[row[1]] : "";
@@ -479,7 +430,7 @@
 
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
-            if (confirm(`⚠️ ยืนยันการลบข้อมูลในแถวที่ ${row + 1} ใช่หรือไม่?\n(ข้อมูลจะถูกลบออกจากตารางชั่วคราว คุณต้องกด 'บันทึกตาราง' เพื่อลบออกจากฐานข้อมูลจริงๆ)`)) {
+            if (confirm(`⚠️ ยืนยันการลบข้อมูลในแถวที่เลือกใช่หรือไม่?\n(ต้องกด 'บันทึกตาราง' มุมขวาบนเพื่อเซฟเข้าฐานข้อมูลด้วยครับ)`)) {
                 hotMasterInstance.alter('remove_row', row, 1);
                 originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
             }
@@ -494,11 +445,11 @@
                 const endRow = Math.max(selected[0][0], selected[0][2]);
                 const amount = endRow - startRow + 1;
 
-                if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n(คุณต้องกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อยืนยันการลบออกจากระบบจริงๆ)`)) {
+                if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n(กรุณากด "บันทึกตาราง" เพื่อยืนยันการลบออกจากระบบจริงๆ)`)) {
                     hotMasterInstance.alter('remove_row', startRow, amount);
                     originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
                 }
-            } else { alert('🖱️ กรุณาคลิกเลือกแถวในตารางที่ต้องการลบก่อนครับ'); }
+            } else { alert('🖱️ กรุณาคลิกเลือกหรือลากคลุมแถวในตารางที่ต้องการลบก่อนครับ'); }
         }
 
         async function saveCurrentMaster() {
@@ -510,7 +461,6 @@
 
             const cfg = masterConfigs[currentMasterType];
             
-            // ถอดคอลัมน์ "ประเภทรถ" ออกก่อนบันทึก
             let dataToSave = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
             
             if (currentMasterType === 'truck_assignments') {

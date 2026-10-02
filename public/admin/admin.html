@@ -20,13 +20,13 @@
         .ht-unsaved { background-color: #fef08a !important; }
         .handsontable th { font-weight: bold !important; }
         
-        /* ปุ่มลบแถว (Action Button) */
+        /* ปุ่มลบแถว */
         .btn-action-delete {
             background-color: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 4px; padding: 4px 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; width: 100%;
         }
         .btn-action-delete:hover { background-color: #fecaca; color: #b91c1c; }
 
-        /* 🎯 แก้ไขกล่อง Input เวลาพิมพ์ ไม่ให้ล้นทะลุจอ และใช้งานง่ายขึ้น */
+        /* 🎯 แก้ไขกล่อง Input: ไม่ให้ล้นกรอบ และปรับขนาดอัตโนมัติ */
         .handsontableInput { 
             border: 2px solid #0ea5e9 !important; 
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.15) !important; 
@@ -35,26 +35,25 @@
             color: #0f4c81 !important;
             font-family: 'Prompt', sans-serif !important;
             border-radius: 4px !important;
-            /* เอา min-width ออก เพื่อให้มันปรับขนาดตามเซลล์ ไม่ล้น */
-            width: auto !important; 
+            width: auto !important; /* ปล่อยให้ขนาดปรับตามเซลล์อัตโนมัติ */
+            max-width: 350px !important; /* ป้องกันล้นจอ */
         }
 
-        /* 🎯 ตั้งค่าความสูงกล่อง Dropdown และ Autocomplete ให้เหมาะสม */
+        /* 🎯 แก้ไขกล่อง Dropdown/Autocomplete: ขยายความสูง พิมพ์ค้นหาง่าย ไม่โดนตัด */
         div.handsontable.listbox, .handsontable.listbox {
             height: auto !important;
-            min-height: 100px !important;
+            min-height: 120px !important;
             max-height: 300px !important;
             border-radius: 8px !important;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
             border: 1px solid #cbd5e1 !important;
             margin-top: 4px !important;
             z-index: 10000 !important;
-            overflow: visible !important;
         }
 
         div.handsontable.listbox .ht_master, div.handsontable.listbox .wtHolder {
             height: auto !important;
-            min-height: 80px !important;
+            min-height: 100px !important;
             max-height: 280px !important;
             overflow-y: auto !important; 
             overflow-x: hidden !important;
@@ -77,7 +76,7 @@
         </div>
         
         <div class="flex items-center gap-4">
-            <a href="/booking.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"><i class="fa-solid fa-arrow-left"></i> กลับเข้าแอปพลิเคชัน</a>
+            <a href="/index.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200"><i class="fa-solid fa-arrow-left"></i> กลับหน้าแรก</a>
             <div class="text-right hidden sm:block">
                 <div id="user-fullname" class="text-sm font-bold text-slate-700">Admin</div>
                 <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">ADMIN</div>
@@ -116,13 +115,13 @@
                 </div>
 
                 <div class="flex justify-between items-center bg-slate-50 px-5 py-3 border-b border-slate-200">
-                    <div class="relative w-72">
+                    <div class="relative w-80">
                         <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400"></i>
-                        <input type="text" id="global-search" placeholder="ค้นหาข้อมูลในตารางนี้..." class="pl-9 pr-3 py-2 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
+                        <input type="text" id="global-search" placeholder="ค้นหาข้อมูลในตารางนี้แบบรวดเร็ว..." class="pl-9 pr-3 py-2 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="addNewRow()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-plus"></i> เพิ่มรายการ</button>
-                        <button onclick="deleteSelectedRow()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่เลือก</button>
+                        <button onclick="addNewRow()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-plus"></i> เพิ่มแถวว่าง</button>
+                        <button onclick="deleteSelectedRow()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่ลากคลุม</button>
                     </div>
                 </div>
 
@@ -147,12 +146,13 @@
     <script>
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('tms_user');
-            if (!savedUser) { window.location.href = '/login.html'; return; }
+            if (!savedUser) { window.location.href = '/index.html'; return; }
             const user = JSON.parse(savedUser);
             const userRole = (user.role || '').toUpperCase();
+            
             if (userRole !== 'ADMIN') {
                 alert('⛔ คุณไม่มีสิทธิ์เข้าถึงหน้า Admin Backoffice');
-                window.location.href = '/booking.html';
+                window.location.href = '/index.html';
                 return;
             }
             document.getElementById('user-fullname').innerText = user.fullName;
@@ -160,19 +160,17 @@
             switchMasterTab('users');
         });
 
-        function logout() {
-            localStorage.removeItem('tms_user');
-            window.location.href = '/login.html';
-        }
+        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/index.html'; }
 
         let currentMasterType = 'users';
         let hotMasterInstance = null;
         let originalTableData = []; 
-        let globalRolesList = ['ADMIN', 'USER', 'OPERATION']; 
+        let globalRolesList = ['Admin', 'User', 'Operation']; 
         let globalTruckList = [];
         let globalDriverList = [];
         let globalTruckTypeMap = {}; 
 
+        // 🎯 ตั้งค่าคอลัมน์ (ใส่ filter: false และเขียน source ให้มันกรองข้อความอัตโนมัติเวลาพิมพ์)
         const masterConfigs = {
             users: {
                 title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users',
@@ -221,7 +219,7 @@
                             process(globalTruckList.filter(x => String(x).toLowerCase().includes(query.toLowerCase())));
                         } 
                     }, 
-                    { type: 'text', readOnly: true, className: 'htMiddle' }, 
+                    { type: 'text', readOnly: true, className: 'htMiddle bg-slate-50' }, 
                     { 
                         type: 'autocomplete', strict: false, filter: false,
                         source: function(query, process) { 
@@ -245,15 +243,8 @@
             }
         };
 
-        function getUIState(tableName) {
-            const user = JSON.parse(localStorage.getItem('tms_user'));
-            return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {};
-        }
-        function saveUIState(tableName, stateData) {
-            const user = JSON.parse(localStorage.getItem('tms_user'));
-            const existing = getUIState(tableName);
-            localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData }));
-        }
+        function getUIState(tableName) { const user = JSON.parse(localStorage.getItem('tms_user')); return JSON.parse(localStorage.getItem(`tms_ui_${tableName}_${user.username}`)) || {}; }
+        function saveUIState(tableName, stateData) { const user = JSON.parse(localStorage.getItem('tms_user')); const existing = getUIState(tableName); localStorage.setItem(`tms_ui_${tableName}_${user.username}`, JSON.stringify({ ...existing, ...stateData })); }
 
         async function switchMasterTab(type) {
             currentMasterType = type;
@@ -282,6 +273,7 @@
                     window.driverToTruckMap = {};
                     if(result.data) {
                         result.data.forEach(row => {
+                            // index 1 = ทะเบียน, index 3 = คนขับ (เพราะ index 2 โดนแทรกเป็นประเภทรถ)
                             if(row[1] && row[3]) { 
                                 window.truckToDriverMap[row[1]] = row[3];
                                 window.driverToTruckMap[row[3]] = row[1];
@@ -295,9 +287,7 @@
                         const truckRes = await fetch('/api/trucks');
                         const truckResult = await truckRes.json();
                         if (truckResult.data) {
-                            truckResult.data.forEach(t => {
-                                if(t[1] && t[2]) globalTruckTypeMap[t[1]] = t[2];
-                            });
+                            truckResult.data.forEach(t => { if(t[1] && t[2]) globalTruckTypeMap[t[1]] = t[2]; });
                         }
                     } catch(e) {}
                 }
@@ -315,16 +305,14 @@
                 }
                 
                 originalTableData = JSON.parse(JSON.stringify(safeData)); 
-
                 const uiState = getUIState('master_' + type);
 
                 let dynamicHeaders = [...cfg.headers, 'จัดการ'];
                 let dynamicColumns = [...cfg.columns, { 
                     readOnly: true, 
-                    renderer: function(instance, td, row, col, prop, value, cellProperties) {
+                    renderer: function(instance, td, row) {
                         td.innerHTML = `<button class="btn-action-delete" onclick="deleteSingleRow(${row})" title="ลบรายการนี้"><i class="fa-solid fa-trash"></i> ลบ</button>`;
-                        td.className = 'htCenter htMiddle';
-                        return td;
+                        td.className = 'htCenter htMiddle'; return td;
                     }
                 }];
                 
@@ -332,12 +320,8 @@
                     data: safeData,
                     colHeaders: dynamicHeaders,
                     columns: dynamicColumns,
-                    rowHeaders: true,
-                    minSpareRows: 1,
-                    width: '100%',
-                    height: '100%',
-                    manualColumnResize: true,
-                    manualColumnMove: true,
+                    rowHeaders: true, minSpareRows: 1, width: '100%', height: '100%',
+                    manualColumnResize: true, manualColumnMove: true,
                     hiddenColumns: { columns: uiState.hiddenColumns || [], indicators: true },
                     colWidths: uiState.colWidths || undefined,
                     stretchH: type === 'rates' ? 'all' : 'none',
@@ -347,13 +331,8 @@
                         if (this.instance) {
                             let physicalRow = this.instance.toPhysicalRow(row);
                             let rowData = this.instance.getSourceDataAtRow(physicalRow);
-                            if (rowData && rowData._isUnsaved) {
-                                cp.className = 'ht-unsaved';
-                            }
-                            
-                            if (currentMasterType === 'truck_assignments' && col === 2) {
-                                cp.className = (cp.className || '') + ' bg-slate-50 text-slate-500';
-                            }
+                            if (rowData && rowData._isUnsaved) cp.className = 'ht-unsaved';
+                            if (currentMasterType === 'truck_assignments' && col === 2) cp.className = (cp.className || '') + ' bg-slate-50 text-slate-500';
                         }
                         return cp;
                     },
@@ -372,11 +351,7 @@
                                     if (currentMasterType === 'truck_assignments') {
                                         const col = this.propToCol(prop);
                                         if (col === 1 && newValue) {
-                                            if (globalTruckTypeMap[newValue]) {
-                                                autoFills.push([row, 2, globalTruckTypeMap[newValue]]);
-                                            } else {
-                                                autoFills.push([row, 2, ""]);
-                                            }
+                                            autoFills.push([row, 2, globalTruckTypeMap[newValue] || ""]);
                                             if (window.truckToDriverMap && window.truckToDriverMap[newValue]) {
                                                 autoFills.push([row, 3, window.truckToDriverMap[newValue]]);
                                             }
@@ -384,19 +359,14 @@
                                         else if (col === 3 && newValue && window.driverToTruckMap && window.driverToTruckMap[newValue]) {
                                             let truckPlate = window.driverToTruckMap[newValue];
                                             autoFills.push([row, 1, truckPlate]);
-                                            if (globalTruckTypeMap[truckPlate]) {
-                                                autoFills.push([row, 2, globalTruckTypeMap[truckPlate]]);
-                                            }
+                                            autoFills.push([row, 2, globalTruckTypeMap[truckPlate] || ""]);
                                         }
                                     }
                                 }
                             });
                             
-                            if (autoFills.length > 0) {
-                                this.setDataAtCell(autoFills, 'autoFill');
-                            } else if (needsRender) {
-                                this.render();
-                            }
+                            if (autoFills.length > 0) this.setDataAtCell(autoFills, 'autoFill'); 
+                            else if (needsRender) this.render();
                         }
                     },
                     afterColumnResize: function() { saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); }
@@ -407,13 +377,8 @@
         document.getElementById('global-search').addEventListener('input', function(e) {
             if (!hotMasterInstance) return;
             const query = e.target.value.toLowerCase().trim();
-            if (!query) {
-                hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData)));
-                return;
-            }
-            const filtered = originalTableData.filter(row => {
-                return row.some(cell => String(cell || '').toLowerCase().includes(query));
-            });
+            if (!query) { hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData))); return; }
+            const filtered = originalTableData.filter(row => row.some(cell => String(cell || '').toLowerCase().includes(query)));
             hotMasterInstance.loadData(filtered.length > 0 ? filtered : [new Array(masterConfigs[currentMasterType].headers.length).fill("")]);
         });
 
@@ -423,8 +388,7 @@
             hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData))); 
             hotMasterInstance.alter('insert_row_above', 0); 
             hotMasterInstance.selectCell(0, 0); 
-            let rowData = hotMasterInstance.getSourceDataAtRow(0);
-            if (rowData) rowData._isUnsaved = true;
+            hotMasterInstance.getSourceDataAtRow(0)._isUnsaved = true;
             hotMasterInstance.render(); 
         }
 
@@ -439,7 +403,6 @@
         function deleteSelectedRow() {
             if (!hotMasterInstance) return;
             const selected = hotMasterInstance.getSelected(); 
-            
             if (selected && selected.length > 0) {
                 const startRow = Math.min(selected[0][0], selected[0][2]);
                 const endRow = Math.max(selected[0][0], selected[0][2]);
@@ -456,13 +419,12 @@
             if (!hotMasterInstance) return;
             const btn = document.getElementById('btn-save-master');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
-            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...'; btn.disabled = true;
 
             const cfg = masterConfigs[currentMasterType];
-            
             let dataToSave = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
             
+            // ลบช่องประเภทรถก่อนส่งไป API
             if (currentMasterType === 'truck_assignments') {
                 dataToSave = dataToSave.map(r => {
                     let cleaned = [...r];
@@ -472,16 +434,10 @@
             }
 
             try {
-                const response = await fetch(cfg.endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: dataToSave })
-                });
+                const response = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: dataToSave }) });
                 const result = await response.json();
-                if (result.success) {
-                    alert('✅ ' + result.message);
-                    switchMasterTab(currentMasterType);
-                } else { alert('❌ เกิดข้อผิดพลาด: ' + result.message); }
+                if (result.success) { alert('✅ ' + result.message); switchMasterTab(currentMasterType); } 
+                else { alert('❌ เกิดข้อผิดพลาด: ' + result.message); }
             } catch (err) { alert('❌ บันทึกข้อมูลไม่สำเร็จ: ' + err.message); } 
             finally { btn.innerHTML = originalText; btn.disabled = false; }
         }
@@ -492,18 +448,13 @@
             let html = '';
             masterConfigs[currentMasterType].headers.forEach((header, index) => {
                 const isChecked = !hiddenCols.includes(index) ? 'checked' : '';
-                html += `
-                    <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 cursor-pointer transition-colors">
-                        <input type="checkbox" class="w-5 h-5 accent-emerald-600 rounded" ${isChecked} onchange="toggleMasterColumn(${index}, this.checked)">
-                        <span class="font-medium text-slate-700 text-sm">${header}</span>
-                    </label>`;
+                html += `<label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 cursor-pointer transition-colors"><input type="checkbox" class="w-5 h-5 accent-emerald-600 rounded" ${isChecked} onchange="toggleMasterColumn(${index}, this.checked)"><span class="font-medium text-slate-700 text-sm">${header}</span></label>`;
             });
             document.getElementById('col-toggle-container').innerHTML = html;
             document.getElementById('col-toggle-modal').classList.remove('hidden');
         }
 
         function closeColToggleModal() { document.getElementById('col-toggle-modal').classList.add('hidden'); }
-
         function toggleMasterColumn(colIndex, isVisible) {
             const plugin = hotMasterInstance.getPlugin('hiddenColumns');
             if (isVisible) plugin.showColumns([colIndex]); else plugin.hideColumns([colIndex]);

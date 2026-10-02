@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERN TMS - เข้าสู่ระบบ</title>
+    <title>TERN TMS - หน้าหลัก (Dashboard)</title>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,73 +11,97 @@
         tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
     </script>
 </head>
-<body class="bg-slate-100 text-slate-800 h-screen flex items-center justify-center p-4">
-    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 bg-primary/10 text-primary rounded-2xl mb-4 shadow-sm">
-                <i class="fa-solid fa-truck-fast text-3xl"></i>
-            </div>
-            <h1 class="text-2xl font-bold text-primary tracking-wide">TERN TMS</h1>
-            <p class="text-sm text-slate-500 mt-1">Operation & Logistics Management System</p>
+<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-truck-fast"></i></div>
+            <span class="font-bold text-xl text-primary tracking-wide">TERN TMS <span class="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold ml-1">DASHBOARD</span></span>
         </div>
-        
-        <form id="login-form" class="space-y-5">
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อผู้ใช้งาน (Username)</label>
-                <div class="relative mb-4">
-                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400"><i class="fa-solid fa-user"></i></div>
-                    <input type="text" id="username" required placeholder="ระบุชื่อผู้ใช้..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm transition-all">
-                </div>
-
-                <label class="block text-sm font-semibold text-slate-700 mb-1.5">รหัสผ่าน (Password)</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400"><i class="fa-solid fa-lock"></i></div>
-                    <input type="password" id="password" required placeholder="ระบุรหัสผ่าน..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm transition-all">
-                </div>
+        <div class="flex items-center gap-4">
+            <div class="text-right hidden sm:block">
+                <div id="user-fullname" class="text-sm font-bold text-slate-700">กำลังโหลด...</div>
+                <div id="user-role-badge" class="inline-block px-2 py-0.5 mt-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">ROLE</div>
             </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ"><i class="fa-solid fa-power-off text-lg"></i></button>
+        </div>
+    </header>
 
-            <div id="login-error" class="hidden bg-red-50 text-red-600 text-sm p-3.5 rounded-xl border border-red-100 flex items-center gap-2">
-                <i class="fa-solid fa-circle-exclamation text-base shrink-0"></i><span id="error-message"></span>
+    <!-- Main Content -->
+    <main class="flex-1 p-8 overflow-y-auto">
+        <div class="max-w-5xl mx-auto">
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">ยินดีต้อนรับเข้าสู่ระบบจัดการขนส่ง</h1>
+            <p class="text-slate-500 mb-8">กรุณาเลือกระบบงานที่คุณต้องการดำเนินการ</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="menu-grid">
+                
+                <!-- Menu 1: Monitor -->
+                <a href="/monitor.html" id="card-monitor" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
+                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors"><i class="fa-solid fa-desktop"></i></div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">มอนิเตอร์งาน (Monitor)</h3>
+                    <p class="text-sm text-slate-500">ดูสถานะการเดินรถและติดตามตู้สินค้าแบบเรียลไทม์</p>
+                </a>
+
+                <!-- Menu 2: Booking -->
+                <a href="/booking.html" id="card-booking" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
+                    <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><i class="fa-solid fa-file-signature"></i></div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">สร้าง/จัดการบุคกิ้ง</h3>
+                    <p class="text-sm text-slate-500">เปิดงานใหม่, ลงข้อมูลตู้สินค้า และรับงานจากลูกค้า</p>
+                </a>
+
+                <!-- Menu 3: Dispatch -->
+                <a href="/dispatch.html" id="card-dispatch" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
+                    <div class="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors"><i class="fa-solid fa-truck-ramp-box"></i></div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">จัดรถและคนขับ (Dispatch)</h3>
+                    <p class="text-sm text-slate-500">มอบหมายงาน, จับคู่ทะเบียนรถ และสั่งการพนักงานขับรถ</p>
+                </a>
+
+                <!-- Menu 4: Billing -->
+                <a href="/billing.html" id="card-billing" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
+                    <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">การเงิน/วางบิล (Billing)</h3>
+                    <p class="text-sm text-slate-500">ตรวจสอบค่าใช้จ่าย, พิมพ์เอกสารวางบิล และจัดการรายรับ</p>
+                </a>
+
+                <!-- Menu 5: Admin -->
+                <a href="/admin/admin.html" id="card-admin" class="hidden bg-emerald-50 p-6 rounded-2xl border border-emerald-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
+                    <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors"><i class="fa-solid fa-database"></i></div>
+                    <h3 class="text-lg font-bold text-emerald-800 mb-1">จัดการระบบ (Admin)</h3>
+                    <p class="text-sm text-emerald-600">ตั้งค่าสิทธิ์, พนักงาน, ข้อมูลลูกค้า และราคา Master Data</p>
+                </a>
+
             </div>
-            
-            <button type="submit" id="btn-login" class="w-full bg-primary hover:bg-blue-900 text-white font-bold py-3 px-4 rounded-xl transition-all flex justify-center items-center gap-2 shadow-lg shadow-primary/20">
-                <span>เข้าสู่ระบบ</span><i class="fa-solid fa-arrow-right-to-bracket"></i>
-            </button>
-        </form>
-    </div>
+        </div>
+    </main>
 
     <script>
         window.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('tms_user')) window.location.href = '/booking.html';
-        });
-
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('btn-login');
-            const originalText = btn.innerHTML;
-            const errorBox = document.getElementById('login-error');
+            const savedUser = localStorage.getItem('tms_user');
+            if (!savedUser) { 
+                window.location.href = '/login.html'; 
+                return; 
+            }
             
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังตรวจสอบ...';
-            btn.disabled = true; errorBox.classList.add('hidden');
+            const user = JSON.parse(savedUser);
+            document.getElementById('user-fullname').innerText = user.fullName;
+            document.getElementById('user-role-badge').innerText = (user.role || 'USER').toUpperCase();
 
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
+            // จัดการสิทธิ์การมองเห็นเมนู
+            const p = user.permissions || {};
+            const isAdmin = (user.role || '').toUpperCase() === 'ADMIN' || p.admin;
 
-            try {
-                const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    localStorage.setItem('tms_user', JSON.stringify(result.user));
-                    window.location.href = '/booking.html';
-                } else {
-                    errorBox.classList.remove('hidden');
-                    document.getElementById('error-message').innerText = result.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
-                }
-            } catch (error) {
-                errorBox.classList.remove('hidden'); document.getElementById('error-message').innerText = 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้';
-            } finally { btn.innerHTML = originalText; btn.disabled = false; }
+            if (isAdmin) document.getElementById('card-admin').classList.remove('hidden');
+            if (p.monitor || isAdmin) document.getElementById('card-monitor').classList.remove('hidden');
+            if (p.booking || isAdmin) document.getElementById('card-booking').classList.remove('hidden');
+            if (p.dispatch || isAdmin) document.getElementById('card-dispatch').classList.remove('hidden');
+            if (p.billing || isAdmin) document.getElementById('card-billing').classList.remove('hidden');
         });
+
+        function logout() {
+            localStorage.removeItem('tms_user');
+            window.location.href = '/login.html';
+        }
     </script>
 </body>
 </html>

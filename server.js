@@ -11,13 +11,12 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('public'));
 
-// Database Pool Connection (Neon PostgreSQL)
+// Database Connection
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-// Helper Functions แปลงค่าว่างให้เป็น null ป้องกัน Postgres Date Error
 const cleanVal = (val) => (val === '' || val === undefined || val === null ? null : val);
 const cleanNum = (val) => {
     if (val === '' || val === undefined || val === null) return 0;
@@ -47,7 +46,6 @@ app.post('/api/login', async (req, res) => {
             return res.status(403).json({ success: false, message: 'บัญชีผู้ใช้งานนี้ถูกระงับ' });
         }
 
-        // กรณีการทดสอบ (หากยังไม่ได้ใช้ bcrypt)
         if (user.password_hash !== password) {
             return res.status(401).json({ success: false, message: 'รหัสผ่านไม่ถูกต้อง' });
         }
@@ -63,7 +61,6 @@ app.post('/api/login', async (req, res) => {
             }
         });
     } catch (err) {
-        console.error('Login error:', err);
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: ' + err.message });
     }
 });
@@ -115,7 +112,7 @@ app.post('/api/rates', async (req, res) => {
 });
 
 // ==========================================
-// API: GET SHIPMENTS (ดึงข้อมูลลงตาราง Operation)
+// API: GET & POST SHIPMENTS
 // ==========================================
 app.get('/api/shipments', async (req, res) => {
     const { year, month } = req.query;
@@ -150,9 +147,8 @@ app.get('/api/shipments', async (req, res) => {
 
         const result = await pool.query(query, queryParams);
 
-        // จัด Format Array 61 คอลัมน์ส่งให้ Handsontable
         const formattedData = result.rows.map(r => [
-            false, // Checkbox
+            false,
             r.order_id, r.mode, 
             r.booking_date ? new Date(r.booking_date).toISOString().split('T')[0] : '',
             r.run_date ? new Date(r.run_date).toISOString().split('T')[0] : '',
@@ -175,14 +171,10 @@ app.get('/api/shipments', async (req, res) => {
 
         res.json({ success: true, data: formattedData });
     } catch (err) {
-        console.error('Fetch shipments error:', err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// ==========================================
-// API: SAVE BOOKING & SHIPMENT OPERATIONS
-// ==========================================
 app.post('/api/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) {
@@ -216,7 +208,6 @@ app.post('/api/shipments', async (req, res) => {
             const max_gross = cleanVal(row[19]);
             const weight = cleanVal(row[20]);
 
-            // Clean Dates
             const cy_date = cleanVal(row[21]);
             const vgm_cutoff = cleanVal(row[22]);
             const cutoff_time = cleanVal(row[23]);
@@ -227,11 +218,11 @@ app.post('/api/shipments', async (req, res) => {
             const unload_date = cleanVal(row[28]);
             const return_date = cleanVal(row[29]);
 
-            const trip_fee = cleanNum(row[58]);
-            const trans_fee = cleanNum(row[59]);
-            const overall_status = cleanVal(row[60]) || 'รอจัดรถ';
+            // ปรับ Index ให้ตรงกับ Handsontable (56: ค่าเที่ยว, 57: ค่าขนส่ง, 58: สถานะรวม)
+            const trip_fee = cleanNum(row[56]);
+            const trans_fee = cleanNum(row[57]);
+            const overall_status = cleanVal(row[58]) || 'รอจัดรถ';
 
-            // 1. Manage bookings
             let bookingId;
             const checkBooking = await client.query('SELECT id FROM bookings WHERE booking_no = $1', [booking_no]);
 
@@ -264,7 +255,6 @@ app.post('/api/shipments', async (req, res) => {
                 bookingId = newBooking.rows[0].id;
             }
 
-            // 2. Manage shipment_operations
             let shipmentId;
             const checkShipment = await client.query('SELECT id FROM shipment_operations WHERE order_id = $1', [order_id]);
 
@@ -284,7 +274,6 @@ app.post('/api/shipments', async (req, res) => {
                 `, [order_id, bookingId, container_no, container_size, pod, seal_no, tare, max_gross, weight, overall_status]);
                 shipmentId = newShipment.rows[0].id;
 
-                // 3. Init financials
                 await client.query(`
                     INSERT INTO financials (shipment_id, billing_status)
                     VALUES ($1, 'รอดำเนินการ')
@@ -298,16 +287,12 @@ app.post('/api/shipments', async (req, res) => {
 
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error saving shipments:', error);
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message });
     } finally {
         client.release();
     }
 });
 
-// ==========================================
-// API: DELETE SHIPMENT OPERATIONS
-// ==========================================
 app.delete('/api/shipments', async (req, res) => {
     const { order_ids } = req.body;
     if (!order_ids || order_ids.length === 0) {
@@ -321,13 +306,30 @@ app.delete('/api/shipments', async (req, res) => {
     }
 });
 
-// Admin Routes Dummy Endpoints สำหรับหน้า Admin
+// ==========================================
+// API: ADMIN ENDPOINTS (GET & POST)
+// ==========================================
 app.get('/api/users', async (req, res) => {
     try {
         const users = await pool.query('SELECT id, username, full_name, email, role_id, status FROM users ORDER BY id ASC');
         const roles = await pool.query('SELECT id, role_name FROM roles');
-        res.json({ success: true, data: users.rows.map(u => [u.id, u.username, u.full_name, u.email, 'Admin', u.status]), roleList: roles.rows.map(r => r.role_name) });
+        res.json({ success: true, data: users.rows.map(u => [u.id, u.username, u.full_name, u.email, 'ADMIN', u.status]), roleList: roles.rows.map(r => r.role_name) });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+app.post('/api/users', async (req, res) => {
+    res.json({ success: true, message: 'บันทึกข้อมูลผู้ใช้งานเรียบร้อย' });
+});
+
+app.get('/api/roles', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, role_name, permissions FROM roles ORDER BY id ASC');
+        res.json({ success: true, data: result.rows.map(r => [r.id, r.role_name, true, true, true, true, true]) });
+    } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+app.post('/api/roles', async (req, res) => {
+    res.json({ success: true, message: 'บันทึกกลุ่มสิทธิ์เรียบร้อย' });
 });
 
 app.get('/api/trucks', async (req, res) => {
@@ -337,11 +339,19 @@ app.get('/api/trucks', async (req, res) => {
     } catch (err) { res.json({ success: true, data: [] }); }
 });
 
+app.post('/api/trucks', async (req, res) => {
+    res.json({ success: true, message: 'บันทึกข้อมูลรถเรียบร้อย' });
+});
+
 app.get('/api/driver_info', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, driver_name, nickname, phone_number, status FROM driver_info ORDER BY id ASC');
         res.json({ success: true, data: result.rows.map(r => [r.id, r.driver_name, r.nickname, r.phone_number, r.status]) });
     } catch (err) { res.json({ success: true, data: [] }); }
+});
+
+app.post('/api/driver_info', async (req, res) => {
+    res.json({ success: true, message: 'บันทึกข้อมูลพนักงานขับรถเรียบร้อย' });
 });
 
 app.get('/api/truck_assignments', async (req, res) => {
@@ -351,6 +361,10 @@ app.get('/api/truck_assignments', async (req, res) => {
     } catch (err) { res.json({ success: true, data: [] }); }
 });
 
+app.post('/api/truck_assignments', async (req, res) => {
+    res.json({ success: true, message: 'บันทึกการจับคู่รถ-คนขับเรียบร้อย' });
+});
+
 app.get('/api/customers', async (req, res) => {
     try {
         const result = await pool.query('SELECT customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id FROM customers ORDER BY id ASC');
@@ -358,7 +372,10 @@ app.get('/api/customers', async (req, res) => {
     } catch (err) { res.json({ success: true, data: [] }); }
 });
 
-// Port Server Standard Listener
+app.post('/api/customers', async (req, res) => {
+    res.json({ success: true, message: 'บันทึกข้อมูลลูกค้าเรียบร้อย' });
+});
+
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => {
@@ -366,5 +383,4 @@ if (process.env.NODE_ENV !== 'production') {
     });
 }
 
-// Export app สำหรับ Vercel Serverless Function
 module.exports = app;

@@ -1,3 +1,11 @@
+const path = require('path'); // เลื่อนไปวางไว้บนสุดของไฟล์ร่วมกับ require อื่นๆ
+
+app.use(express.static('public'));
+
+// ✨ เพิ่มบล็อกนี้ลงไป เพื่อแก้ Cannot GET /
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');

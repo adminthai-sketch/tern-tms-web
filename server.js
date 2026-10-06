@@ -1,14 +1,7 @@
-const path = require('path'); // เลื่อนไปวางไว้บนสุดของไฟล์ร่วมกับ require อื่นๆ
-
-app.use(express.static('public'));
-
-// ✨ เพิ่มบล็อกนี้ลงไป เพื่อแก้ Cannot GET /
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -19,18 +12,31 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('public'));
 
-// Database Connection
+// Database Connection (Neon PostgreSQL)
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
+// ป้องกัน App Crash จาก Idle Client Connection ใน Serverless
+pool.on('error', (err) => {
+    console.error('Unexpected error on idle DB client:', err);
+});
+
+// Helper Functions
 const cleanVal = (val) => (val === '' || val === undefined || val === null ? null : val);
 const cleanNum = (val) => {
     if (val === '' || val === undefined || val === null) return 0;
     const num = parseFloat(String(val).replace(/,/g, ''));
     return isNaN(num) ? 0 : num;
 };
+
+// ==========================================
+// STATIC FRONTEND ROUTE (แก้ปัญหา Cannot GET /)
+// ==========================================
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // ==========================================
 // API: AUTH / LOGIN
@@ -69,6 +75,7 @@ app.post('/api/login', async (req, res) => {
             }
         });
     } catch (err) {
+        console.error('Login error:', err);
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: ' + err.message });
     }
 });
@@ -179,6 +186,7 @@ app.get('/api/shipments', async (req, res) => {
 
         res.json({ success: true, data: formattedData });
     } catch (err) {
+        console.error('Fetch shipments error:', err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
@@ -226,7 +234,6 @@ app.post('/api/shipments', async (req, res) => {
             const unload_date = cleanVal(row[28]);
             const return_date = cleanVal(row[29]);
 
-            // ปรับ Index ให้ตรงกับ Handsontable (56: ค่าเที่ยว, 57: ค่าขนส่ง, 58: สถานะรวม)
             const trip_fee = cleanNum(row[56]);
             const trans_fee = cleanNum(row[57]);
             const overall_status = cleanVal(row[58]) || 'รอจัดรถ';
@@ -295,6 +302,7 @@ app.post('/api/shipments', async (req, res) => {
 
     } catch (error) {
         await client.query('ROLLBACK');
+        console.error('Error saving shipments:', error);
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + error.message });
     } finally {
         client.release();
@@ -365,8 +373,16 @@ app.post('/api/driver_info', async (req, res) => {
 app.get('/api/truck_assignments', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, plate_number, driver_name FROM truck_assignments ORDER BY id ASC');
-        res.json({ success: true, data: result.rows.map(r => [r.id, r.plate_number, r.driver_name]) });
-    } catch (err) { res.json({ success: true, data: [] }); }
+        const trucks = await pool.query('SELECT plate_number FROM trucks WHERE status = \'ACTIVE\'');
+        const drivers = await pool.query('SELECT driver_name FROM driver_info WHERE status = \'ACTIVE\'');
+        
+        res.json({ 
+            success: true, 
+            data: result.rows.map(r => [r.id, r.plate_number, r.driver_name]),
+            truckList: trucks.rows.map(t => t.plate_number),
+            driverList: drivers.rows.map(d => d.driver_name)
+        });
+    } catch (err) { res.json({ success: true, data: [], truckList: [], driverList: [] }); }
 });
 
 app.post('/api/truck_assignments', async (req, res) => {
@@ -384,6 +400,7 @@ app.post('/api/customers', async (req, res) => {
     res.json({ success: true, message: 'บันทึกข้อมูลลูกค้าเรียบร้อย' });
 });
 
+// Port Server Standard Listener (สำหรับรัน Local)
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => {
@@ -391,4 +408,5 @@ if (process.env.NODE_ENV !== 'production') {
     });
 }
 
+// Export app สำหรับ Vercel Serverless Function
 module.exports = app;

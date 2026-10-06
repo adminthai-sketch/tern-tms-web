@@ -30,8 +30,12 @@
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
 
+    <!-- HEADER -->
     <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
         <div class="flex items-center gap-3">
+            <button onclick="toggleSidebar()" class="p-2 text-slate-500 hover:text-primary rounded-lg hover:bg-slate-100 transition-colors" title="ซ่อน/แสดงเมนูข้าง">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
             <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-truck-fast"></i></div>
             <span class="font-bold text-xl text-primary tracking-wide">TERN TMS <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">OPERATION</span></span>
         </div>
@@ -46,15 +50,30 @@
 
     <div class="flex-1 flex overflow-hidden">
         
-        <nav class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-            <div class="px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Main Applications</div>
-            <a href="/monitor.html" id="menu-monitor" class="sidebar-item hidden items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors"><i class="fa-solid fa-desktop w-5 text-center"></i> 1. มอนิเตอร์งาน</a>
-            <a href="/booking.html" id="menu-booking" class="sidebar-item hidden items-center gap-3 px-6 py-3 bg-blue-50 text-primary border-r-4 border-primary font-semibold"><i class="fa-solid fa-file-signature w-5 text-center"></i> 2. สร้างบุคกิ้ง</a>
-            <a href="/dispatch.html" id="menu-dispatch" class="sidebar-item hidden items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors"><i class="fa-solid fa-truck-ramp-box w-5 text-center"></i> 3. จัดคนขับ</a>
-            <a href="/billing.html" id="menu-billing" class="sidebar-item hidden items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors"><i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i> 4. วางบิล</a>
+        <!-- SIDEBAR (รองรับการพับเก็บ) -->
+        <nav id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col py-6 shrink-0 overflow-y-auto z-10 transition-all duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+            <div class="sidebar-section-title px-6 mb-3 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Main Applications</div>
+            
+            <a href="/monitor.html" id="menu-monitor" class="sidebar-item hidden items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors whitespace-nowrap">
+                <i class="fa-solid fa-desktop w-5 text-center shrink-0"></i> <span class="sidebar-label">1. มอนิเตอร์งาน</span>
+            </a>
+            <a href="/booking.html" id="menu-booking" class="sidebar-item hidden items-center gap-3 px-6 py-3 bg-blue-50 text-primary border-r-4 border-primary font-semibold whitespace-nowrap">
+                <i class="fa-solid fa-file-signature w-5 text-center shrink-0"></i> <span class="sidebar-label">2. สร้างบุคกิ้ง</span>
+            </a>
+            <a href="/dispatch.html" id="menu-dispatch" class="sidebar-item hidden items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors whitespace-nowrap">
+                <i class="fa-solid fa-truck-ramp-box w-5 text-center shrink-0"></i> <span class="sidebar-label">3. จัดคนขับ</span>
+            </a>
+            <a href="/billing.html" id="menu-billing" class="sidebar-item hidden items-center gap-3 px-6 py-3 text-slate-600 hover:bg-blue-50 hover:text-primary transition-colors whitespace-nowrap">
+                <i class="fa-solid fa-file-invoice-dollar w-5 text-center shrink-0"></i> <span class="sidebar-label">4. วางบิล</span>
+            </a>
+            
             <div id="menu-admin" class="hidden">
-                <div class="px-6 mt-8 mb-2 text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2"><i class="fa-solid fa-shield-halved"></i> 5. Admin Only</div>
-                <a href="/admin/admin.html" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"><i class="fa-solid fa-database w-5 text-center"></i> จัดการข้อมูลหลังบ้าน</a>
+                <div class="sidebar-section-title px-6 mt-8 mb-2 text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-shield-halved"></i> <span>5. Admin Only</span>
+                </div>
+                <a href="/admin/admin.html" class="sidebar-item flex items-center gap-3 px-6 py-3 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors whitespace-nowrap">
+                    <i class="fa-solid fa-database w-5 text-center shrink-0"></i> <span class="sidebar-label">จัดการข้อมูลหลังบ้าน</span>
+                </a>
             </div>
         </nav>
 
@@ -102,7 +121,7 @@
                     </div>
                     <div class="flex-1 min-w-[250px]">
                         <label class="block text-sm font-semibold text-slate-700 mb-1">🔍 ค้นหาชื่องาน (ดึงราคา/ต้นทาง/ปลายทางอัตโนมัติ)</label>
-                        <input type="text" id="jobNameInput" list="jobList" onchange="previewJobData()" onkeyup="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูล..." class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                        <input type="text" id="jobNameInput" list="jobList" oninput="previewJobData()" onchange="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูล..." class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm">
                         <datalist id="jobList"></datalist>
                     </div>
                 </div>
@@ -202,7 +221,7 @@
                             ✖ ยกเลิกการแก้ไข
                         </button>
                         <button onclick="generateData(this)" id="btn-submit-form" class="bg-primary hover:bg-blue-900 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transition-colors">
-                            <i class="fa-solid fa-plus-circle"></i> สร้างรายการลงตาราง
+                            <i class="fa-solid fa-plus-circle"></i> สร้างรายการลงตารางและบันทึก
                         </button>
                     </div>
                 </div>
@@ -245,7 +264,7 @@
                         <div class="flex gap-2">
                             <button onclick="openColToggleModal()" class="bg-white hover:bg-slate-50 text-slate-600 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors border border-slate-200 shadow-sm"><i class="fa-solid fa-eye"></i> ซ่อนคอลัมน์</button>
                             <button onclick="deleteCheckedRows()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-1.5 px-3 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่เลือก</button>
-                            <button onclick="saveShipments()" id="btn-save-booking" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-floppy-disk"></i> บันทึกตารางลงฐานข้อมูล</button>
+                            <button onclick="saveShipments(false)" id="btn-save-booking" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-4 rounded-lg flex items-center gap-2 text-sm shadow-sm transition-colors"><i class="fa-solid fa-floppy-disk"></i> บันทึกตารางลงฐานข้อมูล</button>
                         </div>
                     </div>
                     <div class="flex-1 relative w-full h-full bg-white z-0">
@@ -336,6 +355,19 @@
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
+        // ฟังก์ชัน พับ/กาง Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const labels = document.querySelectorAll('.sidebar-label');
+            const sectionTitles = document.querySelectorAll('.sidebar-section-title');
+            
+            sidebar.classList.toggle('w-64');
+            sidebar.classList.toggle('w-16');
+            
+            labels.forEach(el => el.classList.toggle('hidden'));
+            sectionTitles.forEach(el => el.classList.toggle('hidden'));
+        }
+
         function switchSubTab(tabName) {
             document.querySelectorAll('.subtab-btn').forEach(b => {
                 b.classList.remove('bg-blue-50', 'text-primary', 'font-semibold', 'shadow-sm');
@@ -352,20 +384,52 @@
             if(tabName === 'grid' && hotBookingInstance) { hotBookingInstance.render(); buildSmartFilters(); }
         }
 
+        // ดึงเรทราคา Master Data มารองรับทั้งรูปแบบ Array และ Object
         async function loadMasterRates() {
             try {
                 const response = await fetch('/api/rates');
                 const result = await response.json();
-                const dl = document.getElementById('jobList'); dl.innerHTML = ''; rateDataMap = {};
+                const dl = document.getElementById('jobList'); 
+                if (dl) dl.innerHTML = ''; 
+                rateDataMap = {};
+
                 if (result.success && result.data) {
                     result.data.forEach(r => {
-                        if(r[0]) {
-                            rateDataMap[r[0]] = { customer: r[1], origin: r[2], dest: r[3], jobType: r[6], trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10], trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14] };
-                            let opt = document.createElement('option'); opt.value = r[0]; dl.appendChild(opt);
+                        if (!r) return;
+                        let jobName = '', customer = '', origin = '', dest = '', jobType = 'ทั่วไป';
+                        let trp6 = '', trp10 = '', trp12 = '', trpCash = '';
+                        let trn6 = '', trn10 = '', trn12 = '', trnCash = '';
+
+                        if (Array.isArray(r)) {
+                            const hasId = typeof r[0] === 'number' || (!isNaN(r[0]) && r[0] !== '' && typeof r[1] === 'string' && isNaN(r[1]));
+                            const idx = hasId ? 1 : 0;
+                            jobName = r[idx + 0] || '';
+                            customer = r[idx + 1] || '';
+                            origin = r[idx + 2] || '';
+                            dest = r[idx + 3] || '';
+                            jobType = r[idx + 6] || 'ทั่วไป';
+                            trp6 = r[idx + 7] || ''; trp10 = r[idx + 8] || ''; trp12 = r[idx + 9] || ''; trpCash = r[idx + 10] || '';
+                            trn6 = r[idx + 11] || ''; trn10 = r[idx + 12] || ''; trn12 = r[idx + 13] || ''; trnCash = r[idx + 14] || '';
+                        } else if (typeof r === 'object') {
+                            jobName = r.job_name || r.name || '';
+                            customer = r.customer_name || r.customer || '';
+                            origin = r.origin || '';
+                            dest = r.destination || r.dest || '';
+                            jobType = r.job_type || 'ทั่วไป';
+                            trp6 = r.trip_fee_6w || ''; trp10 = r.trip_fee_10w || ''; trp12 = r.trip_fee_12w || ''; trpCash = r.trip_fee_cash || '';
+                            trn6 = r.trans_fee_6w || ''; trn10 = r.trans_fee_10w || ''; trn12 = r.trans_fee_12w || ''; trnCash = r.trans_fee_cash || '';
+                        }
+
+                        if (jobName && jobName.trim() !== '') {
+                            const key = jobName.trim();
+                            rateDataMap[key] = { customer, origin, dest, jobType, trp6, trp10, trp12, trpCash, trn6, trn10, trn12, trnCash };
+                            let opt = document.createElement('option'); 
+                            opt.value = key; 
+                            if (dl) dl.appendChild(opt);
                         }
                     });
                 }
-            } catch(e) {}
+            } catch(e) { console.error("Error loading master rates:", e); }
         }
 
         async function loadShipments() {
@@ -399,18 +463,28 @@
         function syncCutoff() { document.getElementById('pCutoffReturnExp').value = document.getElementById('pCutoffExp').value; }
 
         function previewJobData() {
-            const val = document.getElementById('jobNameInput').value;
+            const val = document.getElementById('jobNameInput').value.trim();
             if(!val || !rateDataMap[val]) return;
             const rate = rateDataMap[val];
-            document.getElementById('pCustomer').value = rate.customer || ''; document.getElementById('pOrigin').value = rate.origin || ''; document.getElementById('pDest').value = rate.dest || ''; document.getElementById('pJobType').value = rate.jobType || 'ทั่วไป';
-            document.getElementById('pDepotExp').value = rate.origin || ''; document.getElementById('pPortImp').value = rate.origin || '';
-            document.getElementById('pReturnExp').value = rate.dest || ''; document.getElementById('pDepotImp').value = rate.dest || '';
-            document.getElementById('pPriceType').value = ''; updateFeeDropdowns();
+            document.getElementById('pCustomer').value = rate.customer || ''; 
+            document.getElementById('pOrigin').value = rate.origin || ''; 
+            document.getElementById('pDest').value = rate.dest || ''; 
+            document.getElementById('pJobType').value = rate.jobType || 'ทั่วไป';
+            
+            document.getElementById('pDepotExp').value = rate.origin || ''; 
+            document.getElementById('pPortImp').value = rate.origin || '';
+            document.getElementById('pReturnExp').value = rate.dest || ''; 
+            document.getElementById('pDepotImp').value = rate.dest || '';
+            
+            document.getElementById('pPriceType').value = ''; 
+            updateFeeDropdowns();
         }
 
         function updateFeeDropdowns() {
-            const val = document.getElementById('jobNameInput').value; const type = document.getElementById('pPriceType').value;
-            const trpInp = document.getElementById('pTripFee'); const trnInp = document.getElementById('pTransFee');
+            const val = document.getElementById('jobNameInput').value.trim(); 
+            const type = document.getElementById('pPriceType').value;
+            const trpInp = document.getElementById('pTripFee'); 
+            const trnInp = document.getElementById('pTransFee');
             trpInp.value = ''; trnInp.value = '';
             if(!val || !rateDataMap[val] || !type) return;
             const rate = rateDataMap[val];
@@ -531,14 +605,14 @@
             document.getElementById('editingOrderId').value = "";
             document.getElementById('form-title').innerText = "สร้างรายการรับงานใหม่ (New Booking)";
             document.getElementById('editing-badge').classList.add('hidden');
-            document.getElementById('btn-submit-form').innerHTML = '<i class="fa-solid fa-plus-circle"></i> สร้างรายการลงตาราง';
+            document.getElementById('btn-submit-form').innerHTML = '<i class="fa-solid fa-plus-circle"></i> สร้างรายการลงตารางและบันทึก';
             document.getElementById('btn-submit-form').classList.replace('bg-emerald-600', 'bg-primary');
             document.getElementById('btn-submit-form').classList.replace('hover:bg-emerald-700', 'hover:bg-blue-900');
             document.getElementById('btn-cancel-edit').classList.add('hidden');
             document.getElementById('box-row-count').classList.remove('hidden');
         }
 
-        function generateData(btn) {
+        async function generateData(btn) {
             const mode = document.getElementById('pMode').value;
             const runDate = document.getElementById('runDate').value;
             const editingRow = document.getElementById('editingOrderId').value;
@@ -561,9 +635,13 @@
                 bookingNo = document.getElementById('pRefTrans').value;
             }
 
-            const customer = document.getElementById('pCustomer').value; const jobName = document.getElementById('jobNameInput').value;
-            const jobType = document.getElementById('pJobType').value; const origin = document.getElementById('pOrigin').value; const dest = document.getElementById('pDest').value;
-            const tripFee = document.getElementById('pTripFee').value; const transFee = document.getElementById('pTransFee').value;
+            const customer = document.getElementById('pCustomer').value; 
+            const jobName = document.getElementById('jobNameInput').value;
+            const jobType = document.getElementById('pJobType').value; 
+            const origin = document.getElementById('pOrigin').value; 
+            const dest = document.getElementById('pDest').value;
+            const tripFee = document.getElementById('pTripFee').value; 
+            const transFee = document.getElementById('pTransFee').value;
 
             if (editingRow !== "") {
                 let rIdx = parseInt(editingRow);
@@ -577,9 +655,9 @@
                 rowData[58] = tripFee; rowData[59] = transFee;
                 
                 hotBookingInstance.populateFromArray(rIdx, 1, [[...rowData.slice(1)]]);
-                alert('✅ แก้ไขลงตารางสำเร็จ! (อย่าลืมกดบันทึกฐานข้อมูล)');
                 cancelEdit();
                 switchSubTab('grid');
+                await saveShipments(true);
                 return;
             }
 
@@ -610,6 +688,7 @@
             document.getElementById('jobPreviewBox').classList.add('hidden');
             
             switchSubTab('grid');
+            await saveShipments(true);
         }
 
         function buildSmartFilters() {
@@ -665,16 +744,38 @@
             }
         }
 
-        async function saveShipments() { 
-            const btn = document.getElementById('btn-save-booking'); const ot = btn.innerHTML;
-            btn.innerHTML = '⏳ กำลังบันทึก...'; btn.disabled = true;
-            const cleanData = hotBookingInstance.getData().filter(r => r[1]); 
+        // บันทึกตารางลงฐานข้อมูล
+        async function saveShipments(isAutoSave = false) { 
+            const btn = document.getElementById('btn-save-booking'); 
+            const ot = btn ? btn.innerHTML : 'บันทึกตารางลงฐานข้อมูล';
+            if (btn) { btn.innerHTML = '⏳ กำลังบันทึก...'; btn.disabled = true; }
+            
+            if (!hotBookingInstance) {
+                if (!isAutoSave) alert('⚠️ ตารางยังโหลดไม่สมบูรณ์');
+                if (btn) btn.disabled = false;
+                return;
+            }
+
+            const cleanData = hotBookingInstance.getData().filter(r => r && r[1] && String(r[1]).trim() !== ""); 
+            
             try {
-                const res = await fetch('/api/shipments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData }) });
+                const res = await fetch('/api/shipments', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ data: cleanData }) 
+                });
                 const result = await res.json();
-                alert(result.message);
-                if (result.success) loadShipments();
-            } catch(e) { alert('❌ เกิดข้อผิดพลาดในการบันทึก: ' + e.message); } finally { btn.innerHTML = ot; btn.disabled = false; }
+                
+                if (result.success) {
+                    if (!isAutoSave) alert('✅ ' + result.message);
+                } else {
+                    alert('❌ เกิดข้อผิดพลาดจากฐานข้อมูล: ' + result.message);
+                }
+            } catch(e) { 
+                alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อ API: ' + e.message); 
+            } finally { 
+                if (btn) { btn.innerHTML = ot; btn.disabled = false; }
+            }
         }
 
         function openColToggleModal() {

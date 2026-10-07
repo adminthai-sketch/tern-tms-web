@@ -21,7 +21,6 @@
         .handsontable th { font-weight: bold !important; font-size: 13px !important; }
         .handsontable td { font-size: 13px !important; }
         
-        /* แก้ไขกล่อง Dropdown/Autocomplete ไม่ให้ล้นและปรับความสูงให้อ่านง่าย */
         div.handsontable.listbox, .handsontable.listbox { 
             height: auto !important; 
             min-height: 150px !important; 
@@ -175,7 +174,6 @@
             const user = JSON.parse(savedUser);
             const userRole = (user.role || '').toUpperCase();
             
-            // Check Admin Permissions
             if (userRole !== 'ADMIN' && !(user.permissions && user.permissions.admin)) {
                 alert('⛔ คุณไม่มีสิทธิ์เข้าถึงหน้า Admin Backoffice');
                 window.location.href = '/index.html';
@@ -258,33 +256,25 @@
                 headers: ['Customer No.', 'Customer Name', 'ชื่อลูกค้าย่อ', 'Billing Name', 'Phone Number', 'Address', 'Tax ID'],
                 columns: Array(7).fill({ type: 'text' })
             },
-       rates: {
+            rates: {
                 title: 'จัดการเรทราคา (Rates)', icon: 'fa-hand-holding-dollar',
                 endpoint: '/api/rates',
                 headers: [
                     "ชื่องาน", "ลูกค้า", "ต้นทาง", "ปลายทาง", "รูปแบบวิ่ง", "จำนวนตู้", 
-                    "ประเภทงาน", // 👈 เพิ่มหัวคอลัมน์ประเภทงาน
+                    "ประเภทงาน",
                     "ค่าเที่ยว 6W", "ค่าเที่ยว 10W", "ค่าเที่ยว 12W", "ค่าเที่ยว(สด)", 
                     "ค่าขนส่ง 6W", "ค่าขนส่ง 10W", "ค่าขนส่ง 12W", "ค่าขนส่ง(สด)"
                 ],
                 columns: [
-                    { type: 'text' }, // ชื่องาน [0]
-                    { type: 'text' }, // ลูกค้า [1]
-                    { type: 'text' }, // ต้นทาง [2]
-                    { type: 'text' }, // ปลายทาง [3]
-                    { type: 'text' }, // รูปแบบวิ่ง [4]
-                    { type: 'numeric' }, // จำนวนตู้ [5]
-                    { type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, // 👈 คอลัมน์ [6] ให้เป็น Dropdown
-                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [7]
-                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [8]
-                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [9]
-                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [10]
-                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [11]
-                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [12]
-                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [13]
-                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }  // [14]
+                    { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'numeric' },
+                    { type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, 
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, 
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, 
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, 
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, { type: 'numeric', numericFormat: { pattern: '0,0.00' } }  
                 ]
             }
+        }; // 👈 เพิ่มปีกกาปิดที่หายไปตรงนี้ให้เรียบร้อยแล้ว
 
         function getUIState(tableName) {
             const user = JSON.parse(localStorage.getItem('tms_user'));
@@ -314,38 +304,29 @@
             if(activeBtn) activeBtn.classList.add('bg-emerald-50', 'text-emerald-700', 'border-r-4', 'border-emerald-600', 'font-semibold');
 
             try {
-                // ⚠️ ตรงนี้ถ้าเรียก API ไม่ได้ จะสร้างข้อมูลว่างจำลองขึ้นมาไม่ให้เว็บพัง
-                let result = { data: [] };
-                try {
-                    const response = await fetch(cfg.endpoint);
-                    if (response.ok) {
-                        result = await response.json();
+                let rawRows = [];
+                const response = await fetch(cfg.endpoint);
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && Array.isArray(result.data)) {
+                        rawRows = result.data;
                     }
-                } catch (e) {
-                    console.warn("Backend API not fully ready, using empty state:", e);
-                }
-                
-                // โหลด Dependencies เสริม
-                if(type === 'users' && result.roleList) globalRolesList = result.roleList;
-                if(type === 'truck_assignments' && result.truckList && result.driverList) {
-                    globalTruckList = result.truckList;
-                    globalDriverList = result.driverList;
-                    window.truckToDriverMap = {}; window.driverToTruckMap = {};
-                    if(result.data) {
-                        result.data.forEach(row => {
-                            if(row[1] && row[2]) {
-                                window.truckToDriverMap[row[1]] = row[2];
-                                window.driverToTruckMap[row[2]] = row[1];
-                            }
-                        });
+                    if (type === 'users' && result.roleList) globalRolesList = result.roleList;
+                    if (type === 'truck_assignments') {
+                        if (result.truckList) globalTruckList = result.truckList;
+                        if (result.driverList) globalDriverList = result.driverList;
                     }
+                } else {
+                    console.error("Fetch API Failed with status:", response.status);
                 }
 
-                if (hotMasterInstance) hotMasterInstance.destroy();
+                let safeData = (rawRows && rawRows.length > 0) ? rawRows : [new Array(cfg.headers.length).fill("")];
 
-                let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(cfg.headers.length).fill("")];
-                
-                // ยัดคอลัมน์ "จัดการ (ลบเดี่ยว)" ไปท้ายสุด
+                if (hotMasterInstance) {
+                    hotMasterInstance.destroy();
+                    hotMasterInstance = null;
+                }
+
                 let dynamicHeaders = [...cfg.headers, 'จัดการ'];
                 let dynamicColumns = [...cfg.columns, { 
                     readOnly: true, 

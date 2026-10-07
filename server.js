@@ -180,6 +180,8 @@ app.get('/api/users', async (req, res) => {
 
 app.post('/api/users', async (req, res) => {
     const { data } = req.body;
+    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
+    
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -221,6 +223,8 @@ app.get('/api/roles', async (req, res) => {
 
 app.post('/api/roles', async (req, res) => {
     const { data } = req.body;
+    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -242,6 +246,7 @@ app.post('/api/roles', async (req, res) => {
     } finally { client.release(); }
 });
 
+// จัดการข้อมูลรถ 
 app.get('/api/trucks', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, default_plate_number, default_vehicle_type, status FROM drivers WHERE default_plate_number IS NOT NULL ORDER BY id ASC');
@@ -250,9 +255,33 @@ app.get('/api/trucks', async (req, res) => {
 });
 
 app.post('/api/trucks', async (req, res) => {
-    res.json({ success: true, message: 'ระบบจะจัดการข้อมูลรถผ่านเมนูคนขับ' });
+    const { data } = req.body;
+    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (const row of data) {
+            const [id, plate_number, vehicle_type, status] = row;
+            if (!plate_number) continue;
+            
+            if (id) {
+                await client.query(`UPDATE drivers SET default_plate_number = $1, default_vehicle_type = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`, 
+                [plate_number, vehicle_type, status || 'ACTIVE', id]);
+            } else {
+                await client.query(`INSERT INTO drivers (default_plate_number, default_vehicle_type, status) VALUES ($1, $2, $3)`, 
+                [plate_number, vehicle_type, status || 'ACTIVE']);
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'บันทึกข้อมูลรถเรียบร้อยแล้ว' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด: ' + err.message });
+    } finally { client.release(); }
 });
 
+// จัดการข้อมูลคนขับ
 app.get('/api/driver_info', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, driver_name, nickname, phone_number, status FROM drivers ORDER BY id ASC');
@@ -261,9 +290,33 @@ app.get('/api/driver_info', async (req, res) => {
 });
 
 app.post('/api/driver_info', async (req, res) => {
-    res.json({ success: true, message: 'ระบบจะบันทึกข้อมูลพนักงานขับรถ' });
+    const { data } = req.body;
+    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (const row of data) {
+            const [id, driver_name, nickname, phone_number, status] = row;
+            if (!driver_name) continue;
+
+            if (id) {
+                await client.query(`UPDATE drivers SET driver_name = $1, nickname = $2, phone_number = $3, status = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5`, 
+                [driver_name, nickname, phone_number, status || 'ACTIVE', id]);
+            } else {
+                await client.query(`INSERT INTO drivers (driver_name, nickname, phone_number, status) VALUES ($1, $2, $3, $4)`, 
+                [driver_name, nickname, phone_number, status || 'ACTIVE']);
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'บันทึกข้อมูลพนักงานขับรถเรียบร้อยแล้ว' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด: ' + err.message });
+    } finally { client.release(); }
 });
 
+// จัดการจับคู่รถ-คนขับ
 app.get('/api/truck_assignments', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, default_plate_number, driver_name FROM drivers ORDER BY id ASC');
@@ -280,7 +333,25 @@ app.get('/api/truck_assignments', async (req, res) => {
 });
 
 app.post('/api/truck_assignments', async (req, res) => {
-    res.json({ success: true, message: 'บันทึกการจับคู่รถ-คนขับเรียบร้อย' });
+    const { data } = req.body;
+    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (const row of data) {
+            const [id, plate_number, driver_name] = row;
+            if (id) {
+                await client.query(`UPDATE drivers SET default_plate_number = $1, driver_name = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, 
+                [plate_number, driver_name, id]);
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'บันทึกการจับคู่รถและคนขับเรียบร้อยแล้ว' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาด: ' + err.message });
+    } finally { client.release(); }
 });
 
 app.get('/api/customers', async (req, res) => {

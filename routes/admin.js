@@ -238,6 +238,7 @@ router.post('/customers', async (req, res) => {
 
 router.get('/rates', async (req, res) => {
     try {
+        // เพิ่ม job_type เข้าไปในคำสั่ง SELECT เพื่อให้ข้อมูลส่งไปยัง Frontend
         const result = await pool.query('SELECT job_name, customer_name, origin, destination, run_type, container_count, job_type, trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash FROM rates ORDER BY id ASC');
         res.json({ success: true, data: result.rows.map(r => [r.job_name, r.customer_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash]) });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -251,6 +252,7 @@ router.post('/rates', async (req, res) => {
         await client.query('DELETE FROM rates');
         for (const r of data) {
             if (!r[0]) continue;
+            // เพิ่ม parameter การบันทึก job_type ($7)
             await client.query(`INSERT INTO rates (job_name, customer_name, origin, destination, run_type, container_count, job_type, trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`, [r[0], r[1], r[2], r[3], r[4], cleanNum(r[5]) || 1, r[6], cleanNum(r[7]), cleanNum(r[8]), cleanNum(r[9]), cleanNum(r[10]), cleanNum(r[11]), cleanNum(r[12]), cleanNum(r[13]), cleanNum(r[14])]);
         }
         await client.query('COMMIT');

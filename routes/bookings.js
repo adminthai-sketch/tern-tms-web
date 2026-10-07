@@ -48,26 +48,27 @@ router.post('/bookings/header', async (req, res) => {
         // 3. ปรับอาร์เรย์ values ให้ปลอดภัยด้วย cleanVal
         const values = [
             b_no, 
-            cleanVal(mode),            // $2  ENUM: job_mode_enum
+            cleanVal(mode),            // $2
             run_date,                  // $3
             job_name || '',            // $4
             customer_name || '',       // $5
             container_count || 1,      // $6
             origin || '',              // $7
             destination || '',         // $8
-            cleanVal(cy_date),         // $9
-            cleanVal(vgm_cutoff),      // $10
-            cleanVal(cutoff_time),     // $11
-            cleanVal(load_date),       // $12
-            cleanVal(open_gate),       // $13
-            cleanVal(rent_cutoff),     // $14
-            cleanVal(demurrage),       // $15
-            cleanVal(unload_date),     // $16
-            cleanVal(return_date),     // $17
-            cleanVal(job_type),        // $18 ENUM: job_type_enum
-            cleanVal(price_type),      // $19 ENUM: price_vehicle_type_enum
-            cleanNum(trip_fee),        // $20
-            cleanNum(trans_fee)        // $21
+            cleanVal(agent),           // $9 👈 เพิ่ม agent เข้าไปตรงนี้
+            cleanVal(cy_date),         // $10
+            cleanVal(vgm_cutoff),      // $11
+            cleanVal(cutoff_time),     // $12
+            cleanVal(load_date),       // $13
+            cleanVal(open_gate),       // $14
+            cleanVal(rent_cutoff),     // $15
+            cleanVal(demurrage),       // $16
+            cleanVal(unload_date),     // $17
+            cleanVal(return_date),     // $18
+            cleanVal(job_type),        // $19 ENUM: job_type_enum
+            cleanVal(price_type),      // $20 ENUM: price_vehicle_type_enum
+            cleanNum(trip_fee),        // $21
+            cleanNum(trans_fee)        // $22
         ];
         
         const result = await pool.query(query, values);

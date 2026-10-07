@@ -90,22 +90,34 @@ async function loadFleetData() {
     } catch(e) {}
 }
 
+// โค้ดเดิมใน grid.js ที่รองรับไว้แล้ว (ไม่ต้องแก้ถ้าลำดับตรงกัน)
 async function loadMasterRates() {
     try {
         const response = await fetch('/api/rates');
         const result = await response.json();
-        const dl = document.getElementById('jobList'); dl.innerHTML = ''; rateDataMap = {};
+        const dl = document.getElementById('jobList'); 
+        dl.innerHTML = ''; 
+        rateDataMap = {};
+        
         if (result.success && result.data) {
             result.data.forEach(r => {
                 if(r[0]) {
-                    rateDataMap[r[0]] = { customer: r[1], origin: r[2], dest: r[3], jobType: r[6], trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10], trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14] };
-                    let opt = document.createElement('option'); opt.value = r[0]; dl.appendChild(opt);
+                    rateDataMap[r[0]] = { 
+                        customer: r[1], 
+                        origin: r[2], 
+                        dest: r[3], 
+                        jobType: r[6], // 👈 ตรงนี้จะรับค่า Domestic/CONTAINER จากตาราง rates
+                        trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10], 
+                        trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14] 
+                    };
+                    let opt = document.createElement('option'); 
+                    opt.value = r[0]; 
+                    dl.appendChild(opt);
                 }
             });
         }
     } catch(e) {}
 }
-
 async function loadShipments() {
     const monthVal = document.getElementById('monthFilter').value;
     if(!monthVal || !hotBookingInstance) return;

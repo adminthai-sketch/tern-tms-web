@@ -239,15 +239,15 @@
                     { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }
                 ]
             },
-            truck_assignments: {
+        truck_assignments: {
                 title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link',
                 endpoint: '/api/truck_assignments',
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'ประเภทรถ', 'คนขับประจำคัน'],
                 columns: [
-                    { readOnly: true }, 
-                    { type: 'autocomplete', strict: false, filter: false, source: function(query, process) { process(globalTruckList); } }, 
-                    { type: 'text', readOnly: true, className: 'htMiddle bg-slate-50' },
-                    { type: 'autocomplete', strict: false, filter: false, source: function(query, process) { process(globalDriverList); } }
+                    { readOnly: true }, // [0] ID
+                    { type: 'autocomplete', strict: false, filter: false, source: function(query, process) { process(globalTruckList); } }, // [1] ทะเบียน
+                    { type: 'text', readOnly: true, className: 'htMiddle bg-slate-50' }, // [2] ประเภทรถ (อ่านอย่างเดียว)
+                    { type: 'autocomplete', strict: false, filter: false, source: function(query, process) { process(globalDriverList); } }  // [3] คนขับ
                 ]
             },
             customers: {

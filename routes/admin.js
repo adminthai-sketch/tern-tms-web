@@ -175,17 +175,20 @@ router.post('/driver_info', async (req, res) => {
 
 router.get('/truck_assignments', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, default_plate_number, driver_name FROM drivers ORDER BY id ASC');
+        // เพิ่ม default_vehicle_type ใน SELECT
+        const result = await pool.query('SELECT id, default_plate_number, default_vehicle_type, driver_name FROM drivers WHERE default_plate_number IS NOT NULL ORDER BY id ASC');
         const trucks = await pool.query("SELECT default_plate_number FROM drivers WHERE status = 'ACTIVE' AND default_plate_number IS NOT NULL");
         const drivers = await pool.query("SELECT driver_name FROM drivers WHERE status = 'ACTIVE'");
         res.json({ 
             success: true, 
-            data: result.rows.map(r => [r.id, r.default_plate_number, r.driver_name]),
+            // แมปข้อมูล 4 ค่าให้ตรงกับคอลัมน์หน้าบ้าน
+            data: result.rows.map(r => [r.id, r.default_plate_number, r.default_vehicle_type || '', r.driver_name]),
             truckList: trucks.rows.map(t => t.default_plate_number),
             driverList: drivers.rows.map(d => d.driver_name)
         });
     } catch (err) { res.json({ success: true, data: [], truckList: [], driverList: [] }); }
 });
+    
 
 router.post('/truck_assignments', async (req, res) => {
     const { data } = req.body;

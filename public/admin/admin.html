@@ -51,6 +51,20 @@
             color: #0369a1 !important; 
             font-weight: 600 !important; 
         }
+
+        .btn-action-delete {
+            background-color: #fee2e2;
+            color: #ef4444;
+            border: 1px solid #fca5a5;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+        }
+        .btn-action-delete:hover { background-color: #fecaca; color: #b91c1c; }
     </style>
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
@@ -111,8 +125,9 @@
                         <input type="text" id="global-search" placeholder="ค้นหาข้อมูลแบบรวดเร็ว..." class="pl-9 pr-3 py-1.5 w-full border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="openAddModal()" class="bg-blue-600 text-white hover:bg-blue-700 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-plus"></i> เพิ่มข้อมูล (Popup)</button>
-                        <button onclick="deleteCheckedRows()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่ติ๊กเลือก</button>
+                        <button onclick="addNewRow()" class="bg-blue-600 text-white hover:bg-blue-700 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-plus"></i> เพิ่มแถวว่าง (ในตาราง)</button>
+                        <button onclick="openAddModal()" class="bg-indigo-600 text-white hover:bg-indigo-700 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-plus-circle"></i> เพิ่มข้อมูล (Popup)</button>
+                        <button onclick="deleteSelectedRow()" class="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"><i class="fa-solid fa-trash-can"></i> ลบที่ลากคลุม</button>
                     </div>
                 </div>
 
@@ -279,8 +294,16 @@
             if(activeBtn) activeBtn.classList.add('bg-emerald-50', 'text-emerald-700', 'border-r-4', 'border-emerald-600', 'font-semibold');
 
             try {
-                const response = await fetch(cfg.endpoint);
-                const result = await response.json();
+                // ⚠️ ตรงนี้ถ้าเรียก API ไม่ได้ จะสร้างข้อมูลว่างจำลองขึ้นมาไม่ให้เว็บพัง
+                let result = { data: [] };
+                try {
+                    const response = await fetch(cfg.endpoint);
+                    if (response.ok) {
+                        result = await response.json();
+                    }
+                } catch (e) {
+                    console.warn("Backend API not fully ready, using empty state:", e);
+                }
                 
                 // โหลด Dependencies เสริม
                 if(type === 'users' && result.roleList) globalRolesList = result.roleList;
@@ -298,34 +321,28 @@
                     }
                 }
 
-                // ดึงประเภทรถถ้าอยู่หน้า Assignments
-                if (type === 'truck_assignments') {
-                    const tRes = await fetch('/api/trucks');
-                    const tResult = await tRes.json();
-                    if (tResult.data) {
-                        tResult.data.forEach(t => { if(t[1] && t[2]) globalTruckTypeMap[t[1]] = t[2]; });
-                    }
-                }
-                
                 if (hotMasterInstance) hotMasterInstance.destroy();
 
                 let safeData = (result.data && result.data.length > 0) ? result.data : [new Array(cfg.headers.length).fill("")];
                 
-                // แมพค่าประเภทรถแทรกตรงกลาง (Splice out later on Save)
-                if (type === 'truck_assignments') {
-                    safeData = safeData.map(r => [r[0], r[1], globalTruckTypeMap[r[1]] || "", r[2]]);
-                }
+                // ยัดคอลัมน์ "จัดการ (ลบเดี่ยว)" ไปท้ายสุด
+                let dynamicHeaders = [...cfg.headers, 'จัดการ'];
+                let dynamicColumns = [...cfg.columns, { 
+                    readOnly: true, 
+                    renderer: function(instance, td, row) {
+                        td.innerHTML = `<button class="btn-action-delete" onclick="deleteSingleRow(${row})" title="ลบรายการนี้"><i class="fa-solid fa-trash"></i> ลบ</button>`;
+                        td.className = 'htCenter htMiddle';
+                        return td;
+                    }
+                }];
 
-                // ยัด Checkbox ไว้คอลัมน์แรกสุดเสมอ
-                safeData = safeData.map(row => [false, ...row]);
                 originalTableData = JSON.parse(JSON.stringify(safeData)); 
-
                 const uiState = getUIState('master_' + type);
 
                 hotMasterInstance = new Handsontable(document.getElementById('hot-master-container'), {
                     data: safeData,
-                    colHeaders: ['✔ ลบ', ...cfg.headers],
-                    columns: [{ type: 'checkbox', className: 'htCenter htMiddle' }, ...cfg.columns],
+                    colHeaders: dynamicHeaders,
+                    columns: dynamicColumns,
                     rowHeaders: true, minSpareRows: 1, width: '100%', height: '100%',
                     manualColumnResize: true, manualColumnMove: true, filters: true,
                     dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar', '---------', 'clear_column'],
@@ -336,47 +353,22 @@
                     cells: function(row, col) {
                         let cp = {};
                         if (this.instance) {
-                            if(this.instance.getDataAtCell(row, 0) === true) cp.className = 'ht-row-selected';
-                            else {
-                                let rData = this.instance.getSourceDataAtRow(this.instance.toPhysicalRow(row));
-                                if (rData && rData._isUnsaved) cp.className = 'ht-unsaved';
-                            }
+                            let rData = this.instance.getSourceDataAtRow(this.instance.toPhysicalRow(row));
+                            if (rData && rData._isUnsaved) cp.className = 'ht-unsaved';
                         }
                         return cp;
                     },
                     afterChange: function(changes, source) {
                         if (source !== 'loadData' && changes) {
                             let needsRender = false;
-                            let autoFills = [];
-                            
                             changes.forEach(([row, prop, oldValue, newValue]) => {
                                 if (oldValue !== newValue) {
-                                    if(prop !== 0) {
-                                        let rData = this.getSourceDataAtRow(this.toPhysicalRow(row));
-                                        if (rData) rData._isUnsaved = true;
-                                    }
+                                    let rData = this.getSourceDataAtRow(this.toPhysicalRow(row));
+                                    if (rData) rData._isUnsaved = true;
                                     needsRender = true;
-
-                                    // ออโต้ฟิลล์สำหรับหน้าจับคู่รถ-คนขับ
-                                    if (currentMasterType === 'truck_assignments') {
-                                        const col = this.propToCol(prop);
-                                        if (col === 2 && newValue) { // แก้ไขทะเบียนรถ
-                                            autoFills.push([row, 3, globalTruckTypeMap[newValue] || ""]);
-                                            if (window.truckToDriverMap && window.truckToDriverMap[newValue]) {
-                                                autoFills.push([row, 4, window.truckToDriverMap[newValue]]);
-                                            }
-                                        } else if (col === 4 && newValue && window.driverToTruckMap && window.driverToTruckMap[newValue]) { // แก้ไขคนขับ
-                                            autoFills.push([row, 2, window.driverToTruckMap[newValue]]);
-                                            if (globalTruckTypeMap[window.driverToTruckMap[newValue]]) {
-                                                autoFills.push([row, 3, globalTruckTypeMap[window.driverToTruckMap[newValue]]]);
-                                            }
-                                        }
-                                    }
                                 }
                             });
-                            
-                            if (autoFills.length > 0) this.setDataAtCell(autoFills, 'autoFill');
-                            else if (needsRender) this.render();
+                            if (needsRender) this.render();
                         }
                     },
                     afterColumnResize: function() { saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); }
@@ -390,10 +382,18 @@
             const query = e.target.value.toLowerCase().trim();
             if (!query) { hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData))); return; }
             const filtered = originalTableData.filter(row => row.some(cell => String(cell || '').toLowerCase().includes(query)));
-            hotMasterInstance.loadData(filtered.length > 0 ? filtered : [new Array(masterConfigs[currentMasterType].headers.length + 1).fill("")]);
+            hotMasterInstance.loadData(filtered.length > 0 ? filtered : [new Array(masterConfigs[currentMasterType].headers.length).fill("")]);
         });
 
-        // --- 📝 POPUP MODAL ---
+        // --- 📝 Add (Row / Popup) ---
+        function addNewRow() {
+            if (!hotMasterInstance) return;
+            document.getElementById('global-search').value = ''; 
+            hotMasterInstance.loadData(JSON.parse(JSON.stringify(originalTableData))); 
+            hotMasterInstance.alter('insert_row_above', 0); 
+            hotMasterInstance.selectCell(0, 0); 
+        }
+
         function openAddModal() {
             const cfg = masterConfigs[currentMasterType];
             let html = '';
@@ -408,8 +408,6 @@
                                      : colCfg.source;
                     let opts = sourceList ? sourceList.map(o => `<option value="${o}">${o}</option>`).join('') : '';
                     html += `<select id="add-input-${index}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"><option value="">-- เลือก --</option>${opts}</select>`;
-                } else if (colCfg.type === 'checkbox') {
-                    html += `<input type="checkbox" id="add-input-${index}" class="w-5 h-5 accent-primary rounded">`;
                 } else {
                     html += `<input type="text" id="add-input-${index}" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm" placeholder="ระบุ ${h}...">`;
                 }
@@ -423,12 +421,10 @@
 
         function submitAddForm() {
             const cfg = masterConfigs[currentMasterType];
-            let newRow = [false]; // Checkbox 0
+            let newRow = [];
             cfg.headers.forEach((h, index) => {
                 if (cfg.columns[index].readOnly) {
                     newRow.push('');
-                } else if (cfg.columns[index].type === 'checkbox') {
-                    newRow.push(document.getElementById(`add-input-${index}`).checked);
                 } else {
                     newRow.push(document.getElementById(`add-input-${index}`).value);
                 }
@@ -439,15 +435,26 @@
         }
 
         // --- 🗑️ DELETE ---
-        function deleteCheckedRows() {
+        function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
-            const data = hotMasterInstance.getData();
-            let rowsToDelete = [];
-            for (let i = 0; i < data.length; i++) { if (data[i][0] === true) rowsToDelete.push(i); }
-            if (rowsToDelete.length === 0) return alert('🖱️ กรุณาติ๊กช่องซ้ายสุดของแถวที่ต้องการลบก่อนครับ');
-            if (confirm(`⚠️ ยืนยันการลบ ${rowsToDelete.length} รายการที่เลือกใช่หรือไม่?\n(กรุณากด "บันทึกตาราง" มุมขวาบนเพื่ออัปเดตระบบ)`)) {
-                rowsToDelete.sort((a, b) => b - a).forEach(rowIndex => hotMasterInstance.alter('remove_row', rowIndex));
+            if (confirm(`⚠️ ยืนยันการลบข้อมูลแถวนี้ใช่หรือไม่?`)) {
+                hotMasterInstance.alter('remove_row', row, 1);
+                originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
             }
+        }
+
+        function deleteSelectedRow() {
+            if (!hotMasterInstance) return;
+            const selected = hotMasterInstance.getSelected(); 
+            if (selected && selected.length > 0) {
+                const startRow = Math.min(selected[0][0], selected[0][2]);
+                const endRow = Math.max(selected[0][0], selected[0][2]);
+                const amount = endRow - startRow + 1;
+                if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?`)) {
+                    hotMasterInstance.alter('remove_row', startRow, amount);
+                    originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
+                }
+            } else { alert('🖱️ ลากคลุมแถวในตารางที่ต้องการลบก่อนครับ'); }
         }
 
         // --- 💾 SAVE ---
@@ -459,19 +466,7 @@
 
             const cfg = masterConfigs[currentMasterType];
             
-            // นำ Checkbox (Index 0) ออกก่อนการบันทึก
-            let cleanData = hotMasterInstance.getData()
-                                .map(row => row.slice(1)) 
-                                .filter(r => r.some(c => c !== null && c !== ''));
-
-            // ตัดคอลัมน์ "ประเภทรถ" ออกก่อนบันทึกลงตารางหลังบ้าน truck_assignments
-            if (currentMasterType === 'truck_assignments') {
-                cleanData = cleanData.map(r => {
-                    let clone = [...r];
-                    clone.splice(2, 1); 
-                    return clone;
-                });
-            }
+            const cleanData = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
 
             try {
                 const response = await fetch(cfg.endpoint, {
@@ -494,11 +489,10 @@
             const hiddenCols = plugin.getHiddenColumns() || [];
             let html = '';
             masterConfigs[currentMasterType].headers.forEach((header, index) => {
-                const actualIndex = index + 1; // +1 ข้าม Checkbox
-                const isChecked = !hiddenCols.includes(actualIndex) ? 'checked' : '';
+                const isChecked = !hiddenCols.includes(index) ? 'checked' : '';
                 html += `
                     <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 cursor-pointer transition-colors">
-                        <input type="checkbox" class="w-5 h-5 accent-emerald-600 rounded" ${isChecked} onchange="toggleMasterColumn(${actualIndex}, this.checked)">
+                        <input type="checkbox" class="w-5 h-5 accent-emerald-600 rounded" ${isChecked} onchange="toggleMasterColumn(${index}, this.checked)">
                         <span class="font-medium text-slate-700 text-sm">${header}</span>
                     </label>`;
             });

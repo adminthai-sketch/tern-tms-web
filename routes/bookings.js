@@ -147,4 +147,81 @@ router.delete('/shipments', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🔍 MONITOR & DISPATCH API
+// ==========================================
+
+// 1. GET /api/bookings/search (ค้นหาหัวบิลตามเงื่อนไข)
+router.get('/bookings/search', async (req, res) => {
+    try {
+        const { start_date, end_date, search, customer } = req.query;
+        
+        let query = `
+            SELECT id, booking_no, run_date, customer_name, origin, destination, container_count, mode, job_type 
+            FROM bookings 
+            WHERE 1=1
+        `;
+        let params = [];
+        let paramIndex = 1;
+
+        if (start_date && end_date) {
+            query += ` AND run_date BETWEEN $${paramIndex++} AND $${paramIndex++}`;
+            params.push(start_date, end_date);
+        }
+        if (customer) {
+            query += ` AND customer_name = $${paramIndex++}`;
+            params.push(customer);
+        }
+        if (search) {
+            query += ` AND (booking_no ILIKE $${paramIndex} OR job_name ILIKE $${paramIndex})`;
+            params.push(`%${search}%`);
+            paramIndex++;
+        }
+        
+        query += ` ORDER BY run_date DESC, id DESC LIMIT 100`;
+
+        const result = await pool.query(query, params);
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// 2. GET /api/bookings/:booking_no/containers (ดึงรายการหางบิล/ตู้คอนเทนเนอร์ ของบิลนั้นๆ)
+router.get('/bookings/:booking_no/containers', async (req, res) => {
+    try {
+        const { booking_no } = req.params;
+        // ดึงข้อมูลจากตาราง shipments ที่มี booking_no ตรงกัน
+        const result = await pool.query(`
+            SELECT id, order_id, status, raw_data 
+            FROM shipments 
+            WHERE booking_no = $1 
+            ORDER BY order_id ASC
+        `, [booking_no]);
+        
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// 3. PUT /api/shipments/update-container (อัปเดตข้อมูลรายตู้ เช่น จัดรถ, ใส่เบอร์ตู้)
+router.put('/shipments/update-container', async (req, res) => {
+    const { order_id, status, raw_data } = req.body;
+    
+    if (!order_id) return res.status(400).json({ success: false, message: 'ไม่พบ Order ID' });
+
+    try {
+        await pool.query(`
+            UPDATE shipments 
+            SET status = $1, raw_data = $2, updated_at = NOW()
+            WHERE order_id = $3
+        `, [status || 'รอจัดรถ', JSON.stringify(raw_data), order_id]);
+        
+        res.json({ success: true, message: 'อัปเดตข้อมูลตู้สำเร็จ' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 module.exports = router;

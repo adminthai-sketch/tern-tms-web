@@ -12,9 +12,10 @@ const cleanNum = (val) => {
 
 // POST /api/bookings/header (บันทึกหัวบิล)
 router.post('/bookings/header', async (req, res) => {
-    // 1. รับค่าจาก req.body
+    // 1. รับค่าจาก req.body (เพิ่ม agent เข้ามาแก้ Error)
     const { 
         mode, run_date, container_count, job_name, customer_name, booking_no, origin, destination,
+        agent, // 👈 แกะตัวแปร agent ออกมาตรงนี้
         cy_date, vgm_cutoff, cutoff_time, load_date, open_gate,
         rent_cutoff, demurrage, unload_date, return_date,
         job_type, price_type, trip_fee, trans_fee
@@ -25,19 +26,19 @@ router.post('/bookings/header', async (req, res) => {
     try {
         const b_no = booking_no || `BK-${Date.now()}`;
         
-        // 2. สร้าง SQL Query (เพิ่ม job_type เป็น $18 รวมพารามิเตอร์เป็น 21 ตัว)
+        // 2. สร้าง SQL Query (เพิ่มคอลัมน์ agent และผูก $1 - $22)
         const query = `
             INSERT INTO bookings (
                 booking_no, mode, booking_date, run_date, job_name, customer_name, container_count, origin, destination,
-                cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, rent_cutoff, demurrage, unload_date, return_date,
+                agent, cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, rent_cutoff, demurrage, unload_date, return_date,
                 job_type, price_type, trip_fee, trans_fee
             )
-            VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+            VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
             ON CONFLICT (booking_no) DO UPDATE 
             SET mode = EXCLUDED.mode, run_date = EXCLUDED.run_date, job_name = EXCLUDED.job_name,
                 customer_name = EXCLUDED.customer_name, container_count = EXCLUDED.container_count,
                 origin = EXCLUDED.origin, destination = EXCLUDED.destination,
-                cy_date = EXCLUDED.cy_date, vgm_cutoff = EXCLUDED.vgm_cutoff, cutoff_time = EXCLUDED.cutoff_time,
+                agent = EXCLUDED.agent, cy_date = EXCLUDED.cy_date, vgm_cutoff = EXCLUDED.vgm_cutoff, cutoff_time = EXCLUDED.cutoff_time,
                 load_date = EXCLUDED.load_date, open_gate = EXCLUDED.open_gate,
                 rent_cutoff = EXCLUDED.rent_cutoff, demurrage = EXCLUDED.demurrage, unload_date = EXCLUDED.unload_date, return_date = EXCLUDED.return_date,
                 job_type = EXCLUDED.job_type, price_type = EXCLUDED.price_type, trip_fee = EXCLUDED.trip_fee, trans_fee = EXCLUDED.trans_fee,
@@ -45,7 +46,7 @@ router.post('/bookings/header', async (req, res) => {
             RETURNING id, booking_no;
         `;
 
-        // 3. ปรับอาร์เรย์ values ให้ปลอดภัยด้วย cleanVal
+        // 3. ผูกค่าตัวแปร
         const values = [
             b_no, 
             cleanVal(mode),            // $2
@@ -55,7 +56,7 @@ router.post('/bookings/header', async (req, res) => {
             container_count || 1,      // $6
             origin || '',              // $7
             destination || '',         // $8
-            cleanVal(agent),           // $9 👈 เพิ่ม agent เข้าไปตรงนี้
+            cleanVal(agent),           // $9 (ดึงค่าจาก req.body มาใช้)
             cleanVal(cy_date),         // $10
             cleanVal(vgm_cutoff),      // $11
             cleanVal(cutoff_time),     // $12
@@ -65,8 +66,8 @@ router.post('/bookings/header', async (req, res) => {
             cleanVal(demurrage),       // $16
             cleanVal(unload_date),     // $17
             cleanVal(return_date),     // $18
-            cleanVal(job_type),        // $19 ENUM: job_type_enum
-            cleanVal(price_type),      // $20 ENUM: price_vehicle_type_enum
+            cleanVal(job_type),        // $19 
+            cleanVal(price_type),      // $20 
             cleanNum(trip_fee),        // $21
             cleanNum(trans_fee)        // $22
         ];

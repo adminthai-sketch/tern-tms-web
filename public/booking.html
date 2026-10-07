@@ -457,7 +457,7 @@
                 colWidths: uiState.colWidths || undefined,
                 licenseKey: 'non-commercial-and-evaluation',
                 
-                // ไฮไลต์สีเหลืองให้แถวที่ยังไม่ได้เซฟ[cite: 4]
+                // ไฮไลต์สีเหลืองให้แถวที่ยังไม่ได้เซฟ
                 cells: function(row, col) { 
                     let cp = {}; 
                     if (this.instance) {
@@ -686,7 +686,7 @@
                         newRows.push(row);
                     }
 
-                    // 2. ใช้ 'insert_row' เพื่อแทรกแถวใหม่ในตาราง (แก้ไข Syntax แล้ว)
+                    // 2. ใช้ 'insert_row' เพื่อแทรกแถวใหม่ในตาราง 
                     hotBookingInstance.alter('insert_row', 0, rowCount);
                     hotBookingInstance.populateFromArray(0, 0, newRows);
                     
@@ -696,8 +696,11 @@
                     
                     document.getElementById('grid-section').scrollIntoView({ behavior: 'smooth' });
 
-                    // 3. เซฟข้อมูลลงตาราง Operation (shipments) แบบเงียบๆ
-                    await saveShipments(true); 
+                    // 3. เซฟข้อมูลลงตาราง Operation (shipments) แบบเงียบๆ โดยหน่วงเวลาให้ตารางแสดงผลเสร็จก่อน
+                    setTimeout(async () => {
+                        await saveShipments(true); 
+                    }, 300);
+
                 } else {
                     alert('❌ ไม่สามารถบันทึกลงตาราง Bookings ได้: ' + result.message);
                 }
@@ -767,7 +770,15 @@
             const ot = btn ? btn.innerHTML : 'บันทึกตารางลงฐานข้อมูล';
             if(btn) { btn.innerHTML = '⏳ กำลังบันทึก...'; btn.disabled = true; }
             
+            // กรองเอาเฉพาะข้อมูลที่มี Order ID
             const cleanData = hotBookingInstance.getData().filter(r => r && r[1] && String(r[1]).trim() !== ""); 
+            
+            // ป้องกันการยิง API ถ้าไม่มีข้อมูล
+            if (cleanData.length === 0) {
+                if (!isAutoSave) alert('⚠️ ไม่พบข้อมูลสำหรับบันทึก กรุณารอให้ตารางสร้างข้อมูลเสร็จสิ้น');
+                if (btn) { btn.innerHTML = ot; btn.disabled = false; }
+                return;
+            }
             
             try {
                 const res = await fetch('/api/shipments', { 

@@ -433,67 +433,107 @@
             
             if(!mode || !runDate) { alert('⚠️ กรุณาเลือก Mode และระบุวันที่วิ่งงานให้ครบถ้วน'); return; }
 
-            let bookingNo = ""; let cyDate = "", agent = "";
-            let loadDate = "", vgmCutoff = "", cutoffTime = "", openGate = "";
-            let rentCutoff = "", demurrage = "", unloadDate = "", returnDate = "";
+            // 1. เตรียมข้อมูลเพื่อบันทึกลงตาราง "bookings" (หัวบิล)
+            let bookingNo = "";
+            if (mode === 'EXPORT') bookingNo = document.getElementById('pBookingExp').value;
+            else if (mode === 'IMPORT') bookingNo = document.getElementById('pBookingImp').value;
+            else if (mode === 'TRANSFER') bookingNo = document.getElementById('pRefTrans').value;
 
-            if (mode === 'EXPORT') {
-                bookingNo = document.getElementById('pBookingExp').value; agent = document.getElementById('pAgentExp').value;
-                cyDate = formatToGrid(document.getElementById('pCyExp').value); 
-                vgmCutoff = formatToGrid(document.getElementById('pVgmExp').value);
-                cutoffTime = formatToGrid(document.getElementById('pCutoffExp').value); 
-                loadDate = formatToGrid(document.getElementById('pLoadExp').value); 
-                openGate = formatToGrid(document.getElementById('pOpenGateExp').value);
-            } else if (mode === 'IMPORT') {
-                bookingNo = document.getElementById('pBookingImp').value; agent = document.getElementById('pAgentImp').value;
-                cyDate = formatToGrid(document.getElementById('pCyImp').value); 
-                rentCutoff = formatToGrid(document.getElementById('pRentImp').value);
-                demurrage = formatToGrid(document.getElementById('pDemImp').value); 
-                unloadDate = formatToGrid(document.getElementById('pUnloadImp').value); 
-                returnDate = formatToGrid(document.getElementById('pReturnImp').value);
-            } else if (mode === 'TRANSFER') {
-                bookingNo = document.getElementById('pRefTrans').value;
-            }
+            const bookingData = {
+                mode: mode,
+                run_date: runDate,
+                container_count: parseInt(document.getElementById('rowCount').value) || 1,
+                job_name: document.getElementById('jobNameInput').value.trim(),
+                customer_name: document.getElementById('pCustomer').value.trim(),
+                booking_no: bookingNo.trim() || `TEMP-${Date.now()}`,
+                origin: document.getElementById('pOrigin').value.trim(),
+                destination: document.getElementById('pDest').value.trim()
+            };
 
-            const customer = document.getElementById('pCustomer').value; const jobName = document.getElementById('jobNameInput').value;
-            const jobType = document.getElementById('pJobType').value; 
-            const tripFee = document.getElementById('pTripFee').value; const transFee = document.getElementById('pTransFee').value;
+            const originalBtnText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก Booking...';
+            btn.disabled = true;
 
-            let maxSeq = hotBookingInstance.countRows() + 1;
-            const rowCount = parseInt(document.getElementById('rowCount').value) || 1;
-            let newRows = [];
-            const today = new Date().toISOString().split('T')[0];
-            const datePrefix = runDate.replace(/-/g, '').substring(2); 
-
-            for (let i = 0; i < rowCount; i++) {
-                let orderId = `ORD-${datePrefix}-${("000" + maxSeq++).slice(-3)}`;
-                let row = new Array(79).fill(""); 
-                row[0] = false; 
-                row[1] = orderId; row[2] = mode; row[3] = today; row[4] = runDate;
-                row[5] = jobName; row[6] = customer; row[7] = bookingNo;
-                row[10] = 1; row[12] = jobType; row[13] = agent; row[19] = cyDate; 
+            try {
+                // 2. ยิง API ไปบันทึกลงตาราง "bookings" ก่อนเป็นอันดับแรก
+                const response = await fetch('/api/bookings/header', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bookingData)
+                });
                 
-                if (mode === 'EXPORT') { row[20] = vgmCutoff; row[21] = cutoffTime; row[22] = loadDate; row[23] = openGate; } 
-                else if (mode === 'IMPORT') { row[24] = rentCutoff; row[25] = demurrage; row[26] = unloadDate; row[27] = returnDate; }
-                
-                row[56] = tripFee; row[57] = transFee; row[78] = 'รอจัดรถ';
-                row._isUnsaved = true;
-                newRows.push(row);
+                const result = await response.json();
+
+                if (result.success) {
+                    // 3. เมื่อตาราง bookings บันทึกผ่าน ค่อยสร้างแถวตู้ลงตาราง Operation ด้านล่าง
+                    let cyDate = "", agent = "";
+                    let loadDate = "", vgmCutoff = "", cutoffTime = "", openGate = "";
+                    let rentCutoff = "", demurrage = "", unloadDate = "", returnDate = "";
+
+                    if (mode === 'EXPORT') {
+                        agent = document.getElementById('pAgentExp').value;
+                        cyDate = formatToGrid(document.getElementById('pCyExp').value); 
+                        vgmCutoff = formatToGrid(document.getElementById('pVgmExp').value);
+                        cutoffTime = formatToGrid(document.getElementById('pCutoffExp').value); 
+                        loadDate = formatToGrid(document.getElementById('pLoadExp').value); 
+                        openGate = formatToGrid(document.getElementById('pOpenGateExp').value);
+                    } else if (mode === 'IMPORT') {
+                        agent = document.getElementById('pAgentImp').value;
+                        cyDate = formatToGrid(document.getElementById('pCyImp').value); 
+                        rentCutoff = formatToGrid(document.getElementById('pRentImp').value);
+                        demurrage = formatToGrid(document.getElementById('pDemImp').value); 
+                        unloadDate = formatToGrid(document.getElementById('pUnloadImp').value); 
+                        returnDate = formatToGrid(document.getElementById('pReturnImp').value);
+                    }
+
+                    const customer = document.getElementById('pCustomer').value; 
+                    const jobName = document.getElementById('jobNameInput').value;
+                    const jobType = document.getElementById('pJobType').value; 
+                    const tripFee = document.getElementById('pTripFee').value; 
+                    const transFee = document.getElementById('pTransFee').value;
+
+                    let maxSeq = hotBookingInstance.countRows() + 1;
+                    const rowCount = bookingData.container_count;
+                    let newRows = [];
+                    const today = new Date().toISOString().split('T')[0];
+                    const datePrefix = runDate.replace(/-/g, '').substring(2); 
+
+                    for (let i = 0; i < rowCount; i++) {
+                        let orderId = `ORD-${datePrefix}-${("000" + maxSeq++).slice(-3)}`;
+                        let row = new Array(79).fill(""); 
+                        row[0] = false; 
+                        row[1] = orderId; row[2] = mode; row[3] = today; row[4] = runDate;
+                        row[5] = jobName; row[6] = customer; row[7] = bookingData.booking_no; // ใช้ Booking No. เชื่อม
+                        row[10] = 1; row[12] = jobType; row[13] = agent; row[19] = cyDate; 
+                        
+                        if (mode === 'EXPORT') { row[20] = vgmCutoff; row[21] = cutoffTime; row[22] = loadDate; row[23] = openGate; } 
+                        else if (mode === 'IMPORT') { row[24] = rentCutoff; row[25] = demurrage; row[26] = unloadDate; row[27] = returnDate; }
+                        
+                        row[56] = tripFee; row[57] = transFee; row[78] = 'รอจัดรถ';
+                        row._isUnsaved = true;
+                        newRows.push(row);
+                    }
+
+                    hotBookingInstance.alter('insert_row_above', 0, rowCount);
+                    hotBookingInstance.populateFromArray(0, 0, newRows);
+                    
+                    document.getElementById('jobNameInput').value = '';
+                    document.getElementById('jobPreviewBox').classList.add('hidden');
+                    document.getElementById('pMode').value = ''; 
+                    
+                    document.getElementById('grid-section').scrollIntoView({ behavior: 'smooth' });
+
+                    // สั่ง Auto Save ตาราง Operation ทันที
+                    await saveShipments(false); 
+                } else {
+                    alert('❌ ไม่สามารถบันทึกลงตาราง Bookings ได้: ' + result.message);
+                }
+            } catch (error) {
+                alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: ' + error.message);
+            } finally {
+                btn.innerHTML = originalBtnText;
+                btn.disabled = false;
             }
-
-            // เพิ่มแถวใหม่ขึ้นตาราง
-            hotBookingInstance.alter('insert_row_above', 0, rowCount);
-            hotBookingInstance.populateFromArray(0, 0, newRows);
-            
-            // รีเซ็ตฟอร์ม
-            document.getElementById('jobNameInput').value = '';
-            document.getElementById('jobPreviewBox').classList.add('hidden');
-            document.getElementById('pMode').value = ''; 
-            
-            document.getElementById('grid-section').scrollIntoView({ behavior: 'smooth' });
-
-            // สั่ง Auto Save ทันทีแบบไม่เงียบ (isAutoSave=false จะทำให้มี Alert)
-            await saveShipments(false); 
         }
 
         async function saveShipments(isAutoSave = true) { 

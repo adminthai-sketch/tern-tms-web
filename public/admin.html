@@ -258,13 +258,33 @@
                 headers: ['Customer No.', 'Customer Name', 'ชื่อลูกค้าย่อ', 'Billing Name', 'Phone Number', 'Address', 'Tax ID'],
                 columns: Array(7).fill({ type: 'text' })
             },
-            rates: {
+       rates: {
                 title: 'จัดการเรทราคา (Rates)', icon: 'fa-hand-holding-dollar',
                 endpoint: '/api/rates',
-                headers: ["ชื่องาน", "ลูกค้า", "ต้นทาง", "ปลายทาง", "วิ่งงาน", "จำนวนตู้/ใบ", "ประเภทงาน", "ค่าเที่ยว 6W", "ค่าเที่ยว 10W", "ค่าเที่ยว 12W*2", "ค่าเที่ยวเงินสด", "ค่าขนส่ง 6W", "ค่าขนส่ง 10W", "ค่าขนส่ง 12W*2", "งานเงินสด"],
-                columns: Array(15).fill({ type: 'text' })
+                headers: [
+                    "ชื่องาน", "ลูกค้า", "ต้นทาง", "ปลายทาง", "รูปแบบวิ่ง", "จำนวนตู้", 
+                    "ประเภทงาน", // 👈 เพิ่มหัวคอลัมน์ประเภทงาน
+                    "ค่าเที่ยว 6W", "ค่าเที่ยว 10W", "ค่าเที่ยว 12W", "ค่าเที่ยว(สด)", 
+                    "ค่าขนส่ง 6W", "ค่าขนส่ง 10W", "ค่าขนส่ง 12W", "ค่าขนส่ง(สด)"
+                ],
+                columns: [
+                    { type: 'text' }, // ชื่องาน [0]
+                    { type: 'text' }, // ลูกค้า [1]
+                    { type: 'text' }, // ต้นทาง [2]
+                    { type: 'text' }, // ปลายทาง [3]
+                    { type: 'text' }, // รูปแบบวิ่ง [4]
+                    { type: 'numeric' }, // จำนวนตู้ [5]
+                    { type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, // 👈 คอลัมน์ [6] ให้เป็น Dropdown
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [7]
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [8]
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [9]
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [10]
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [11]
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [12]
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }, // [13]
+                    { type: 'numeric', numericFormat: { pattern: '0,0.00' } }  // [14]
+                ]
             }
-        };
 
         function getUIState(tableName) {
             const user = JSON.parse(localStorage.getItem('tms_user'));

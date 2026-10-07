@@ -1,3 +1,33 @@
+// --- Helper จัด Format วันที่ให้ DB ---
+function formatToGrid(datetimeStr) {
+    if (!datetimeStr) return '';
+    return datetimeStr.replace('T', ' ');
+}
+
+// --- โหลดข้อมูล Rate งานล่วงหน้า ---
+let rateDataMap = {};
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const res = await fetch('/api/rates');
+        const d = await res.json();
+        if (d.success && d.data) {
+            const datalist = document.getElementById('jobList');
+            datalist.innerHTML = '';
+            d.data.forEach(r => {
+                rateDataMap[r[0]] = {
+                    customer: r[1], origin: r[2], dest: r[3], jobType: r[6],
+                    trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10],
+                    trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14]
+                };
+                const opt = document.createElement('option');
+                opt.value = r[0];
+                datalist.appendChild(opt);
+            });
+        }
+    } catch (err) { console.error("Error loading rates", err); }
+});
+
+// --- UI Toggles ---
 function toggleModeUI() {
     const mode = document.getElementById('pMode').value;
     document.getElementById('export-zone').classList.add('hidden');
@@ -9,8 +39,6 @@ function toggleModeUI() {
     else if(mode === 'IMPORT') document.getElementById('import-zone').classList.remove('hidden');
     else if(mode === 'TRANSFER') document.getElementById('transfer-zone').classList.remove('hidden');
     else document.getElementById('jobPreviewBox').classList.add('hidden');
-    
-    if (typeof refreshTableColumnsByMode === 'function') refreshTableColumnsByMode(mode);
 }
 
 function syncCutoff() { 
@@ -51,10 +79,10 @@ function updateFeeDropdowns() {
     if(type === 'เงินสด') { trpInp.value = rate.trpCash || ''; trnInp.value = rate.trnCash || ''; }
 }
 
+// --- 💾 SAVE TO DATABASE DIRECTLY ---
 async function generateData(btn) {
     const mode = document.getElementById('pMode').value;
     const runDate = document.getElementById('runDate').value;
-    const editingRow = document.getElementById('editingOrderId').value;
     
     if(!mode || !runDate) { alert('⚠️ กรุณาเลือก Mode และระบุวันที่วิ่งงานให้ครบถ้วน'); return; }
 
@@ -91,89 +119,73 @@ async function generateData(btn) {
     const tripFee = document.getElementById('pTripFee').value; 
     const transFee = document.getElementById('pTransFee').value;
 
-    // --- โหมดแก้ไข ---
-    if (editingRow !== "") {
-        let rIdx = parseInt(editingRow);
-        let rowData = hotBookingInstance.getDataAtRow(rIdx);
-        rowData[2] = mode; rowData[4] = runDate; rowData[5] = jobName; rowData[6] = customer; rowData[7] = bookingNo;
-        rowData[12] = jobType; rowData[13] = agent; rowData[19] = cyDate;
-        
-        if (mode === 'EXPORT') { rowData[20] = vgmCutoff; rowData[21] = cutoffTime; rowData[22] = loadDate; rowData[23] = openGate; }
-        else if (mode === 'IMPORT') { rowData[24] = rentCutoff; rowData[25] = demurrage; rowData[26] = unloadDate; rowData[27] = returnDate; }
-        
-        rowData[56] = tripFee; rowData[57] = transFee;
-        
-        hotBookingInstance.populateFromArray(rIdx, 1, [[...rowData.slice(1)]]);
-        cancelEdit();
-        document.getElementById('grid-section').scrollIntoView({ behavior: 'smooth' });
-        await saveShipments(false);
-        return;
-    }
-
-    // --- โหมดสร้างใหม่ ---
     const rowCount = parseInt(document.getElementById('rowCount').value) || 1;
+    const finalBookingNo = bookingNo || `TEMP-${Date.now().toString().slice(-6)}`;
+
+    // 1. ข้อมูลหัวบิล (Bookings)
     const bookingData = {
         mode: mode, run_date: runDate, container_count: rowCount, job_name: jobName,
-        customer_name: customer, booking_no: bookingNo || `TEMP-${Date.now()}`, origin: origin, destination: destination,
-        cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
+        customer_name: customer, booking_no: finalBookingNo, origin: origin, destination: destination,
+        agent: agent, cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
         rent_cutoff: rentCutoff, demurrage: demurrage, unload_date: unloadDate, return_date: returnDate,
         job_type: jobType, price_type: priceType, trip_fee: tripFee, trans_fee: transFee
     };
 
     const originalBtnText = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้อมูล...';
     btn.disabled = true;
 
     try {
-        const response = await fetch('/api/bookings/header', {
+        // [ยิง API 1] บันทึกหัวบิล
+        const resHeader = await fetch('/api/bookings/header', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bookingData)
         });
-        const result = await response.json();
+        const resultHeader = await resHeader.json();
 
-        if (result.success) {
-            let maxSeq = hotBookingInstance.countRows() + 1;
-            let newRows = [];
+        if (resultHeader.success) {
+            
+            // 2. สร้างรายการตู้คอนเทนเนอร์ (Shipments) โครงสร้าง 79 คอลัมน์ (ตาม schema เดิมที่ระบบต้องการ)
+            let shipmentsData = [];
             const today = new Date().toISOString().split('T')[0];
             const datePrefix = runDate.replace(/-/g, '').substring(2); 
 
             for (let i = 0; i < rowCount; i++) {
-                let orderId = `ORD-${datePrefix}-${("000" + maxSeq++).slice(-3)}`;
+                // สร้าง Order ID ไม่ให้ซ้ำ: ORD-YYMMDD-XXXX (สุ่มเลข 4 หลัก + ลำดับ)
+                let randomCode = Math.floor(1000 + Math.random() * 9000);
+                let orderId = `ORD-${datePrefix}-${randomCode}-${i+1}`;
+                
                 let row = new Array(79).fill(""); 
                 row[0] = false; row[1] = orderId; row[2] = mode; row[3] = today; row[4] = runDate;
-                row[5] = jobName; row[6] = customer; row[7] = bookingData.booking_no;
+                row[5] = jobName; row[6] = customer; row[7] = finalBookingNo;
                 row[10] = 1; row[12] = jobType; row[13] = agent; row[19] = cyDate; 
                 
                 if (mode === 'EXPORT') { row[20] = vgmCutoff; row[21] = cutoffTime; row[22] = loadDate; row[23] = openGate; } 
                 else if (mode === 'IMPORT') { row[24] = rentCutoff; row[25] = demurrage; row[26] = unloadDate; row[27] = returnDate; }
                 
                 row[56] = tripFee; row[57] = transFee; row[78] = 'รอจัดรถ';
-                row._isUnsaved = true;
-                newRows.push(row);
+                shipmentsData.push(row);
             }
 
-            hotBookingInstance.alter('insert_row', 0, rowCount);
-            hotBookingInstance.populateFromArray(0, 0, newRows);
-            
-            document.getElementById('jobNameInput').value = '';
-            document.getElementById('jobPreviewBox').classList.add('hidden');
-            document.getElementById('pMode').value = ''; 
-            document.getElementById('grid-section').scrollIntoView({ behavior: 'smooth' });
+            // [ยิง API 2] บันทึกหางบิล (รายการตู้)
+            const resShipments = await fetch('/api/shipments', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: shipmentsData })
+            });
+            const resultShipments = await resShipments.json();
 
-            setTimeout(async () => { await saveShipments(true); }, 300);
+            if (resultShipments.success) {
+                alert('✅ บันทึก Booking สำเร็จ! คุณสามารถไปจัดรถได้ที่เมนู "หน้าจัดการบิล/จัดรถ"');
+                window.location.reload(); // เคลียร์ฟอร์มเตรียมคีย์บิลถัดไป
+            } else {
+                alert('⚠️ สร้างหัวบิลสำเร็จ แต่สร้างรายการตู้ไม่สำเร็จ: ' + resultShipments.message);
+            }
         } else {
-            alert('❌ ไม่สามารถบันทึกลงตาราง Bookings ได้: ' + result.message);
+            alert('❌ ไม่สามารถบันทึกหัวบิลได้: ' + resultHeader.message);
         }
-    } catch (error) { alert('❌ เกิดข้อผิดพลาด: ' + error.message); } 
-    finally { btn.innerHTML = originalBtnText; btn.disabled = false; }
-}
-
-function cancelEdit() {
-    document.getElementById('editingOrderId').value = "";
-    document.getElementById('form-title').innerText = "สร้างรายการรับงานใหม่ (New Booking)";
-    document.getElementById('editing-badge').classList.add('hidden');
-    document.getElementById('btn-submit-form').innerHTML = 'สร้างและบันทึกลงตาราง Operation';
-    document.getElementById('btn-submit-form').classList.replace('bg-emerald-600', 'bg-primary');
-    document.getElementById('btn-submit-form').classList.replace('hover:bg-emerald-700', 'hover:bg-blue-900');
-    document.getElementById('btn-cancel-edit').classList.add('hidden');
-    document.getElementById('box-row-count').classList.remove('hidden');
+    } catch (error) { 
+        alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + error.message); 
+    } finally { 
+        btn.innerHTML = originalBtnText; 
+        btn.disabled = false; 
+    }
 }

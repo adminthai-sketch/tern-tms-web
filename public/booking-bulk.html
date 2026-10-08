@@ -122,27 +122,29 @@
         });
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
-
-        // ==========================================
-        // 💾 ระบบดึง & บันทึก การตั้งค่าตาราง (API Integration)
+// ==========================================
+        // 💾 ระบบดึง & บันทึก การตั้งค่าตาราง (เชื่อมต่อ Database)
         // ==========================================
         async function loadUserGridSettingsAndInit() {
             document.getElementById('loading-overlay').classList.remove('hidden');
             const mode = document.getElementById('bulk-mode').value;
-            const gridName = `bulk_booking_${mode.toLowerCase()}`; // ชื่อคีย์ใน JSON เช่น bulk_booking_export
+            const gridName = `bulk_booking_${mode.toLowerCase()}`; 
+            
+            // ดึง ID ของ User ปัจจุบัน
+            const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
 
             try {
-                // Fetch ดึงข้อมูลจาก API (จำลอง/ของจริง)
-                const res = await fetch('/api/users/grid-settings', {
-                    headers: { 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('tms_user'))?.token}` }
-                });
-                
+                // ยิง API ไปดึงข้อมูลจาก DB
+                const res = await fetch(`/api/users/grid-settings?userId=${user.id}`);
                 if (res.ok) {
                     const data = await res.json();
                     currentUserSettings = data.settings?.[gridName] || {};
+                } else {
+                    currentUserSettings = {};
                 }
             } catch (err) {
-                console.warn("ไม่สามารถดึงการตั้งค่าตารางได้ โหลดค่าเริ่มต้น...");
+                console.warn("ดึงข้อมูลจากฐานข้อมูลล้มเหลว", err);
+                currentUserSettings = {};
             } finally {
                 initBulkTable(null, currentUserSettings);
                 document.getElementById('loading-overlay').classList.add('hidden');
@@ -153,29 +155,53 @@
             if (!hotBulkInstance) return;
             const mode = document.getElementById('bulk-mode').value;
             const gridName = `bulk_booking_${mode.toLowerCase()}`;
+            const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
             
-            // ดึงสถานะปัจจุบันของตาราง
-            const pluginResize = hotBulkInstance.getPlugin('manualColumnResize');
-            const pluginMove = hotBulkInstance.getPlugin('manualColumnMove');
-            
+            const colCount = hotBulkInstance.countCols();
+            const widths = [];
+            for (let i = 0; i < colCount; i++) {
+                widths.push(hotBulkInstance.getColWidth(i));
+            }
+
+            const movePlugin = hotBulkInstance.getPlugin('manualColumnMove');
+            let positions = [];
+            if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
+                positions = movePlugin.columnsMapper.getIndexesSequence();
+            }
+
             const settingsToSave = {
-                columnWidths: pluginResize.manualColumnWidths,
-                columnPositions: pluginMove.manualColumnPositions
+                columnWidths: widths,
+                columnPositions: positions && positions.length > 0 ? positions : null
             };
 
+            const btn = document.querySelector('button[onclick="saveGridSettings()"]');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+            btn.disabled = true;
+
             try {
+                // ยิง API เซฟลง DB
                 const res = await fetch('/api/users/grid-settings', {
                     method: 'PUT',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${JSON.parse(localStorage.getItem('tms_user'))?.token}`
-                    },
-                    body: JSON.stringify({ gridName: gridName, settings: settingsToSave })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: user.id,
+                        gridName: gridName,
+                        settings: settingsToSave
+                    })
                 });
-
-                if (res.ok) alert("✅ บันทึกมุมมองตาราง (ความกว้าง, ลำดับคอลัมน์) เรียบร้อยแล้ว!");
+                
+                const result = await res.json();
+                if (result.success) {
+                    alert(`✅ จำมุมมองตารางของ ${mode} บันทึกลงฐานข้อมูลเรียบร้อยแล้ว!`);
+                } else {
+                    alert(`❌ บันทึกไม่สำเร็จ: ${result.message}`);
+                }
             } catch (err) {
-                alert("❌ เกิดข้อผิดพลาดในการบันทึกมุมมองตาราง");
+                alert("❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
             }
         }
 

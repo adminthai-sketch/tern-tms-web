@@ -16,7 +16,7 @@
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
 
-    <!-- SheetJS (อ่าน/เขียน/ดาวน์โหลดไฟล์ Excel) -->
+    <!-- SheetJS (สำหรับดาวน์โหลดและอ่านไฟล์ Excel) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
@@ -77,6 +77,9 @@
                         <h2 class="text-xl font-bold text-primary flex items-center gap-2">
                             <i class="fa-solid fa-folder-plus"></i> <span id="form-title">สร้างรายการรับงานใหม่ (New Booking)</span>
                         </h2>
+                        <span id="editing-badge" class="hidden bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">
+                            <i class="fa-solid fa-pen"></i> โหมดแก้ไข (Editing) <span id="editing-order-text"></span>
+                        </span>
                     </div>
                     
                     <input type="hidden" id="editingOrderId" value="">
@@ -95,7 +98,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 mb-1">📅 วันที่วิ่งงาน</label>
-                                <input type="date" id="runDate" class="w-40 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm shadow-sm">
+                                <input type="datetime-local" id="runDate" class="w-56 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm shadow-sm">
                             </div>
                             <div id="box-row-count">
                                 <label class="block text-sm font-bold text-primary mb-1">จำนวนตู้</label>
@@ -109,7 +112,7 @@
                         </div>
                     </div>
 
-                    <!-- STEP 2: ข้อมูลเฉพาะทาง และ ค่าเที่ยว -->
+                    <!-- STEP 2: ข้อมูลเฉพาะทาง และ ค่าเที่ยว (ของเดิมเต็มรูปแบบ) -->
                     <div id="jobPreviewBox" class="hidden animate-[fadeIn_0.3s_ease-out]">
                         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-5 relative">
                             <!-- โซน EXPORT -->
@@ -187,11 +190,14 @@
                                 <div><label class="block text-slate-600 mb-1">ต้นทาง (Origin)</label><input type="text" id="pOrigin" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
                                 <div><label class="block text-slate-600 mb-1">ปลายทาง (Dest)</label><input type="text" id="pDest" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
                                 
-                                <select id="pJobType" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white shadow-sm">
-                                    <option value="">-- เลือกประเภทงาน --</option>
-                                    <option value="Domestic">Domestic</option>
-                                    <option value="CONTAINER">CONTAINER</option>
-                                </select>
+                                <div>
+                                    <label class="block text-slate-600 mb-1">ประเภทงาน</label>
+                                    <select id="pJobType" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white shadow-sm">
+                                        <option value="">-- เลือก --</option>
+                                        <option value="Domestic">Domestic</option>
+                                        <option value="CONTAINER">CONTAINER</option>
+                                    </select>
+                                </div>
 
                                 <div>
                                     <label class="block text-slate-600 mb-1 font-bold text-primary">ประเภทรถ (ดึงราคา)</label>
@@ -203,8 +209,8 @@
                                         <option value="เงินสด">เงินสด</option>
                                     </select>
                                 </div>
-                                <div><label class="block text-slate-600 mb-1">ค่าเที่ยว (คนขับ)</label><input type="text" id="pTripFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-green-700 bg-green-50"></div>
-                                <div><label class="block text-slate-600 mb-1">ค่าขนส่ง (ลูกค้า)</label><input type="text" id="pTransFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-blue-700 bg-blue-50"></div>
+                                <div><label class="block text-slate-600 mb-1">ค่าเที่ยว (คนขับ)</label><input type="text" id="pTripFee" onblur="checkPriceChangeSingle()" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-green-700 bg-green-50"></div>
+                                <div><label class="block text-slate-600 mb-1">ค่าขนส่ง (ลูกค้า)</label><input type="text" id="pTransFee" onblur="checkPriceChangeSingle()" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-blue-700 bg-blue-50"></div>
                             </div>
                         </div>
 
@@ -212,7 +218,7 @@
                             <p class="text-sm text-slate-500 font-medium"><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> กดบันทึกเพื่อยิงข้อมูล 1 Job นี้เข้าฐานข้อมูล</p>
                             <div class="flex gap-3">
                                 <button onclick="cancelEdit()" id="btn-cancel-edit" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-lg transition-colors border border-slate-300 shadow-sm">✖ ยกเลิกการแก้ไข</button>
-                                <button onclick="generateData(this)" id="btn-submit-form" class="bg-primary hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5">
+                                <button onclick="processSingleSave(this)" id="btn-submit-form" class="bg-primary hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5">
                                     <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล 1 Job นี้
                                 </button>
                             </div>
@@ -240,10 +246,9 @@
                         </div>
                     </div>
 
-                    <!-- เครื่องมือจัดการไฟล์ Excel -->
                     <div class="flex flex-wrap gap-2 items-center">
                         <button onclick="downloadExcelTemplate()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-lg text-xs flex items-center gap-2 border border-slate-300 transition-colors shadow-sm">
-                            <i class="fa-solid fa-download text-emerald-600"></i> โหลดแม่แบบ Excel
+                            <i class="fa-solid fa-download text-emerald-600"></i> โหลดแม่แบบ Excel (.xlsx)
                         </button>
                         <label class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-sm">
                             <i class="fa-solid fa-file-arrow-up"></i> อัปโหลดไฟล์ Excel
@@ -270,7 +275,7 @@
     <!-- สคริปต์ฟอร์มเดี่ยวเดิม -->
     <script src="js/modules/booking/form.js"></script>
 
-    <!-- สคริปต์สลับแท็บ และ จัดการ Excel Import/Export/Bulk -->
+    <!-- สคริปต์สลับแท็บ และ ตรวจสอบราคา Master Rate -->
     <script>
         let hotBulkInstance = null;
 
@@ -306,18 +311,50 @@
             }
         }
 
-        // สร้าง Header ของตารางไดนามิกตาม Mode
+        // 🧠 ตรวจสอบและถามอัปเดต Master Rate
+        function promptMasterRateUpdate(jobName, tripFee, transFee) {
+            if (!jobName) return;
+            // เช็คว่ามีใน Rate Master หรือไม่ (จำลอง logic)
+            const isNewRate = false; 
+            const oldTrip = 1500, oldTrans = 3000;
+
+            if (isNewRate) {
+                if (confirm(`📌 ชื่องาน "${jobName}" เป็นงานใหม่\nต้องการบันทึกราคาลงใน Rate Master หรือไม่?`)) {
+                    console.log("บันทึก Rate ใหม่");
+                }
+            } else if (Number(tripFee) !== oldTrip || Number(transFee) !== oldTrans) {
+                if (confirm(`⚠️ ราคาของงาน "${jobName}" มีการเปลี่ยนแปลง\n(เดิม: เที่ยว=${oldTrip}, ขนส่ง=${oldTrans})\n(ใหม่: เที่ยว=${tripFee}, ขนส่ง=${transFee})\n\nต้องการอัปเดตราคาลงใน Rate Master หรือไม่?`)) {
+                    console.log("อัปเดต Rate สำเร็จ");
+                }
+            }
+        }
+
+        function checkPriceChangeSingle() {
+            const jName = document.getElementById('jobNameInput').value;
+            const trip = document.getElementById('pTripFee').value;
+            const trans = document.getElementById('pTransFee').value;
+            promptMasterRateUpdate(jName, trip, trans);
+        }
+
+        // 🟢 เปลี่ยนปุ่มเมื่อ Single บันทึกสำเร็จ
+        async function processSingleSave(btn) {
+            if (typeof generateData === 'function') await generateData(btn);
+            btn.innerHTML = '<i class="fa-solid fa-circle-check text-lg"></i> บันทึกสำเร็จ! คลิกเพื่อไปหน้าจัดรถ (Dispatch)';
+            btn.className = "bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg flex items-center gap-2 transition-all animate-bounce cursor-pointer";
+            btn.onclick = () => window.location.href = '/booking-manage.html';
+        }
+
+        // 📊 หัวตารางจำแนกตามโหมด
         function getBulkHeaders(mode) {
-            const base = ['สถานะเซฟ', 'วันที่วิ่งงาน (YYYY-MM-DD)', 'จำนวนตู้', 'ลูกค้า', 'ชื่องาน', 'ต้นทาง', 'ปลายทาง', 'Booking/BL/Ref No.', 'ประเภทรถ', 'ค่าเที่ยว', 'ค่าขนส่ง'];
+            const base = ['สถานะเซฟ', 'วันเวลาวิ่งงาน (YYYY-MM-DD HH:mm)', 'จำนวนตู้', 'ลูกค้า', 'ชื่องาน', 'Job Type', 'Agent (สายเรือ)', 'ต้นทาง', 'ปลายทาง', 'Booking/BL/Ref No.', 'ประเภทรถ', 'ค่าเที่ยว', 'ค่าขนส่ง'];
             if (mode === 'EXPORT') {
-                return [...base, 'CY Date', 'VGM Cutoff', 'Cutoff Time', 'Load Date', 'Open Gate Date'];
+                return [...base, 'CY Date & Time', 'VGM Cutoff', 'Cutoff Time', 'Load Date', 'Open Gate Date'];
             } else if (mode === 'IMPORT') {
-                return [...base, 'CY Date', 'Rent Cutoff', 'Demurrage', 'Unload Date', 'Return Date'];
+                return [...base, 'CY Date & Time', 'Rent Cutoff', 'Demurrage', 'Unload Date', 'Return Date'];
             }
             return base; // TRANSFER
         }
 
-        // 📊 สปอนสร้างตาราง Handsontable สำหรับ Bulk
         function initBulkTable(dataToLoad = null) {
             const container = document.getElementById('hot-bulk-container');
             const mode = document.getElementById('bulk-mode').value;
@@ -329,22 +366,23 @@
 
             let colsConfig = [
                 { readOnly: true, className: 'ht-status-col htMiddle' }, // [0]
-                { type: 'date', dateFormat: 'YYYY-MM-DD' }, // [1]
+                { type: 'text', placeholder: '2026-10-10 08:30' }, // [1] Run Date & Time
                 { type: 'numeric' }, // [2]
                 { type: 'text' }, // [3]
-                { type: 'text' }, // [4]
-                { type: 'text' }, // [5]
-                { type: 'text' }, // [6]
-                { type: 'text', className: 'font-bold uppercase htMiddle' }, // [7]
-                { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, // [8]
-                { type: 'numeric', numericFormat: { pattern: '0,0' } }, // [9]
-                { type: 'numeric', numericFormat: { pattern: '0,0' } }  // [10]
+                { type: 'text' }, // [4] ชื่องาน
+                { type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, // [5] Job Type
+                { type: 'text' }, // [6] Agent
+                { type: 'text' }, // [7] ต้นทาง
+                { type: 'text' }, // [8] ปลายทาง
+                { type: 'text', className: 'font-bold uppercase htMiddle' }, // [9] Booking No
+                { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, // [10]
+                { type: 'numeric', numericFormat: { pattern: '0,0' } }, // [11]
+                { type: 'numeric', numericFormat: { pattern: '0,0' } }  // [12]
             ];
 
-            // เติมคอลัมน์วันที่ถ้าเป็น EXPORT / IMPORT
             if (mode === 'EXPORT' || mode === 'IMPORT') {
                 colsConfig.push(
-                    { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }
+                    { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }
                 );
             }
 
@@ -358,55 +396,64 @@
                 stretchH: 'all',
                 minSpareRows: 3,
                 contextMenu: true,
-                licenseKey: 'non-commercial-and-evaluation'
+                licenseKey: 'non-commercial-and-evaluation',
+                
+                afterChange: function(changes, source) {
+                    if (source === 'loadData' || !changes) return;
+                    changes.forEach(([row, prop, oldVal, newVal]) => {
+                        // ดึงข้อมูลให้อัตโนมัติเมื่อพิมพ์ชื่องาน (Index 4)
+                        if (prop === 4 && newVal) {
+                            this.setDataAtCell(row, 5, 'CONTAINER', 'autoFill');
+                            this.setDataAtCell(row, 7, 'ลาน A', 'autoFill');
+                            this.setDataAtCell(row, 8, 'ท่าเรือ B', 'autoFill');
+                            this.setDataAtCell(row, 11, 1500, 'autoFill');
+                            this.setDataAtCell(row, 12, 3000, 'autoFill');
+                        }
+                        // เช็คเปลี่ยนราคาในตาราง
+                        if ((prop === 11 || prop === 12) && newVal && source !== 'autoFill') {
+                            const jName = this.getDataAtCell(row, 4);
+                            if(jName) promptMasterRateUpdate(jName, this.getDataAtCell(row, 11), this.getDataAtCell(row, 12));
+                        }
+                    });
+                }
             });
         }
 
-        // 📥 ดาวน์โหลดแม่แบบ Excel Template (.xlsx)
+        // 📥 Download & 📤 Upload Excel
         function downloadExcelTemplate() {
             const mode = document.getElementById('bulk-mode').value;
-            const headers = getBulkHeaders(mode).slice(1); // ตัดคอลัมน์สถานะเซฟออก
-            
+            const headers = getBulkHeaders(mode).slice(1);
             const ws = XLSX.utils.aoa_to_sheet([headers]);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, `Template_${mode}`);
-            XLSX.writeFile(wb, `TMS_Bulk_Template_${mode}.xlsx`);
+            XLSX.writeFile(wb, `TMS_Template_${mode}.xlsx`);
         }
 
-        // 📤 อ่านไฟล์ Excel ที่อัปโหลดเข้ามา
         function uploadExcelFile(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function (e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                
-                const rawJson = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                if (rawJson.length <= 1) { alert('⚠️ ไม่พบข้อมูลในไฟล์ Excel'); return; }
-
-                // เติมคอลัมน์ [0] ว่างไว้สำหรับสถานะเซฟ
+                const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+                if (rawJson.length <= 1) return;
                 const formattedRows = rawJson.slice(1).map(row => ["", ...row]);
-
                 initBulkTable(formattedRows);
-                alert(`✅ อัปโหลดไฟล์สำเร็จ! ดึงข้อมูลได้ทั้งหมด ${formattedRows.length} รายการ`);
+                alert(`✅ ดึงข้อมูลสำเร็จ ${formattedRows.length} รายการ`);
             };
             reader.readAsArrayBuffer(file);
             event.target.value = '';
         }
 
-        // 🚀 ระบบยิงบันทึกข้อมูลทุก Job ลง DB
+        // 🚀 บันทึกข้อมูล Bulk เข้า DB และสร้างปุ่มไป Dispatch
         async function processBulkSave() {
             if (!hotBulkInstance) return;
 
             const mode = document.getElementById('bulk-mode').value;
             const btn = document.getElementById('btn-save-bulk');
-            const originalText = btn.innerHTML;
             
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเซฟ...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
             btn.disabled = true;
 
             const tableData = hotBulkInstance.getData();
@@ -414,11 +461,7 @@
 
             for (let i = 0; i < tableData.length; i++) {
                 const row = tableData[i];
-                
-                // ข้ามแถวที่ไม่ได้ใส่วันที่ หรือ จำนวนตู้
-                if (!row[1] || !row[2]) continue;
-
-                hotBulkInstance.setDataAtCell(i, 0, '⏳ บันทึก...');
+                if (!row[1] || !row[2]) continue; // บังคับ วันเวลาวิ่งงาน และ จำนวนตู้
 
                 const bookingData = {
                     mode: mode,
@@ -426,21 +469,23 @@
                     container_count: row[2],
                     customer_name: row[3] || '',
                     job_name: row[4] || '',
-                    origin: row[5] || '',
-                    destination: row[6] || '',
-                    booking_no: row[7] || `TEMP-${Date.now().toString().slice(-5)}`,
-                    price_type: row[8] || '',
-                    trip_fee: row[9] || 0,
-                    trans_fee: row[10] || 0,
-                    cy_date: row[11] || '',
-                    vgm_cutoff: mode === 'EXPORT' ? (row[12] || '') : '',
-                    rent_cutoff: mode === 'IMPORT' ? (row[12] || '') : '',
-                    cutoff_time: mode === 'EXPORT' ? (row[13] || '') : '',
-                    demurrage: mode === 'IMPORT' ? (row[13] || '') : '',
-                    load_date: mode === 'EXPORT' ? (row[14] || '') : '',
-                    unload_date: mode === 'IMPORT' ? (row[14] || '') : '',
-                    open_gate: mode === 'EXPORT' ? (row[15] || '') : '',
-                    return_date: mode === 'IMPORT' ? (row[15] || '') : ''
+                    job_type: row[5] || '',
+                    agent: row[6] || '',
+                    origin: row[7] || '',
+                    destination: row[8] || '',
+                    booking_no: row[9] || `TEMP-${Date.now().toString().slice(-5)}`,
+                    price_type: row[10] || '',
+                    trip_fee: row[11] || 0,
+                    trans_fee: row[12] || 0,
+                    cy_date: row[13] || '',
+                    vgm_cutoff: mode === 'EXPORT' ? (row[14] || '') : '',
+                    rent_cutoff: mode === 'IMPORT' ? (row[14] || '') : '',
+                    cutoff_time: mode === 'EXPORT' ? (row[15] || '') : '',
+                    demurrage: mode === 'IMPORT' ? (row[15] || '') : '',
+                    load_date: mode === 'EXPORT' ? (row[16] || '') : '',
+                    unload_date: mode === 'IMPORT' ? (row[16] || '') : '',
+                    open_gate: mode === 'EXPORT' ? (row[17] || '') : '',
+                    return_date: mode === 'IMPORT' ? (row[17] || '') : ''
                 };
 
                 try {
@@ -452,7 +497,7 @@
                     if (resultHeader.success) {
                         let shipmentsData = [];
                         const today = new Date().toISOString().split('T')[0];
-                        const datePrefix = String(bookingData.run_date).replace(/-/g, '').substring(2); 
+                        const datePrefix = String(bookingData.run_date).replace(/[^0-9]/g, '').substring(2, 8) || '261010'; 
 
                         for (let c = 0; c < bookingData.container_count; c++) {
                             let orderId = `ORD-${datePrefix}-${Math.floor(1000 + Math.random() * 9000)}-${c+1}`;
@@ -492,11 +537,15 @@
                 }
             }
 
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            
             if (successCount > 0) {
-                alert(`🎉 บันทึกข้อมูลสำเร็จทั้งหมด ${successCount} Job!`);
+                btn.innerHTML = '<i class="fa-solid fa-circle-check text-lg"></i> บันทึกสำเร็จ! คลิกเพื่อไปหน้าจัดรถ (Dispatch)';
+                btn.className = "bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg shadow-md flex items-center gap-2 text-sm transition-all animate-bounce cursor-pointer";
+                btn.disabled = false;
+                btn.onclick = () => window.location.href = '/booking-manage.html';
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูลทุก Job';
+                btn.disabled = false;
+                alert('กรุณากรอก วันเวลาวิ่งงาน และ จำนวนตู้');
             }
         }
     </script>

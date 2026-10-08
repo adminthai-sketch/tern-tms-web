@@ -77,9 +77,6 @@
                         <h2 class="text-xl font-bold text-primary flex items-center gap-2">
                             <i class="fa-solid fa-folder-plus"></i> <span id="form-title">สร้างรายการรับงานใหม่ (New Booking)</span>
                         </h2>
-                        <span id="editing-badge" class="hidden bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">
-                            <i class="fa-solid fa-pen"></i> โหมดแก้ไข (Editing) <span id="editing-order-text"></span>
-                        </span>
                     </div>
                     
                     <input type="hidden" id="editingOrderId" value="">
@@ -233,28 +230,28 @@
                         <h2 class="text-lg font-bold text-emerald-700 flex items-center gap-2">
                             <i class="fa-solid fa-file-excel"></i> นำเข้าข้อมูลแบบหลาย Job พร้อมกัน (Bulk Upload)
                         </h2>
-                        <p class="text-xs text-slate-500 mt-1">สามารถดาวน์โหลดแม่แบบ Excel ไปกรอก หรือเลือกไฟล์ Excel อัปโหลดลงตารางได้ทันที</p>
+                        <div class="flex items-center gap-3 mt-2">
+                            <label class="text-sm font-bold text-slate-700">📌 เลือกลักษณะงานของตาราง:</label>
+                            <select id="bulk-mode" onchange="initBulkTable()" class="px-3 py-1.5 border border-emerald-300 rounded-lg text-sm font-bold text-emerald-800 outline-none bg-emerald-50 shadow-sm cursor-pointer">
+                                <option value="EXPORT">🚢 EXPORT (ขาออก)</option>
+                                <option value="IMPORT">🛬 IMPORT (ขาเข้า)</option>
+                                <option value="TRANSFER">🚚 TRANSFER (ขนถ่าย)</option>
+                            </select>
+                        </div>
                     </div>
 
                     <!-- เครื่องมือจัดการไฟล์ Excel -->
                     <div class="flex flex-wrap gap-2 items-center">
-                        <!-- ปุ่มดาวน์โหลด Template -->
                         <button onclick="downloadExcelTemplate()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-lg text-xs flex items-center gap-2 border border-slate-300 transition-colors shadow-sm">
-                            <i class="fa-solid fa-download text-emerald-600"></i> โหลดแม่แบบ Excel (.xlsx)
+                            <i class="fa-solid fa-download text-emerald-600"></i> โหลดแม่แบบ Excel
                         </button>
-
-                        <!-- ปุ่มอัปโหลดไฟล์ Excel -->
                         <label class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-lg text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-sm">
                             <i class="fa-solid fa-file-arrow-up"></i> อัปโหลดไฟล์ Excel
                             <input type="file" accept=".xlsx, .xls, .csv" onchange="uploadExcelFile(event)" class="hidden">
                         </label>
-
-                        <!-- ปุ่มล้างตาราง -->
                         <button onclick="initBulkTable()" class="bg-white border border-slate-300 text-slate-600 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
                             <i class="fa-solid fa-rotate"></i> ล้างตาราง
                         </button>
-
-                        <!-- ปุ่มบันทึก -->
                         <button onclick="processBulkSave()" id="btn-save-bulk" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-5 rounded-lg shadow-md flex items-center gap-2 text-sm transition-transform hover:-translate-y-0.5">
                             <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูลทุก Job
                         </button>
@@ -264,11 +261,6 @@
                 <!-- Handsontable Bulk Container -->
                 <div class="flex-1 relative w-full overflow-hidden bg-slate-50 border border-slate-200 rounded-lg">
                     <div id="hot-bulk-container" class="absolute inset-0 z-0"></div>
-                </div>
-
-                <div class="mt-3 text-xs text-slate-500 flex items-center gap-2">
-                    <i class="fa-solid fa-lightbulb text-amber-500"></i>
-                    <span>คำแนะนำ: คอลัมน์สำคัญที่ต้องกรอก ได้แก่ <b>MODE, วันที่วิ่งงาน (YYYY-MM-DD), จำนวนตู้</b> และ <b>Booking/BL No.</b></span>
                 </div>
             </div>
 
@@ -281,13 +273,6 @@
     <!-- สคริปต์สลับแท็บ และ จัดการ Excel Import/Export/Bulk -->
     <script>
         let hotBulkInstance = null;
-
-        // หัวคอลัมน์มาตรฐานสำหรับ Bulk Upload
-        const BULK_HEADERS = [
-            'สถานะเซฟ', 'MODE', 'วันที่วิ่งงาน (YYYY-MM-DD)', 'จำนวนตู้', 'ลูกค้า', 'ชื่องาน', 
-            'ต้นทาง', 'ปลายทาง', 'Booking/BL/Ref No.', 'ประเภทรถ', 'ค่าเที่ยว', 'ค่าขนส่ง',
-            'CY Date', 'VGM / Rent Cutoff', 'Cutoff / Demurrage', 'Load / Unload Date', 'Open Gate / Return Date'
-        ];
 
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('tms_user');
@@ -317,40 +302,56 @@
                 btnBulk.className = 'tab-btn tab-active px-6 py-2.5 rounded-lg font-bold text-sm border flex items-center gap-2';
                 btnSingle.className = 'tab-btn tab-inactive px-6 py-2.5 rounded-lg font-bold text-sm border flex items-center gap-2';
                 
-                // สร้างตาราง Bulk ครั้งแรกเมื่อเปิดแท็บ
                 if (!hotBulkInstance) initBulkTable();
             }
+        }
+
+        // สร้าง Header ของตารางไดนามิกตาม Mode
+        function getBulkHeaders(mode) {
+            const base = ['สถานะเซฟ', 'วันที่วิ่งงาน (YYYY-MM-DD)', 'จำนวนตู้', 'ลูกค้า', 'ชื่องาน', 'ต้นทาง', 'ปลายทาง', 'Booking/BL/Ref No.', 'ประเภทรถ', 'ค่าเที่ยว', 'ค่าขนส่ง'];
+            if (mode === 'EXPORT') {
+                return [...base, 'CY Date', 'VGM Cutoff', 'Cutoff Time', 'Load Date', 'Open Gate Date'];
+            } else if (mode === 'IMPORT') {
+                return [...base, 'CY Date', 'Rent Cutoff', 'Demurrage', 'Unload Date', 'Return Date'];
+            }
+            return base; // TRANSFER
         }
 
         // 📊 สปอนสร้างตาราง Handsontable สำหรับ Bulk
         function initBulkTable(dataToLoad = null) {
             const container = document.getElementById('hot-bulk-container');
+            const mode = document.getElementById('bulk-mode').value;
+            const headers = getBulkHeaders(mode);
+
             if (hotBulkInstance) { hotBulkInstance.destroy(); hotBulkInstance = null; }
 
-            const initialData = dataToLoad || Array.from({ length: 15 }, () => new Array(BULK_HEADERS.length).fill(""));
+            const initialData = dataToLoad || Array.from({ length: 15 }, () => new Array(headers.length).fill(""));
+
+            let colsConfig = [
+                { readOnly: true, className: 'ht-status-col htMiddle' }, // [0]
+                { type: 'date', dateFormat: 'YYYY-MM-DD' }, // [1]
+                { type: 'numeric' }, // [2]
+                { type: 'text' }, // [3]
+                { type: 'text' }, // [4]
+                { type: 'text' }, // [5]
+                { type: 'text' }, // [6]
+                { type: 'text', className: 'font-bold uppercase htMiddle' }, // [7]
+                { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, // [8]
+                { type: 'numeric', numericFormat: { pattern: '0,0' } }, // [9]
+                { type: 'numeric', numericFormat: { pattern: '0,0' } }  // [10]
+            ];
+
+            // เติมคอลัมน์วันที่ถ้าเป็น EXPORT / IMPORT
+            if (mode === 'EXPORT' || mode === 'IMPORT') {
+                colsConfig.push(
+                    { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }
+                );
+            }
 
             hotBulkInstance = new Handsontable(container, {
                 data: initialData,
-                colHeaders: BULK_HEADERS,
-                columns: [
-                    { readOnly: true, className: 'ht-status-col htMiddle' }, // [0] สถานะ
-                    { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, // [1] MODE
-                    { type: 'date', dateFormat: 'YYYY-MM-DD' }, // [2] วันที่วิ่งงาน
-                    { type: 'numeric' }, // [3] จำนวนตู้
-                    { type: 'text' }, // [4] ลูกค้า
-                    { type: 'text' }, // [5] ชื่องาน
-                    { type: 'text' }, // [6] ต้นทาง
-                    { type: 'text' }, // [7] ปลายทาง
-                    { type: 'text', className: 'font-bold uppercase htMiddle' }, // [8] Booking No
-                    { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, // [9] รถ
-                    { type: 'numeric', numericFormat: { pattern: '0,0' } }, // [10] ค่าเที่ยว
-                    { type: 'numeric', numericFormat: { pattern: '0,0' } }, // [11] ค่าขนส่ง
-                    { type: 'text' }, // [12] CY Date
-                    { type: 'text' }, // [13] VGM Cutoff / Rent Cutoff
-                    { type: 'text' }, // [14] Cutoff Time / Demurrage
-                    { type: 'text' }, // [15] Load Date / Unload Date
-                    { type: 'text' }  // [16] Open Gate / Return Date
-                ],
+                colHeaders: headers,
+                columns: colsConfig,
                 rowHeaders: true,
                 width: '100%',
                 height: '100%',
@@ -363,21 +364,16 @@
 
         // 📥 ดาวน์โหลดแม่แบบ Excel Template (.xlsx)
         function downloadExcelTemplate() {
-            const templateHeaders = [BULK_HEADERS.slice(1)]; // ตัดคอลัมน์สถานะออก
+            const mode = document.getElementById('bulk-mode').value;
+            const headers = getBulkHeaders(mode).slice(1); // ตัดคอลัมน์สถานะเซฟออก
             
-            // ตัวอย่างข้อมูลสำหรับเอาไปดูเป็นแนวทาง
-            const sampleRows = [
-                ['EXPORT', '2026-10-10', 2, 'บริษัท ตัวอย่าง จำกัด', 'ขนส่งสินค้าแหลมฉบัง', 'Depot A', 'Port B', 'BK-2026-001', '10W', 2500, 4500, '2026-10-10 08:00', '2026-10-11 12:00', '2026-10-11 17:00', '2026-10-10 13:00', '2026-10-10 06:00'],
-                ['IMPORT', '2026-10-12', 1, 'ลูกค้า บีบี จำกัด', 'รับตู้ขาเข้าท่าเรือ', 'Port A', 'Depot B', 'BL-998877', '6W', 1800, 3200, '2026-10-12 09:00', '2026-10-15 16:00', '2026-10-16 16:00', '2026-10-12 10:00', '2026-10-13 15:00']
-            ];
-
-            const ws = XLSX.utils.aoa_to_sheet([...templateHeaders, ...sampleRows]);
+            const ws = XLSX.utils.aoa_to_sheet([headers]);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'BookingTemplate');
-            XLSX.writeFile(wb, 'TMS_Booking_Bulk_Template.xlsx');
+            XLSX.utils.book_append_sheet(wb, ws, `Template_${mode}`);
+            XLSX.writeFile(wb, `TMS_Bulk_Template_${mode}.xlsx`);
         }
 
-        // 📤 อ่านไฟล์ Excel ที่อัปโหลดเข้ามา แล้วแสดงบนตาราง Handsontable
+        // 📤 อ่านไฟล์ Excel ที่อัปโหลดเข้ามา
         function uploadExcelFile(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -389,24 +385,24 @@
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                // อ่านข้อมูลแปลงเป็น Array
                 const rawJson = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                 if (rawJson.length <= 1) { alert('⚠️ ไม่พบข้อมูลในไฟล์ Excel'); return; }
 
-                // เติมคอลัมน์ [0] ว่างไว้สำหรับช่องสถานะเซฟ
+                // เติมคอลัมน์ [0] ว่างไว้สำหรับสถานะเซฟ
                 const formattedRows = rawJson.slice(1).map(row => ["", ...row]);
 
                 initBulkTable(formattedRows);
                 alert(`✅ อัปโหลดไฟล์สำเร็จ! ดึงข้อมูลได้ทั้งหมด ${formattedRows.length} รายการ`);
             };
             reader.readAsArrayBuffer(file);
-            event.target.value = ''; // เคลียร์ไฟล์เดิม
+            event.target.value = '';
         }
 
         // 🚀 ระบบยิงบันทึกข้อมูลทุก Job ลง DB
         async function processBulkSave() {
             if (!hotBulkInstance) return;
 
+            const mode = document.getElementById('bulk-mode').value;
             const btn = document.getElementById('btn-save-bulk');
             const originalText = btn.innerHTML;
             
@@ -419,48 +415,41 @@
             for (let i = 0; i < tableData.length; i++) {
                 const row = tableData[i];
                 
-                // ข้ามแถวที่ไม่ได้ใส่ข้อมูลสำคัญ (MODE, วันที่วิ่งงาน, จำนวนตู้)
-                if (!row[1] || !row[2] || !row[3]) continue;
+                // ข้ามแถวที่ไม่ได้ใส่วันที่ หรือ จำนวนตู้
+                if (!row[1] || !row[2]) continue;
 
                 hotBulkInstance.setDataAtCell(i, 0, '⏳ บันทึก...');
 
-                const mode = String(row[1]).toUpperCase();
-                let vgm_c = "", rent_c = "", cut_c = "", dem_c = "", load_d = "", unld_d = "", open_g = "", ret_d = "";
-
-                if (mode === 'EXPORT') {
-                    vgm_c = row[13] || ""; cut_c = row[14] || ""; load_d = row[15] || ""; open_g = row[16] || "";
-                } else if (mode === 'IMPORT') {
-                    rent_c = row[13] || ""; dem_c = row[14] || ""; unld_d = row[15] || ""; ret_d = row[16] || "";
-                }
-
                 const bookingData = {
                     mode: mode,
-                    run_date: row[2],
-                    container_count: row[3],
-                    customer_name: row[4] || '',
-                    job_name: row[5] || '',
-                    origin: row[6] || '',
-                    destination: row[7] || '',
-                    booking_no: row[8] || `TEMP-${Date.now().toString().slice(-5)}`,
-                    price_type: row[9] || '',
-                    trip_fee: row[10] || 0,
-                    trans_fee: row[11] || 0,
-                    cy_date: row[12] || '',
-                    vgm_cutoff: vgm_c, rent_cutoff: rent_c,
-                    cutoff_time: cut_c, demurrage: dem_c,
-                    load_date: load_d, unload_date: unld_d,
-                    open_gate: open_g, return_date: ret_d
+                    run_date: row[1],
+                    container_count: row[2],
+                    customer_name: row[3] || '',
+                    job_name: row[4] || '',
+                    origin: row[5] || '',
+                    destination: row[6] || '',
+                    booking_no: row[7] || `TEMP-${Date.now().toString().slice(-5)}`,
+                    price_type: row[8] || '',
+                    trip_fee: row[9] || 0,
+                    trans_fee: row[10] || 0,
+                    cy_date: row[11] || '',
+                    vgm_cutoff: mode === 'EXPORT' ? (row[12] || '') : '',
+                    rent_cutoff: mode === 'IMPORT' ? (row[12] || '') : '',
+                    cutoff_time: mode === 'EXPORT' ? (row[13] || '') : '',
+                    demurrage: mode === 'IMPORT' ? (row[13] || '') : '',
+                    load_date: mode === 'EXPORT' ? (row[14] || '') : '',
+                    unload_date: mode === 'IMPORT' ? (row[14] || '') : '',
+                    open_gate: mode === 'EXPORT' ? (row[15] || '') : '',
+                    return_date: mode === 'IMPORT' ? (row[15] || '') : ''
                 };
 
                 try {
-                    // 1. บันทึกหัวบิลเข้า bookings
                     const resHeader = await fetch('/api/bookings/header', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bookingData)
                     });
                     const resultHeader = await resHeader.json();
 
                     if (resultHeader.success) {
-                        // 2. สร้างตู้ย่อยเข้า shipments
                         let shipmentsData = [];
                         const today = new Date().toISOString().split('T')[0];
                         const datePrefix = String(bookingData.run_date).replace(/-/g, '').substring(2); 
@@ -508,8 +497,6 @@
             
             if (successCount > 0) {
                 alert(`🎉 บันทึกข้อมูลสำเร็จทั้งหมด ${successCount} Job!`);
-            } else {
-                alert(`⚠️ ไม่พบรายการที่สมบูรณ์ (กรุณาเช็คช่อง MODE, วันที่วิ่งงาน และจำนวนตู้)`);
             }
         }
     </script>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERN TMS - รายการบุคกิ้ง (Booking List & Hub)</title>
+    <title>TERN TMS - รายการบุคกิ้ง (Booking Hub)</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -17,9 +17,9 @@
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
 
     <style>
-        .handsontable th { font-weight: bold !important; font-size: 12px !important; background: #f8fafc; color: #334155; }
-        .handsontable td { font-size: 13px !important; vertical-align: middle; }
-        .btn-grid { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; border: 1px solid transparent; transition: 0.2s; margin-right: 4px; display: inline-block;}
+        .handsontable th { font-weight: bold !important; font-size: 11px !important; background: #f8fafc; color: #334155; }
+        .handsontable td { font-size: 12px !important; vertical-align: middle; }
+        .btn-grid { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer; border: 1px solid transparent; transition: 0.2s; margin-right: 2px; display: inline-block;}
         .btn-edit { background: #fef08a; color: #854d0e; border-color: #fde047; }
         .btn-edit:hover { background: #fde047; }
         .btn-manage { background: #d1fae5; color: #047857; border-color: #a7f3d0; }
@@ -30,98 +30,77 @@
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
 
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-list-check"></i></div>
-            <span class="font-bold text-xl text-primary tracking-wide">TERN TMS <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">BOOKING HUB</span></span>
-        </div>
+    <!-- Header & Main Menu (รวมปุ่ม 3 เมนูหลักไว้ด้านบนสุด เพื่อประหยัดพื้นที่) -->
+    <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-4 shrink-0 z-20 shadow-sm">
         <div class="flex items-center gap-4">
-            <a href="/booking-manage.html" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-sm flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border border-emerald-200 shadow-sm">
-                <i class="fa-solid fa-desktop"></i> ไปหน้าจัดการตู้/จัดรถ
-            </a>
-            <a href="/index.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200">
-                <i class="fa-solid fa-arrow-left"></i> กลับหน้าแรก
-            </a>
-            <div class="text-right hidden sm:block">
-                <div id="user-fullname" class="text-sm font-bold text-slate-700">กำลังโหลด...</div>
+            <span class="font-bold text-lg text-primary tracking-wide hidden sm:block"><i class="fa-solid fa-list-check mr-2"></i>BOOKING HUB</span>
+            
+            <!-- 🌟 เมนูหลัก 3 ปุ่ม (ย้ายขึ้นมาไว้ตรงนี้) 🌟 -->
+            <div class="flex gap-1 ml-0 sm:ml-4 sm:border-l sm:border-slate-200 sm:pl-4">
+                <a href="/booking.html" class="text-slate-500 hover:text-primary hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold text-[11px] sm:text-xs transition-colors"><i class="fa-solid fa-pen-to-square"></i> สร้างรับงาน</a>
+                <a href="/booking-list.html" class="bg-primary text-white px-3 py-1.5 rounded-lg font-bold text-[11px] sm:text-xs shadow-sm"><i class="fa-solid fa-table-list"></i> รายการบุคกิ้ง</a>
+                <a href="/booking-bulk.html" class="text-slate-500 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-bold text-[11px] sm:text-xs transition-colors"><i class="fa-solid fa-file-excel"></i> อัปโหลด Job</a>
             </div>
-            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-power-off text-lg"></i></button>
+        </div>
+        <div class="flex items-center gap-3">
+            <div id="user-fullname" class="text-xs font-bold text-slate-700 hidden md:block">กำลังโหลด...</div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-1"><i class="fa-solid fa-power-off"></i></button>
         </div>
     </header>
 
-    <main class="flex-1 p-6 overflow-hidden flex flex-col gap-4">
-
-        <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน (เมนูหลัก) 🌟 -->
-        <div class="flex flex-wrap gap-3 shrink-0 mb-2">
-            <a href="/booking.html" class="bg-white text-slate-600 hover:text-primary hover:bg-blue-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
-                <i class="fa-solid fa-pen-to-square"></i> 1. สร้างบุคกิ้งใหม่
-            </a>
-            <a href="/booking-list.html" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-sm border border-primary shadow-md flex items-center gap-2 transition-colors">
-                <i class="fa-solid fa-table-list"></i> 2. ดูรายการบุคกิ้ง (Booking List)
-            </a>
-            <a href="/booking-bulk.html" class="bg-white text-slate-500 hover:bg-slate-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
-                <i class="fa-solid fa-file-excel"></i> 3. อัปโหลดหลาย Job (Bulk Excel)
-            </a>
-        </div>
+    <main class="flex-1 p-3 overflow-hidden flex flex-col gap-3">
         
-        <!-- 📅 แถบเลือกเดือน (Master Filter) -->
-        <div class="bg-white px-5 py-3 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center shrink-0">
-            <div class="flex items-center gap-4">
-                <h3 class="font-bold text-primary flex items-center gap-2"><i class="fa-regular fa-calendar-days"></i> ข้อมูลประจำเดือน:</h3>
-                <input type="month" id="filter-month" onchange="loadBookingGridData()" class="px-3 py-1.5 border border-primary rounded-lg text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-blue-200 shadow-sm">
-            </div>
-            <div class="text-sm text-slate-500 font-medium">
-                พบข้อมูล <span id="total-count" class="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">0 รายการ</span>
-            </div>
-        </div>
-
-        <!-- 🔍 แถบกรองด่วน (Quick Filters) & แถบเครื่องมือ -->
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-end gap-4 shrink-0">
-            <div class="flex flex-wrap items-end gap-4 flex-1">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1">📅 วันที่วิ่งงาน</label>
-                    <input type="date" id="filter-run-date" onchange="applyQuickFilters()" class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary w-36 shadow-sm bg-slate-50">
+        <!-- 🎛️ Toolbar (ข้อมูลเดือนและตัวกรอง รวมอยู่ในบรรทัดเดียวกัน) -->
+        <div class="bg-white p-2 md:px-3 md:py-2 rounded-lg shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-2 shrink-0 z-10">
+            
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- ข้อมูลประจำเดือน -->
+                <div class="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded border border-blue-100 h-8">
+                    <label class="text-[11px] font-bold text-primary"><i class="fa-regular fa-calendar"></i> เดือน:</label>
+                    <input type="month" id="filter-month" onchange="loadBookingGridData()" class="px-1 py-0 border-none bg-transparent text-[11px] font-bold text-primary outline-none cursor-pointer">
                 </div>
-                <div class="flex-1 min-w-[200px]">
-                    <label class="block text-xs font-bold text-slate-500 mb-1">🏢 ลูกค้า (Customer)</label>
-                    <select id="filter-customer" onchange="applyQuickFilters()" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-semibold outline-none focus:border-primary shadow-sm bg-slate-50">
-                        <option value="">-- ลูกค้าทั้งหมด --</option>
-                    </select>
-                </div>
-                <div class="flex-1 min-w-[200px]">
-                    <label class="block text-xs font-bold text-slate-500 mb-1">📦 รายการ Booking No.</label>
-                    <select id="filter-booking-no" onchange="applyQuickFilters()" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-semibold outline-none focus:border-primary shadow-sm bg-slate-50">
-                        <option value="">-- ทุก Booking --</option>
-                    </select>
-                </div>
-                <button onclick="clearQuickFilters()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-300 transition-colors shadow-sm h-[34px]">
-                    <i class="fa-solid fa-eraser"></i> ล้างค่า
-                </button>
+                
+                <div class="w-px h-5 bg-slate-200 hidden md:block mx-1"></div>
+                
+                <!-- ตัวกรองด่วน -->
+                <select id="filter-run-date" onchange="applyQuickFilters()" class="px-2 py-1 border border-slate-300 rounded md:w-28 text-[10px] font-medium outline-none bg-slate-50 cursor-pointer h-8">
+                    <option value="">-- วันที่วิ่งงาน --</option>
+                </select>
+                <select id="filter-customer" onchange="applyQuickFilters()" class="px-2 py-1 border border-slate-300 rounded md:w-36 text-[10px] font-medium outline-none bg-slate-50 cursor-pointer h-8">
+                    <option value="">-- ลูกค้า (customer_name) --</option>
+                </select>
+                <select id="filter-booking-no" onchange="applyQuickFilters()" class="px-2 py-1 border border-slate-300 rounded md:w-36 text-[10px] font-medium outline-none bg-slate-50 cursor-pointer h-8">
+                    <option value="">-- รายการ Booking --</option>
+                </select>
+                <button onclick="clearQuickFilters()" class="text-slate-400 hover:text-slate-700 px-2 h-8" title="ล้างค่าตัวกรอง"><i class="fa-solid fa-eraser text-[10px]"></i></button>
             </div>
 
             <div class="flex items-center gap-2">
-                <button onclick="deleteSelectedRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 px-3 rounded-lg text-xs flex items-center gap-2 border border-red-200 shadow-sm transition-colors">
-                    <i class="fa-solid fa-trash-can"></i> ลบแถวที่เลือก
+                <span id="total-count" class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200 mr-1">0 รายการ</span>
+                <button onclick="deleteSelectedRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-2.5 rounded text-[10px] flex items-center gap-1 border border-red-200 transition-colors shadow-sm h-8">
+                    <i class="fa-solid fa-trash-can"></i> ลบ
                 </button>
-                <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-5 rounded-lg shadow-md flex items-center gap-2 text-sm transition-transform hover:-translate-y-0.5">
-                    <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลที่แก้ในตาราง
+                <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-3 rounded shadow-sm flex items-center gap-1 text-[10px] transition-transform h-8">
+                    <i class="fa-solid fa-floppy-disk"></i> บันทึกในตาราง
                 </button>
             </div>
         </div>
 
-        <!-- 📋 ตาราง (Handsontable) -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 relative overflow-hidden">
-            <div class="absolute top-0 left-0 w-full bg-blue-50/50 border-b border-blue-100 px-4 py-2 text-xs text-blue-800 font-medium z-10 flex gap-4">
-                <span><i class="fa-solid fa-circle-info"></i> แก้ไขข้อมูลในเซลล์ได้โดยตรง แล้วกด "บันทึกข้อมูล"</span>
-                <span>|</span>
-                <span><i class="fa-solid fa-link"></i> กดปุ่ม <b>จัดการตู้ / จัดรถ</b> เพื่อทำงานต่อ (1 หัวบิล สู่หลายหางตู้)</span>
+        <!-- 📋 ตาราง (Handsontable) มีพื้นที่กว้างขึ้นสุดๆ -->
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 flex-1 relative overflow-hidden">
+            <!-- แถบแจ้งเตือนด้านบนตาราง -->
+            <div class="absolute top-0 left-0 w-full bg-slate-50 border-b border-slate-200 px-3 py-1.5 text-[10px] text-slate-600 font-medium z-10 flex justify-between items-center">
+                <div class="flex gap-3">
+                    <span><i class="fa-solid fa-circle-info text-blue-500"></i> แก้ไขข้อมูลวันเวลา (PICK UP / DELIVERY / RETURN) ได้โดยตรงในตาราง</span>
+                </div>
             </div>
-            <div id="booking-grid-container" class="absolute inset-0 z-0 mt-8"></div>
+            <!-- พื้นที่แสดงตารางจริง -->
+            <div id="booking-grid-container" class="absolute inset-0 z-0 mt-7"></div>
         </div>
 
     </main>
 
+    <!-- สคริปต์ควบคุมตาราง -->
     <script src="js/modules/booking/list.js"></script>
     <script>
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }

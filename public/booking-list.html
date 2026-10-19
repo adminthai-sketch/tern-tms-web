@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERN TMS - รายการบุคกิ้ง (Booking List)</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-list-check"></i></div>
+            <span class="font-bold text-xl text-primary tracking-wide">TERN TMS <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">BOOKING LIST</span></span>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="/booking.html" class="bg-primary hover:bg-blue-900 text-white font-bold text-sm flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-sm">
+                <i class="fa-solid fa-plus"></i> สร้างบุคกิ้งใหม่
+            </a>
+            <a href="/index.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200">
+                <i class="fa-solid fa-arrow-left"></i> กลับหน้าแรก
+            </a>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-6 relative">
+        <div class="max-w-7xl mx-auto space-y-4">
+            
+            <!-- 🔍 ส่วนตัวกรอง (Filters) -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fa-solid fa-filter text-primary"></i> ค้นหาและตัวกรอง</h3>
+                <div class="flex flex-wrap items-end gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">วันที่วิ่งงาน</label>
+                        <input type="date" id="filter-date" class="px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary w-40">
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">ลูกค้า</label>
+                        <select id="filter-customer" class="px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full">
+                            <option value="">-- ลูกค้าทั้งหมด --</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Booking No. / ชื่องาน</label>
+                        <input type="text" id="filter-booking" placeholder="ระบุเลข Booking..." class="px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full uppercase">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="loadBookings()" class="bg-primary hover:bg-blue-900 text-white font-bold py-2 px-5 rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm">
+                            <i class="fa-solid fa-magnifying-glass"></i> ค้นหา
+                        </button>
+                        <button onclick="clearFilters()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2 px-4 rounded-lg transition-colors text-sm border border-slate-300 shadow-sm">
+                            ล้างค่า
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 📋 ตารางแสดงข้อมูล -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div class="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <h2 class="font-bold text-slate-700 flex items-center gap-2">
+                        <i class="fa-solid fa-table-list text-emerald-600"></i> รายการรับงานทั้งหมด <span id="total-count" class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full ml-1">0 รายการ</span>
+                    </h2>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse whitespace-nowrap">
+                        <thead class="bg-white text-slate-500 text-xs uppercase border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3 font-bold">MODE</th>
+                                <th class="px-4 py-3 font-bold">วันที่วิ่งงาน</th>
+                                <th class="px-4 py-3 font-bold">Booking No.</th>
+                                <th class="px-4 py-3 font-bold">ลูกค้า / ชื่องาน</th>
+                                <th class="px-4 py-3 font-bold">เส้นทาง</th>
+                                <th class="px-4 py-3 font-bold text-center">จำนวนตู้</th>
+                                <th class="px-4 py-3 font-bold text-center">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-100 text-sm">
+                            <tr>
+                                <td colspan="7" class="text-center py-10 text-slate-500">
+                                    <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-primary"></i><br>กำลังโหลดข้อมูล...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 🌟 เรียกใช้ไฟล์ JavaScript แยก -->
+    <script src="js/modules/booking/list.js"></script>
+
+</body>
+</html>

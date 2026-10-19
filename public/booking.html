@@ -42,16 +42,20 @@
     <div class="flex-1 flex overflow-hidden justify-center relative">
         <main class="w-full max-w-7xl p-6 overflow-y-auto flex flex-col relative bg-bglight gap-4">
             
-            <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน -->
-            <div class="flex gap-3 shrink-0">
+            <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน (เมนูหลัก) 🌟 -->
+            <div class="flex flex-wrap gap-3 shrink-0">
                 <a href="/booking.html" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-sm border border-primary shadow-md flex items-center gap-2 transition-colors">
-                    <i class="fa-solid fa-file-lines"></i> 1. สร้างรายการแบบเดี่ยว (1 Job)
+                    <i class="fa-solid fa-pen-to-square"></i> 1. สร้างบุคกิ้งใหม่
                 </a>
-                <a href="/booking-bulk.html" class="bg-white text-slate-500 hover:bg-slate-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors">
-                    <i class="fa-solid fa-file-excel"></i> 2. อัปโหลดหลาย Job พร้อมกัน (Bulk Excel)
+                <a href="/booking-list.html" class="bg-white text-slate-600 hover:text-primary hover:bg-blue-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
+                    <i class="fa-solid fa-table-list"></i> 2. ดูรายการบุคกิ้ง (Booking List)
+                </a>
+                <a href="/booking-bulk.html" class="bg-white text-slate-500 hover:bg-slate-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
+                    <i class="fa-solid fa-file-excel"></i> 3. อัปโหลดหลาย Job (Bulk Excel)
                 </a>
             </div>
 
+            <!-- ฟอร์มสร้างบุคกิ้ง (เหมือนเดิม) -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex-none">
                 <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-5">
                     <h2 class="text-xl font-bold text-primary flex items-center gap-2">
@@ -77,7 +81,6 @@
                             </select>
                         </div>
                         <div>
-                            <!-- 📌 วันที่วิ่งงาน (ไม่มีเวลา) -->
                             <label class="block text-sm font-semibold text-slate-700 mb-1">📅 วันที่วิ่งงาน</label>
                             <input type="date" id="runDate" class="w-40 px-3 py-2 border border-slate-300 rounded-lg text-sm shadow-sm">
                         </div>
@@ -167,7 +170,7 @@
 
                         <!-- โซนราคา และประเภทรถ -->
                         <div class="grid grid-cols-2 md:grid-cols-7 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
-                            <div><label class="block text-slate-600 mb-1">ลูกค้า</label><input type="text" id="pCustomer" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white" readonly></div>
+                            <div><label class="block text-slate-600 mb-1">ลูกค้า (ระบบดึงให้)</label><input type="text" id="pCustomer" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-bold" readonly></div>
                             <div><label class="block text-slate-600 mb-1">ต้นทาง (Origin)</label><input type="text" id="pOrigin" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
                             <div><label class="block text-slate-600 mb-1">ปลายทาง (Dest)</label><input type="text" id="pDest" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
                             
@@ -189,17 +192,18 @@
                                     <option value="เงินสด">เงินสด</option>
                                 </select>
                             </div>
-                            <div><label class="block text-slate-600 mb-1">ค่าเที่ยว (คนขับ)</label><input type="text" id="pTripFee" onblur="checkPriceChangeSingle()" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-green-700 bg-green-50"></div>
-                            <div><label class="block text-slate-600 mb-1">ค่าขนส่ง (ลูกค้า)</label><input type="text" id="pTransFee" onblur="checkPriceChangeSingle()" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-blue-700 bg-blue-50"></div>
+                            <div><label class="block text-slate-600 mb-1">ค่าเที่ยว (คนขับ)</label><input type="text" id="pTripFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-green-700 bg-green-50"></div>
+                            <div><label class="block text-slate-600 mb-1">ค่าขนส่ง (ลูกค้า)</label><input type="text" id="pTransFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-blue-700 bg-blue-50"></div>
                         </div>
                     </div>
 
+                    <!-- ปุ่มบันทึก -->
                     <div class="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
-                        <p class="text-sm text-slate-500 font-medium"><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> กดบันทึกเพื่อยิงข้อมูล 1 Job นี้เข้าฐานข้อมูล</p>
+                        <p class="text-sm text-slate-500 font-medium"><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> กดบันทึกเพื่อยิงข้อมูล 1 Job นี้เข้าสู่ระบบฐานข้อมูล</p>
                         <div class="flex gap-3">
                             <button onclick="cancelEdit()" id="btn-cancel-edit" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-lg transition-colors border border-slate-300 shadow-sm">✖ ยกเลิกการแก้ไข</button>
                             <button onclick="processSingleSave(this)" id="btn-submit-form" class="bg-primary hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5">
-                                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล 1 Job นี้
+                                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลรับงาน (Save)
                             </button>
                         </div>
                     </div>
@@ -210,42 +214,17 @@
     </div>
 
     <script src="js/modules/booking/form.js"></script>
-
     <script>
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('tms_user');
             if (!savedUser) { window.location.href = '/login.html'; return; }
-            const user = JSON.parse(savedUser);
-            document.getElementById('user-fullname').innerText = user.fullName;
+            document.getElementById('user-fullname').innerText = JSON.parse(savedUser).fullName;
         });
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
-        function checkPriceChangeSingle() {
-            const jobName = document.getElementById('jobNameInput').value;
-            const tripFee = document.getElementById('pTripFee').value;
-            const transFee = document.getElementById('pTransFee').value;
-            if(!jobName) return;
-
-            const isNewRate = false;
-            const oldTrip = 1500, oldTrans = 3000;
-
-            if (isNewRate) {
-                if (confirm(`📌 ชื่องาน "${jobName}" เป็นงานใหม่\nต้องการบันทึกราคาลงใน Rate Master หรือไม่?`)) {
-                    console.log("บันทึก Rate ใหม่");
-                }
-            } else if (Number(tripFee) !== oldTrip || Number(transFee) !== oldTrans) {
-                if (confirm(`⚠️ ราคาของงาน "${jobName}" มีการเปลี่ยนแปลง\nต้องการอัปเดตราคาลงใน Rate Master หรือไม่?`)) {
-                    console.log("อัปเดต Rate สำเร็จ");
-                }
-            }
-        }
-
         async function processSingleSave(btn) {
             if (typeof generateData === 'function') await generateData(btn);
-            btn.innerHTML = '<i class="fa-solid fa-circle-check text-lg"></i> บันทึกสำเร็จ! คลิกเพื่อไปหน้าจัดรถ (Dispatch)';
-            btn.className = "bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg flex items-center gap-2 transition-all animate-bounce cursor-pointer";
-            btn.onclick = () => window.location.href = '/booking-manage.html';
         }
     </script>
 </body>

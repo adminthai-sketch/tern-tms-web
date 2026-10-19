@@ -19,7 +19,6 @@
     <style>
         .handsontable th { font-weight: bold !important; font-size: 12px !important; background: #f8fafc; color: #334155; }
         .handsontable td { font-size: 13px !important; vertical-align: middle; }
-        /* สไตล์ปุ่มในตาราง */
         .btn-grid { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; border: 1px solid transparent; transition: 0.2s; margin-right: 4px; display: inline-block;}
         .btn-edit { background: #fef08a; color: #854d0e; border-color: #fde047; }
         .btn-edit:hover { background: #fde047; }
@@ -38,16 +37,33 @@
             <span class="font-bold text-xl text-primary tracking-wide">TERN TMS <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">BOOKING HUB</span></span>
         </div>
         <div class="flex items-center gap-4">
-            <a href="/booking.html" class="bg-primary hover:bg-blue-900 text-white font-bold text-sm flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-sm">
-                <i class="fa-solid fa-plus"></i> สร้างบุคกิ้งใหม่
+            <a href="/booking-manage.html" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-sm flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border border-emerald-200 shadow-sm">
+                <i class="fa-solid fa-desktop"></i> ไปหน้าจัดการตู้/จัดรถ
             </a>
             <a href="/index.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200">
                 <i class="fa-solid fa-arrow-left"></i> กลับหน้าแรก
             </a>
+            <div class="text-right hidden sm:block">
+                <div id="user-fullname" class="text-sm font-bold text-slate-700">กำลังโหลด...</div>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-power-off text-lg"></i></button>
         </div>
     </header>
 
     <main class="flex-1 p-6 overflow-hidden flex flex-col gap-4">
+
+        <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน (เมนูหลัก) 🌟 -->
+        <div class="flex flex-wrap gap-3 shrink-0 mb-2">
+            <a href="/booking.html" class="bg-white text-slate-600 hover:text-primary hover:bg-blue-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
+                <i class="fa-solid fa-pen-to-square"></i> 1. สร้างบุคกิ้งใหม่
+            </a>
+            <a href="/booking-list.html" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-sm border border-primary shadow-md flex items-center gap-2 transition-colors">
+                <i class="fa-solid fa-table-list"></i> 2. ดูรายการบุคกิ้ง (Booking List)
+            </a>
+            <a href="/booking-bulk.html" class="bg-white text-slate-500 hover:bg-slate-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
+                <i class="fa-solid fa-file-excel"></i> 3. อัปโหลดหลาย Job (Bulk Excel)
+            </a>
+        </div>
         
         <!-- 📅 แถบเลือกเดือน (Master Filter) -->
         <div class="bg-white px-5 py-3 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center shrink-0">
@@ -88,7 +104,6 @@
                 <button onclick="deleteSelectedRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 px-3 rounded-lg text-xs flex items-center gap-2 border border-red-200 shadow-sm transition-colors">
                     <i class="fa-solid fa-trash-can"></i> ลบแถวที่เลือก
                 </button>
-                <!-- ปุ่มบันทึกการแก้ไขด่วนในตาราง -->
                 <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-5 rounded-lg shadow-md flex items-center gap-2 text-sm transition-transform hover:-translate-y-0.5">
                     <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลที่แก้ในตาราง
                 </button>
@@ -100,15 +115,16 @@
             <div class="absolute top-0 left-0 w-full bg-blue-50/50 border-b border-blue-100 px-4 py-2 text-xs text-blue-800 font-medium z-10 flex gap-4">
                 <span><i class="fa-solid fa-circle-info"></i> แก้ไขข้อมูลในเซลล์ได้โดยตรง แล้วกด "บันทึกข้อมูล"</span>
                 <span>|</span>
-                <span><i class="fa-solid fa-link"></i> หรือกดปุ่ม <b>จัดการตู้ / จัดรถ</b> ด้านขวาสุดของตาราง เพื่อสลับไปทำงานส่วนอื่น</span>
+                <span><i class="fa-solid fa-link"></i> กดปุ่ม <b>จัดการตู้ / จัดรถ</b> เพื่อทำงานต่อ (1 หัวบิล สู่หลายหางตู้)</span>
             </div>
             <div id="booking-grid-container" class="absolute inset-0 z-0 mt-8"></div>
         </div>
 
     </main>
 
-    <!-- สคริปต์ควบคุมตาราง -->
     <script src="js/modules/booking/list.js"></script>
-
+    <script>
+        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
+    </script>
 </body>
 </html>

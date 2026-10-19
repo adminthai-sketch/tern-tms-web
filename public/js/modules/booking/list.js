@@ -1,131 +1,286 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (ดึงข้อมูล, กรอง, แก้ไข, ลบ)
+// 📋 MODULE: EDITABLE BOOKING GRID (Handsontable)
 // ==========================================
 
-// เริ่มทำงานทันทีเมื่อโหลดหน้าจอเสร็จ
+let hotGridInstance = null;
+let rawBookingList = []; // เก็บ Raw Data ทั้งหมดจาก DB
+let editedRowIndices = new Set(); // เก็บ Index ของแถวที่มีการแก้ไข
+
 window.addEventListener('DOMContentLoaded', () => {
-    // เช็คสิทธิ์ User
     const savedUser = localStorage.getItem('tms_user');
     if (!savedUser) { window.location.href = '/login.html'; return; }
-    
-    loadCustomers();
-    loadBookings();
+
+    loadBookingGridData();
 });
 
-// 🔄 โหลดรายชื่อลูกค้าใส่ Dropdown
-async function loadCustomers() {
+// 🔄 1. ดึงข้อมูล Booking ทั้งหมดจาก DB
+async function loadBookingGridData() {
     try {
-        const res = await fetch('/api/customers');
+        const res = await fetch('/api/bookings/search?start_date=2020-01-01&end_date=2030-12-31');
         const result = await res.json();
+
         if (result.success && result.data) {
-            const select = document.getElementById('filter-customer');
-            result.data.forEach(c => {
-                if (c[1]) select.innerHTML += `<option value="${c[1]}">${c[1]}</option>`;
-            });
-        }
-    } catch (err) {
-        console.error('Failed to load customers');
-    }
-}
-
-// 🔄 โหลดรายการ Booking ตาม Filter
-async function loadBookings() {
-    const tbody = document.getElementById('table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-slate-500"><i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2 text-primary"></i><br>กำลังค้นหา...</td></tr>';
-    
-    const date = document.getElementById('filter-date').value;
-    const customer = document.getElementById('filter-customer').value;
-    const booking = document.getElementById('filter-booking').value;
-
-    try {
-        // สร้าง Query String
-        let url = '/api/bookings/search?';
-        if (date) url += `start_date=${date}&end_date=${date}&`;
-        if (customer) url += `customer=${encodeURIComponent(customer)}&`;
-        if (booking) url += `search=${encodeURIComponent(booking)}`;
-
-        const res = await fetch(url);
-        const result = await res.json();
-
-        tbody.innerHTML = '';
-        document.getElementById('total-count').innerText = `${result.data ? result.data.length : 0} รายการ`;
-
-        if (result.success && result.data && result.data.length > 0) {
-            result.data.forEach(item => {
-                // ป้ายสีบอก Mode
-                let modeBadge = 'bg-slate-100 text-slate-600';
-                if (item.mode === 'EXPORT') modeBadge = 'bg-amber-100 text-amber-700';
-                else if (item.mode === 'IMPORT') modeBadge = 'bg-blue-100 text-blue-700';
-                else if (item.mode === 'TRANSFER') modeBadge = 'bg-orange-100 text-orange-700';
-
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 transition-colors';
-                tr.innerHTML = `
-                    <td class="px-4 py-3"><span class="px-2 py-1 rounded text-[10px] font-bold ${modeBadge}">${item.mode || 'N/A'}</span></td>
-                    <td class="px-4 py-3 font-medium">${item.run_date ? item.run_date.split('T')[0] : '-'}</td>
-                    <td class="px-4 py-3 font-bold text-primary">${item.booking_no || '-'}</td>
-                    <td class="px-4 py-3">
-                        <div class="font-bold text-slate-700">${item.customer_name || '-'}</div>
-                        <div class="text-[11px] text-slate-500">${item.job_name || '-'}</div>
-                    </td>
-                    <td class="px-4 py-3 text-xs">
-                        <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-600">${item.origin || '-'}</span> 
-                        <i class="fa-solid fa-arrow-right text-[10px] text-slate-400 mx-1"></i> 
-                        <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-600">${item.destination || '-'}</span>
-                    </td>
-                    <td class="px-4 py-3 text-center font-bold text-slate-700">${item.container_count || 1}</td>
-                    <td class="px-4 py-3 text-center">
-                        <div class="flex justify-center gap-2">
-                            <button onclick="editBooking('${item.booking_no}')" class="w-8 h-8 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 transition-colors flex items-center justify-center shadow-sm" title="แก้ไข">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            <button onclick="deleteBooking('${item.booking_no}')" class="w-8 h-8 rounded bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-colors flex items-center justify-center shadow-sm" title="ลบ">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
+            rawBookingList = result.data;
+            populateCustomerDropdown(rawBookingList);
+            initBookingHandsontable(rawBookingList);
         } else {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-slate-500"><i class="fa-solid fa-inbox text-3xl mb-2 text-slate-300"></i><br>ไม่พบข้อมูลบุคกิ้งตามเงื่อนไขที่ค้นหา</td></tr>';
+            initBookingHandsontable([]);
         }
     } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10 text-red-500">❌ เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>';
+        console.error('Error loading bookings:', err);
+        initBookingHandsontable([]);
     }
 }
 
-// ✏️ ส่งไปหน้าแก้ไข
-function editBooking(bookingNo) {
-    // แนบค่าเลข Booking ไปกับ URL เพื่อให้หน้าฟอร์มรู้ว่าต้องดึงข้อมูลตัวไหนมาแก้ไข
-    window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`;
+// 🏢 2. เติมรายชื่อลูกค้าใน Dropdown กรอง customer_name
+function populateCustomerDropdown(data) {
+    const select = document.getElementById('filter-customer');
+    select.innerHTML = '<option value="">-- ลูกค้าทั้งหมด (Show All) --</option>';
+
+    const customers = new Set();
+    data.forEach(item => {
+        if (item.customer_name && item.customer_name.trim() !== '') {
+            customers.add(item.customer_name.trim());
+        }
+    });
+
+    Array.from(customers).sort().forEach(cust => {
+        const opt = document.createElement('option');
+        opt.value = cust;
+        opt.textContent = cust;
+        select.appendChild(opt);
+    });
 }
 
-// 🗑️ ลบข้อมูล
-async function deleteBooking(bookingNo) {
-    if (!confirm(`⚠️ คุณแน่ใจหรือไม่ที่จะลบ Booking: ${bookingNo} ?\nข้อมูลตู้ที่จัดรถไว้จะถูกลบทั้งหมดและไม่สามารถกู้คืนได้`)) return;
+// 📊 3. สร้างตาราง Handsontable ที่แก้ไขได้ทุกคอลัมน์
+function initBookingHandsontable(data) {
+    const container = document.getElementById('booking-grid-container');
+    if (hotGridInstance) { hotGridInstance.destroy(); }
 
-    try {
-        const res = await fetch(`/api/bookings/by-no/${encodeURIComponent(bookingNo)}`, {
-            method: 'DELETE'
-        });
+    // หัวตารางครอบคลุมตาม DB Schema
+    const headers = [
+        '✔', 'ID', 'Booking No.', 'MODE', 'วันที่เปิดบิล', 'วันที่วิ่งงาน (run_date)', 
+        'ชื่องาน (job_name)', 'Job Type', 'ลูกค้า (customer_name)', 'Agent', 'ต้นทาง (origin)', 
+        'ปลายทาง (destination)', 'จำนวนตู้', 'CY Date', 'VGM Cutoff', 'Cutoff Time', 
+        'Load Date', 'Open Gate', 'Rent Cutoff', 'Demurrage', 'Unload Date', 
+        'Return Date', 'ประเภทรถ', 'ค่าเที่ยว', 'ค่าขนส่ง'
+    ];
+
+    // แปลงโครงสร้าง Object DB ให้อยู่ในรูปแบบ Array
+    const formattedTableData = data.map(item => [
+        false, // [0] Checkbox สำหรับลบ
+        item.id,
+        item.booking_no || '',
+        item.mode || 'EXPORT',
+        item.booking_date ? item.booking_date.split('T')[0] : '',
+        item.run_date ? item.run_date.split('T')[0] : '',
+        item.job_name || '',
+        item.job_type || '',
+        item.customer_name || '',
+        item.agent || '',
+        item.origin || '',
+        item.destination || '',
+        item.container_count || 1,
+        item.cy_date || '',
+        item.vgm_cutoff || '',
+        item.cutoff_time || '',
+        item.load_date || '',
+        item.open_gate || '',
+        item.rent_cutoff || '',
+        item.demurrage || '',
+        item.unload_date || '',
+        item.return_date || '',
+        item.price_type || '',
+        item.trip_fee || 0,
+        item.trans_fee || 0
+    ]);
+
+    let colsConfig = [
+        { type: 'checkbox', className: 'htCenter htMiddle' }, // [0]
+        { readOnly: true, className: 'htCenter htMiddle font-bold text-slate-400' }, // [1] ID
+        { type: 'text', className: 'font-bold text-primary' }, // [2] Booking No
+        { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, // [3]
+        { type: 'date', dateFormat: 'YYYY-MM-DD' }, // [4]
+        { type: 'date', dateFormat: 'YYYY-MM-DD' }, // [5] run_date
+        { type: 'text' }, // [6]
+        { type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, // [7]
+        { type: 'text', className: 'font-semibold' }, // [8] customer_name
+        { type: 'text' }, // [9]
+        { type: 'text' }, // [10]
+        { type: 'text' }, // [11]
+        { type: 'numeric' }, // [12]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [13]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [14]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [15]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [16]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [17]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [18]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [19]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [20]
+        { type: 'text', placeholder: 'YYYY-MM-DD HH:mm' }, // [21]
+        { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, // [22]
+        { type: 'numeric', numericFormat: { pattern: '0,0' } }, // [23]
+        { type: 'numeric', numericFormat: { pattern: '0,0' } }  // [24]
+    ];
+
+    hotGridInstance = new Handsontable(container, {
+        data: formattedTableData,
+        colHeaders: headers,
+        columns: colsConfig,
+        rowHeaders: true,
+        width: '100%',
+        height: '100%',
+        stretchH: 'all',
+        manualColumnResize: true,
+        manualColumnMove: true,
         
-        const result = await res.json();
-        if (result.success) {
-            alert('✅ ลบรายการสำเร็จ');
-            loadBookings(); // รีเฟรชตาราง
-        } else {
-            alert('❌ ไม่สามารถลบได้: ' + result.message);
+        // 🔍 เปิดโหมด Excel Filtering (สามารถคลิกหัวตารางกรองได้)
+        filters: true,
+        dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+        
+        licenseKey: 'non-commercial-and-evaluation',
+
+        // ตรวจจับการแก้ไขข้อมูลเพื่อระบุแถวที่เปลี่ยน
+        afterChange: function(changes, source) {
+            if (source === 'loadData' || !changes) return;
+            changes.forEach(([row, prop, oldVal, newVal]) => {
+                if (oldVal !== newVal) {
+                    editedRowIndices.add(row);
+                }
+            });
         }
-    } catch (err) {
-        alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+    });
+}
+
+// 🎯 4. ฟังก์ชันกรองตามคอลัมน์ customer_name
+function filterByCustomerName() {
+    if (!hotGridInstance) return;
+    const selectedCustomer = document.getElementById('filter-customer').value;
+    const plugin = hotGridInstance.getPlugin('filters');
+
+    plugin.clearConditions();
+    if (selectedCustomer) {
+        // Index 8 คือ คอลัมน์ customer_name
+        plugin.addCondition(8, 'eq', [selectedCustomer]);
+    }
+    plugin.filter();
+}
+
+// 💾 5. บันทึกการแก้ไขข้อมูลทั้งหมดเข้า DB
+async function saveGridChanges() {
+    if (!hotGridInstance || editedRowIndices.size === 0) {
+        alert('ℹ️ ยังไม่มีการแก้ไขข้อมูลในตาราง');
+        return;
+    }
+
+    const btn = document.getElementById('btn-save-grid');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+    btn.disabled = true;
+
+    const data = hotGridInstance.getData();
+    let successCount = 0;
+
+    for (let rowIndex of editedRowIndices) {
+        const row = data[rowIndex];
+        if (!row[1]) continue; // ถ้าไม่มี ID ให้ข้าม
+
+        const updateData = {
+            id: row[1],
+            booking_no: row[2],
+            mode: row[3],
+            booking_date: row[4],
+            run_date: row[5],
+            job_name: row[6],
+            job_type: row[7],
+            customer_name: row[8],
+            agent: row[9],
+            origin: row[10],
+            destination: row[11],
+            container_count: row[12],
+            cy_date: row[13],
+            vgm_cutoff: row[14],
+            cutoff_time: row[15],
+            load_date: row[16],
+            open_gate: row[17],
+            rent_cutoff: row[18],
+            demurrage: row[19],
+            unload_date: row[20],
+            return_date: row[21],
+            price_type: row[22],
+            trip_fee: row[23],
+            trans_fee: row[24]
+        };
+
+        try {
+            const res = await fetch(`/api/bookings/${row[1]}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
+            if (res.ok) successCount++;
+        } catch (err) {
+            console.error(`Error updating row ${row[1]}:`, err);
+        }
+    }
+
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+
+    if (successCount > 0) {
+        alert(`✅ บันทึกการแก้ไขสำเร็จ ${successCount} รายการ!`);
+        editedRowIndices.clear();
+        loadBookingGridData();
+    } else {
+        alert('❌ ไม่สามารถบันทึกการแก้ไขได้');
     }
 }
 
-// 🧹 ล้างค่า Filter
-function clearFilters() {
-    document.getElementById('filter-date').value = '';
-    document.getElementById('filter-customer').value = '';
-    document.getElementById('filter-booking').value = '';
-    loadBookings();
+// 🗑️ 6. ลบแถวที่เลือก (Checkbox)
+async function deleteSelectedRows() {
+    if (!hotGridInstance) return;
+    const data = hotGridInstance.getData();
+    const idsToDelete = [];
+
+    data.forEach(row => {
+        if (row[0] === true && row[1]) {
+            idsToDelete.push(row[1]);
+        }
+    });
+
+    if (idsToDelete.length === 0) {
+        alert('🖱️ กรุณาติ๊กเลือกช่อง ✔ ซ้ายสุดของรายการที่ต้องการลบก่อนครับ');
+        return;
+    }
+
+    if (!confirm(`⚠️ คุณแน่ใจหรือไม่ที่จะลบรายการ Booking จำนวน ${idsToDelete.length} รายการ?`)) return;
+
+    let deleteSuccessCount = 0;
+    for (let id of idsToDelete) {
+        try {
+            const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' });
+            if (res.ok) deleteSuccessCount++;
+        } catch (err) {
+            console.error(`Error deleting ID ${id}:`, err);
+        }
+    }
+
+    if (deleteSuccessCount > 0) {
+        alert(`✅ ลบรายการสำเร็จ ${deleteSuccessCount} รายการ`);
+        loadBookingGridData();
+    } else {
+        alert('❌ ลบรายการไม่สำเร็จ');
+    }
+}
+
+// 📥 7. ส่งออกตารางเป็นไฟล์ Excel
+function exportGridToExcel() {
+    if (!hotGridInstance) return;
+    const headers = hotGridInstance.getColHeader().slice(1); // ตัดช่อง checkbox ออก
+    const data = hotGridInstance.getData().map(r => r.slice(1));
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Bookings_Export");
+    XLSX.writeFile(wb, `TMS_Bookings_Grid_${new Date().toISOString().split('T')[0]}.xlsx`);
 }

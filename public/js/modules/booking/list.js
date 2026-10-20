@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Fix Job Name & DateTime Display)
+// 📋 MODULE: BOOKING LIST (Fix Demurrage Display)
 // ==========================================
 
 let hotGridInstance = null;
@@ -121,6 +121,9 @@ function initBookingHandsontable(data) {
         if (item.vgm_cutoff && String(item.vgm_cutoff).trim() !== 'NaN' && String(item.vgm_cutoff).trim() !== 'null') pickup.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
         if (item.cutoff_time && String(item.cutoff_time).trim() !== 'NaN' && String(item.cutoff_time).trim() !== 'null') pickup.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
         if (item.rent_cutoff && String(item.rent_cutoff).trim() !== 'NaN' && String(item.rent_cutoff).trim() !== 'null') pickup.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
+        
+        // 🌟 แก้ไข: เพิ่มแสดงผล Demurrage
+        if (item.demurrage && String(item.demurrage).trim() !== 'NaN' && String(item.demurrage).trim() !== 'null') pickup.push(`DEMUR: ${formatDateTime(item.demurrage)}`);
 
         let delivery = [];
         if (item.load_date && String(item.load_date).trim() !== 'NaN' && String(item.load_date).trim() !== 'null') delivery.push(`LOAD: ${formatDateTime(item.load_date)}`);
@@ -130,7 +133,6 @@ function initBookingHandsontable(data) {
         if (item.open_gate && String(item.open_gate).trim() !== 'NaN' && String(item.open_gate).trim() !== 'null') ret.push(`GATE: ${formatDateTime(item.open_gate)}`);
         if (item.return_date && String(item.return_date).trim() !== 'NaN' && String(item.return_date).trim() !== 'null') ret.push(`RETURN: ${formatDateTime(item.return_date)}`);
 
-        // จัดการชื่องาน ไม่ให้โชว์ '-' ถ้ามีข้อมูล
         const jobNameDisplay = (item.job_name && String(item.job_name).trim() !== 'NaN') ? item.job_name : (item.job_title || '-');
 
         return [
@@ -140,7 +142,7 @@ function initBookingHandsontable(data) {
             item.mode || 'EXPORT', 
             item.run_date ? String(item.run_date).split('T')[0] : '', 
             item.customer_name || '', 
-            jobNameDisplay, // <--- แสดงชื่องานได้ถูกต้องแล้ว
+            jobNameDisplay,
             item.origin || '', 
             item.destination || '', 
             item.container_count || 1, 
@@ -161,7 +163,7 @@ function initBookingHandsontable(data) {
             { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, 
             { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter cursor-pointer' }, 
             { type: 'text', className: 'font-semibold text-slate-800' }, 
-            { type: 'text', className: 'font-medium text-slate-800' }, // ชื่องานเน้นตัวหนานิดนึง
+            { type: 'text', className: 'font-medium text-slate-800' },
             { type: 'text' }, 
             { type: 'text' }, 
             { type: 'numeric', className: 'htCenter font-bold text-blue-600 bg-blue-50/20' }, 
@@ -204,7 +206,6 @@ function initBookingHandsontable(data) {
     });
 }
 
-// 🌟 วาดเซลล์เวลาให้คลิกเพื่อเปิด Modal ได้
 window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
     let content = value ? String(value).replace(/\n/g, '<br>') : '-';
@@ -221,11 +222,10 @@ window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
     td.style.fontSize = '10px'; td.style.lineHeight = '1.4';
 };
 
-// 💡 แก้บั๊ก: รองรับทั้งเวลาที่มีตัว T (ISO format) และแบบเว้นวรรคปกติ
 function formatDateTime(dtStr) {
     if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return '';
-    const cleanStr = String(dtStr).replace('T', ' '); // เปลี่ยน T เป็นช่องว่าง
-    return cleanStr.length >= 16 ? cleanStr.substring(0, 16) : cleanStr; // เอาแค่ YYYY-MM-DD HH:mm
+    const cleanStr = String(dtStr).replace('T', ' '); 
+    return cleanStr.length >= 16 ? cleanStr.substring(0, 16) : cleanStr; 
 }
 
 // ----------------------------------------------------
@@ -284,7 +284,6 @@ window.openDateTimeModal = function(row, col) {
     }, 10);
 };
 
-// 💡 แก้บั๊ก Input DateTime ให้รองรับ Value Format
 function createDatetimeInput(field, label, val) {
     let formattedVal = '';
     if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') {
@@ -314,7 +313,7 @@ window.saveDateTimeModal = function() {
     const inputs = document.querySelectorAll('#modal-body input[type="datetime-local"]');
     inputs.forEach(input => {
         const field = input.id.replace('modal_input_', '');
-        item[field] = input.value ? input.value.replace('T', ' ') : null; // เซฟคืนให้เป็นช่องว่างแทน T
+        item[field] = input.value ? input.value.replace('T', ' ') : null; 
     });
 
     let pickupInfo = [], deliveryInfo = [], returnInfo = [];
@@ -322,6 +321,9 @@ window.saveDateTimeModal = function() {
     if (item.vgm_cutoff && item.vgm_cutoff !== 'null') pickupInfo.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
     if (item.cutoff_time && item.cutoff_time !== 'null') pickupInfo.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
     if (item.rent_cutoff && item.rent_cutoff !== 'null') pickupInfo.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
+    
+    // 🌟 แก้ไข: เพิ่มแสดงผล Demurrage หลังจากเซฟ
+    if (item.demurrage && item.demurrage !== 'null') pickupInfo.push(`DEMUR: ${formatDateTime(item.demurrage)}`);
     
     if (item.load_date && item.load_date !== 'null') deliveryInfo.push(`LOAD: ${formatDateTime(item.load_date)}`);
     if (item.unload_date && item.unload_date !== 'null') deliveryInfo.push(`UNLOAD: ${formatDateTime(item.unload_date)}`);

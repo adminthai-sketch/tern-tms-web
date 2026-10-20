@@ -200,10 +200,11 @@ function initBookingHandsontable(data) {
                 renderer: function(instance, td, row, col, prop, value) {
                     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
                     if (value) {
-                        // 🌟 แก้ไข: จัดปุ่มเรียงเป็นแนวตั้ง (flex-col) 🌟
                         td.innerHTML = `
                             <div class="flex flex-col items-stretch justify-center gap-1.5 py-1 px-1">
-                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 font-bold py-1 px-2 rounded text-[10px] shadow-sm"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
+                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-900 border border-amber-300 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 text-[10px] transition-colors shadow-sm" title="กลับไปแก้ไขรายละเอียดในหน้าฟอร์ม">
+                                    <i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม
+                                </button>
                                 <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm py-1"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
                                 <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm py-1"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
                             </div>
@@ -220,7 +221,6 @@ function initBookingHandsontable(data) {
         filters: true, 
         dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         
-        // 🌟 แก้ไข: เพิ่มระบบซ่อนคอลัมน์ และจัดชิดซ้าย/ขวา/กลาง (คลิกขวาที่เซลล์) 🌟
         hiddenColumns: { indicators: true },
         contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'clear_column', 'undo', 'redo'],
         
@@ -231,19 +231,6 @@ function initBookingHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
             });
-            updateSaveStatusBadge();
-            this.render(); 
-        },
-        afterColumnResize: function() { saveGridUIState(); },
-        afterColumnMove: function() { saveGridUIState(); },
-        
-        cells: function(row, col) {
-            const cp = {};
-            if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
-            return cp;
-        }
-    });
-       
             updateSaveStatusBadge();
             this.render(); 
         },
@@ -320,7 +307,7 @@ window.openDateTimeModal = function(row, col) {
     let html = '';
     let title = '';
 
-    if (col === 14) { // PICK UP (คอลัมน์ขยับจาก 10 เป็น 14 เพราะแทรกไป 4 คอลัมน์)
+    if (col === 14) { // PICK UP 
         title = 'เวลา PICK UP (รับตู้/ลาน)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
@@ -331,14 +318,14 @@ window.openDateTimeModal = function(row, col) {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (Time)', item.rent_cutoff);
             html += createDatetimeInput('demurrage', 'Demurrage', item.demurrage);
         }
-    } else if (col === 15) { // DELIVERY (11 -> 15)
+    } else if (col === 15) { // DELIVERY 
         title = 'เวลา DELIVERY (โหลดของ/ลงของ)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('load_date', 'Load Date & Time', item.load_date);
         } else {
             html += createDatetimeInput('unload_date', 'Unload Date & Time', item.unload_date);
         }
-    } else if (col === 16) { // RETURN (12 -> 16)
+    } else if (col === 16) { // RETURN 
         title = 'เวลา RETURN (คืนตู้/เข้าท่า)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
@@ -346,7 +333,7 @@ window.openDateTimeModal = function(row, col) {
             html += createDatetimeInput('return_date', 'Return Date & Time', item.return_date);
         }
     } else {
-        return; // ไม่ใช่ช่องเวลา
+        return; 
     }
 
     document.getElementById('modal-title').innerText = title;

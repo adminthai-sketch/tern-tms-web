@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Pop-up Dates & Modals)
+// 📋 MODULE: BOOKING LIST (Fix Job Name & DateTime Display)
 // ==========================================
 
 let hotGridInstance = null;
@@ -45,7 +45,7 @@ function populateRunDateFilter(data) {
     const sel = document.getElementById('filter-run-date');
     sel.innerHTML = '<option value="">-- ทุกลักษณะวันที่ --</option>';
     const dates = new Set();
-    data.forEach(i => { if (i.run_date) dates.add(i.run_date.split('T')[0]); });
+    data.forEach(i => { if (i.run_date) dates.add(String(i.run_date).split('T')[0]); });
     Array.from(dates).sort().forEach(d => sel.innerHTML += `<option value="${d}">${d}</option>`);
 }
 
@@ -53,7 +53,7 @@ function populateCustomerFilter(data) {
     const sel = document.getElementById('filter-customer');
     sel.innerHTML = '<option value="">-- ทุกลูกค้า (Customer) --</option>';
     const custs = new Set();
-    data.forEach(i => { if (i.customer_name) custs.add(i.customer_name.trim()); });
+    data.forEach(i => { if (i.customer_name) custs.add(String(i.customer_name).trim()); });
     Array.from(custs).sort().forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
 }
 
@@ -61,14 +61,14 @@ function populateBookingNoFilter(data) {
     const sel = document.getElementById('filter-booking-no');
     sel.innerHTML = '<option value="">-- ทุก Booking / BL --</option>';
     const books = new Set();
-    data.forEach(i => { if (i.booking_no) books.add(i.booking_no.trim()); });
+    data.forEach(i => { if (i.booking_no) books.add(String(i.booking_no).trim()); });
     Array.from(books).sort().forEach(b => sel.innerHTML += `<option value="${b}">${b}</option>`);
 }
 
 function onRunDateChange() {
     const d = document.getElementById('filter-run-date').value;
     let scoped = rawBookingList;
-    if (d) scoped = rawBookingList.filter(i => i.run_date && i.run_date.split('T')[0] === d);
+    if (d) scoped = rawBookingList.filter(i => i.run_date && String(i.run_date).split('T')[0] === d);
     populateCustomerFilter(scoped);
     populateBookingNoFilter(scoped);
     applyFilters();
@@ -78,8 +78,8 @@ function onCustomerChange() {
     const d = document.getElementById('filter-run-date').value;
     const c = document.getElementById('filter-customer').value;
     let scoped = rawBookingList;
-    if (d) scoped = scoped.filter(i => i.run_date && i.run_date.split('T')[0] === d);
-    if (c) scoped = scoped.filter(i => i.customer_name && i.customer_name.trim() === c);
+    if (d) scoped = scoped.filter(i => i.run_date && String(i.run_date).split('T')[0] === d);
+    if (c) scoped = scoped.filter(i => i.customer_name && String(i.customer_name).trim() === c);
     populateBookingNoFilter(scoped);
     applyFilters();
 }
@@ -90,9 +90,9 @@ function applyFilters() {
     const b = document.getElementById('filter-booking-no').value;
 
     filteredList = rawBookingList.filter(i => {
-        const iD = i.run_date ? i.run_date.split('T')[0] : '';
-        const iC = i.customer_name ? i.customer_name.trim() : '';
-        const iB = i.booking_no ? i.booking_no.trim() : '';
+        const iD = i.run_date ? String(i.run_date).split('T')[0] : '';
+        const iC = i.customer_name ? String(i.customer_name).trim() : '';
+        const iB = i.booking_no ? String(i.booking_no).trim() : '';
         return (!d || iD === d) && (!c || iC === c) && (!b || iB === b);
     });
     initBookingHandsontable(filteredList);
@@ -117,25 +117,36 @@ function initBookingHandsontable(data) {
 
     const formattedTableData = data.map(item => {
         let pickup = [];
-        if (item.cy_date) pickup.push(`CY: ${formatDateTime(item.cy_date)}`);
-        if (item.vgm_cutoff) pickup.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
-        if (item.cutoff_time) pickup.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
-        if (item.rent_cutoff) pickup.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
+        if (item.cy_date && String(item.cy_date).trim() !== 'NaN' && String(item.cy_date).trim() !== 'null') pickup.push(`CY: ${formatDateTime(item.cy_date)}`);
+        if (item.vgm_cutoff && String(item.vgm_cutoff).trim() !== 'NaN' && String(item.vgm_cutoff).trim() !== 'null') pickup.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
+        if (item.cutoff_time && String(item.cutoff_time).trim() !== 'NaN' && String(item.cutoff_time).trim() !== 'null') pickup.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
+        if (item.rent_cutoff && String(item.rent_cutoff).trim() !== 'NaN' && String(item.rent_cutoff).trim() !== 'null') pickup.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
 
         let delivery = [];
-        if (item.load_date) delivery.push(`LOAD: ${formatDateTime(item.load_date)}`);
-        if (item.unload_date) delivery.push(`UNLOAD: ${formatDateTime(item.unload_date)}`);
+        if (item.load_date && String(item.load_date).trim() !== 'NaN' && String(item.load_date).trim() !== 'null') delivery.push(`LOAD: ${formatDateTime(item.load_date)}`);
+        if (item.unload_date && String(item.unload_date).trim() !== 'NaN' && String(item.unload_date).trim() !== 'null') delivery.push(`UNLOAD: ${formatDateTime(item.unload_date)}`);
 
         let ret = [];
-        if (item.open_gate) ret.push(`GATE: ${formatDateTime(item.open_gate)}`);
-        if (item.return_date) ret.push(`RETURN: ${formatDateTime(item.return_date)}`);
+        if (item.open_gate && String(item.open_gate).trim() !== 'NaN' && String(item.open_gate).trim() !== 'null') ret.push(`GATE: ${formatDateTime(item.open_gate)}`);
+        if (item.return_date && String(item.return_date).trim() !== 'NaN' && String(item.return_date).trim() !== 'null') ret.push(`RETURN: ${formatDateTime(item.return_date)}`);
+
+        // จัดการชื่องาน ไม่ให้โชว์ '-' ถ้ามีข้อมูล
+        const jobNameDisplay = (item.job_name && String(item.job_name).trim() !== 'NaN') ? item.job_name : (item.job_title || '-');
 
         return [
-            false, item.id, item.booking_no || '', item.mode || 'EXPORT', 
-            item.run_date ? item.run_date.split('T')[0] : '', 
-            item.customer_name || '', item.job_name || item.job_title || '-', 
-            item.origin || '', item.destination || '', item.container_count || 1, 
-            pickup.join('\n') || 'คลิกเพิ่มเวลา', delivery.join('\n') || 'คลิกเพิ่มเวลา', ret.join('\n') || 'คลิกเพิ่มเวลา', 
+            false, 
+            item.id, 
+            item.booking_no || '', 
+            item.mode || 'EXPORT', 
+            item.run_date ? String(item.run_date).split('T')[0] : '', 
+            item.customer_name || '', 
+            jobNameDisplay, // <--- แสดงชื่องานได้ถูกต้องแล้ว
+            item.origin || '', 
+            item.destination || '', 
+            item.container_count || 1, 
+            pickup.join('\n') || 'คลิกเพิ่มเวลา', 
+            delivery.join('\n') || 'คลิกเพิ่มเวลา', 
+            ret.join('\n') || 'คลิกเพิ่มเวลา', 
             item.booking_no 
         ];
     });
@@ -148,15 +159,15 @@ function initBookingHandsontable(data) {
             { readOnly: true, className: 'htCenter htMiddle text-slate-400 font-bold' }, 
             { type: 'text', className: 'font-bold text-primary' }, 
             { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, 
-            { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter cursor-pointer' }, // 🌟 วันที่วิ่งงาน: มีปฏิทิน Pop-up
+            { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter cursor-pointer' }, 
             { type: 'text', className: 'font-semibold text-slate-800' }, 
-            { type: 'text', className: 'font-medium text-slate-700' }, 
+            { type: 'text', className: 'font-medium text-slate-800' }, // ชื่องานเน้นตัวหนานิดนึง
             { type: 'text' }, 
             { type: 'text' }, 
             { type: 'numeric', className: 'htCenter font-bold text-blue-600 bg-blue-50/20' }, 
-            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, // 10
-            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, // 11
-            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, // 12
+            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
+            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
+            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
             { 
                 readOnly: true, 
                 renderer: function(instance, td, row, col, prop, value) {
@@ -197,7 +208,7 @@ function initBookingHandsontable(data) {
 window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
     let content = value ? String(value).replace(/\n/g, '<br>') : '-';
-    let textStyle = value === 'คลิกเพิ่มเวลา' ? 'text-slate-300 font-normal italic' : 'text-slate-800';
+    let textStyle = value === 'คลิกเพิ่มเวลา' ? 'text-slate-300 font-normal italic' : 'text-slate-800 font-bold';
     
     td.innerHTML = `
         <div class="relative group cursor-pointer w-full h-full min-h-[35px] cell-time-hover p-1 rounded transition-colors ${textStyle}" onclick="openDateTimeModal(${row}, ${col})">
@@ -207,12 +218,14 @@ window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
             </div>
         </div>
     `;
-    td.style.fontSize = '11px'; td.style.lineHeight = '1.3';
+    td.style.fontSize = '10px'; td.style.lineHeight = '1.4';
 };
 
+// 💡 แก้บั๊ก: รองรับทั้งเวลาที่มีตัว T (ISO format) และแบบเว้นวรรคปกติ
 function formatDateTime(dtStr) {
-    if (!dtStr) return '';
-    return dtStr.replace('T', ' ').substring(0, 16);
+    if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return '';
+    const cleanStr = String(dtStr).replace('T', ' '); // เปลี่ยน T เป็นช่องว่าง
+    return cleanStr.length >= 16 ? cleanStr.substring(0, 16) : cleanStr; // เอาแค่ YYYY-MM-DD HH:mm
 }
 
 // ----------------------------------------------------
@@ -233,7 +246,6 @@ window.openDateTimeModal = function(row, col) {
     let html = '';
     let title = '';
 
-    // สร้างฟอร์มแยกตามคอลัมน์และโหมด
     if (col === 10) { // PICK UP
         title = 'เวลา PICK UP (รับตู้/ลาน)';
         if (mode === 'EXPORT') {
@@ -264,7 +276,6 @@ window.openDateTimeModal = function(row, col) {
     document.getElementById('modal-title').innerText = title;
     document.getElementById('modal-body').innerHTML = html;
 
-    // แสดง Modal
     const modal = document.getElementById('datetime-modal');
     modal.classList.remove('hidden'); modal.classList.add('flex');
     setTimeout(() => {
@@ -273,8 +284,12 @@ window.openDateTimeModal = function(row, col) {
     }, 10);
 };
 
+// 💡 แก้บั๊ก Input DateTime ให้รองรับ Value Format
 function createDatetimeInput(field, label, val) {
-    let formattedVal = val ? val.substring(0, 16) : '';
+    let formattedVal = '';
+    if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') {
+        formattedVal = String(val).replace(' ', 'T').substring(0, 16);
+    }
     return `
         <div>
             <label class="block text-xs font-bold text-slate-600 mb-1">${label}</label>
@@ -296,25 +311,23 @@ window.saveDateTimeModal = function() {
     const item = filteredList.find(i => i.booking_no === bookingNo);
     if(!item) return;
 
-    // เก็บค่าลงใน Object
     const inputs = document.querySelectorAll('#modal-body input[type="datetime-local"]');
     inputs.forEach(input => {
         const field = input.id.replace('modal_input_', '');
-        item[field] = input.value || null;
+        item[field] = input.value ? input.value.replace('T', ' ') : null; // เซฟคืนให้เป็นช่องว่างแทน T
     });
 
-    // อัปเดตข้อมูลตาราง
     let pickupInfo = [], deliveryInfo = [], returnInfo = [];
-    if (item.cy_date) pickupInfo.push(`CY: ${formatDateTime(item.cy_date)}`);
-    if (item.vgm_cutoff) pickupInfo.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
-    if (item.cutoff_time) pickupInfo.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
-    if (item.rent_cutoff) pickupInfo.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
+    if (item.cy_date && item.cy_date !== 'null') pickupInfo.push(`CY: ${formatDateTime(item.cy_date)}`);
+    if (item.vgm_cutoff && item.vgm_cutoff !== 'null') pickupInfo.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
+    if (item.cutoff_time && item.cutoff_time !== 'null') pickupInfo.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
+    if (item.rent_cutoff && item.rent_cutoff !== 'null') pickupInfo.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
     
-    if (item.load_date) deliveryInfo.push(`LOAD: ${formatDateTime(item.load_date)}`);
-    if (item.unload_date) deliveryInfo.push(`UNLOAD: ${formatDateTime(item.unload_date)}`);
+    if (item.load_date && item.load_date !== 'null') deliveryInfo.push(`LOAD: ${formatDateTime(item.load_date)}`);
+    if (item.unload_date && item.unload_date !== 'null') deliveryInfo.push(`UNLOAD: ${formatDateTime(item.unload_date)}`);
     
-    if (item.open_gate) returnInfo.push(`GATE: ${formatDateTime(item.open_gate)}`);
-    if (item.return_date) returnInfo.push(`RETURN: ${formatDateTime(item.return_date)}`);
+    if (item.open_gate && item.open_gate !== 'null') returnInfo.push(`GATE: ${formatDateTime(item.open_gate)}`);
+    if (item.return_date && item.return_date !== 'null') returnInfo.push(`RETURN: ${formatDateTime(item.return_date)}`);
 
     if (currentModalCol === 10) hotGridInstance.setDataAtCell(currentModalRow, 10, pickupInfo.join('\n') || 'คลิกเพิ่มเวลา');
     if (currentModalCol === 11) hotGridInstance.setDataAtCell(currentModalRow, 11, deliveryInfo.join('\n') || 'คลิกเพิ่มเวลา');

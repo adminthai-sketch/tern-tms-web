@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERN TMS - รายการบุคกิ้ง (Booking List & Hub)</title>
+    <title>TERN TMS - รายการบุคกิ้ง (Booking Hub)</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,35 +12,37 @@
         tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
     </script>
 
-    <!-- Handsontable (Excel Grid) -->
+    <!-- 🌟 เพิ่มไลบรารี Moment.js และ Pikaday สำหรับปฏิทิน Pop-up ของ Handsontable 🌟 -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/pikaday.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/css/pikaday.css" rel="stylesheet">
+
+    <!-- Handsontable -->
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
 
     <style>
         .handsontable th { font-weight: 600 !important; font-size: 11px !important; background: #f1f5f9; color: #334155; border-color: #cbd5e1 !important; }
         .handsontable td { font-size: 12px !important; vertical-align: middle; }
-        
-        /* 🌟 สีไฮไลต์แถวที่มีการแก้ไข */
         .ht-edited-row { background-color: #fef9c3 !important; }
         
-        /* ปุ่มจัดการในตาราง */
         .btn-grid { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; margin-right: 2px; display: inline-flex; align-items: center; gap: 3px; }
         .btn-manage { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
         .btn-manage:hover { background: #a7f3d0; }
         .btn-dispatch { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
         .btn-dispatch:hover { background: #bfdbfe; }
+        
+        /* สไตล์สำหรับเซลล์เวลาที่คลิกได้ */
+        .cell-time-hover:hover { background-color: #f0f9ff; }
     </style>
 </head>
-<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
+<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col relative">
 
-    <!-- Header & Main Navigation Menu (ปุ่มอยู่บนสุด) -->
     <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-4 shrink-0 z-20 shadow-sm">
         <div class="flex items-center gap-4">
             <span class="font-bold text-lg text-primary tracking-wide hidden sm:flex items-center gap-2">
                 <i class="fa-solid fa-truck-fast"></i> TERN TMS
             </span>
-            
-            <!-- 🌟 เมนูหลัก 3 ปุ่มขึ้นบนสุด 🌟 -->
             <div class="flex gap-1 ml-0 sm:ml-2 sm:border-l sm:border-slate-200 sm:pl-3">
                 <a href="/booking.html" class="text-slate-500 hover:text-primary hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors">
                     <i class="fa-solid fa-pen-to-square mr-1"></i> สร้างรับงาน
@@ -53,71 +55,69 @@
                 </a>
             </div>
         </div>
-
         <div class="flex items-center gap-3">
             <div id="user-fullname" class="text-xs font-bold text-slate-700 hidden md:block">กำลังโหลด...</div>
-            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-1" title="ออกจากระบบ"><i class="fa-solid fa-power-off"></i></button>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-1"><i class="fa-solid fa-power-off"></i></button>
         </div>
     </header>
 
     <main class="flex-1 p-3 overflow-hidden flex flex-col gap-2">
-        
-        <!-- 🎛️ Toolbar บรรทัดเดียว: ข้อมูลประจำเดือน + Cascade Filters -->
         <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-2 shrink-0 z-10">
-            
             <div class="flex flex-wrap items-center gap-2">
-                <!-- ข้อมูลประจำเดือน -->
                 <div class="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded border border-blue-200 h-8">
-                    <label class="text-xs font-bold text-primary flex items-center gap-1">
-                        <i class="fa-regular fa-calendar-check"></i> เดือน:
-                    </label>
+                    <label class="text-xs font-bold text-primary flex items-center gap-1"><i class="fa-regular fa-calendar-check"></i> เดือน:</label>
                     <input type="month" id="filter-month" onchange="loadBookingGridData()" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-primary outline-none cursor-pointer">
                 </div>
-                
                 <div class="w-px h-5 bg-slate-200 hidden md:block mx-1"></div>
                 
-                <!-- ตัวกรอง Cascade (วันที่วิ่งงาน -> ลูกค้า -> Booking No) -->
-                <select id="filter-run-date" onchange="onRunDateChange()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-36 focus:border-primary">
+                <select id="filter-run-date" onchange="onRunDateChange()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-36">
                     <option value="">-- ทุกลักษณะวันที่ --</option>
                 </select>
-                <select id="filter-customer" onchange="onCustomerChange()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-44 focus:border-primary">
+                <select id="filter-customer" onchange="onCustomerChange()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-44">
                     <option value="">-- ทุกลูกค้า (Customer) --</option>
                 </select>
-                <select id="filter-booking-no" onchange="applyFilters()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-44 focus:border-primary">
+                <select id="filter-booking-no" onchange="applyFilters()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-44">
                     <option value="">-- ทุก Booking / BL --</option>
                 </select>
-                <button onclick="clearQuickFilters()" class="text-slate-400 hover:text-slate-700 px-2 h-8" title="ล้างค่าตัวกรอง">
-                    <i class="fa-solid fa-eraser text-xs"></i>
-                </button>
+                <button onclick="clearQuickFilters()" class="text-slate-400 hover:text-slate-700 px-2 h-8" title="ล้างค่า"><i class="fa-solid fa-eraser text-xs"></i></button>
             </div>
 
-            <!-- สถานะการแก้ไข & ปุ่มกด -->
             <div class="flex items-center gap-2">
-                <span id="save-status-badge" class="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1">
-                    <i class="fa-solid fa-check text-emerald-500"></i> พร้อมใช้งาน
-                </span>
+                <span id="save-status-badge" class="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1"><i class="fa-solid fa-check text-emerald-500"></i> พร้อมใช้งาน</span>
                 <span id="total-count" class="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">0 รายการ</span>
                 
-                <button onclick="deleteSelectedRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-red-200 transition-colors shadow-sm h-8">
+                <button onclick="deleteSelectedRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-red-200 h-8">
                     <i class="fa-solid fa-trash-can"></i> ลบ
                 </button>
-                <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded shadow-sm flex items-center gap-1 text-xs transition-transform h-8">
+                <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm">
                     <i class="fa-solid fa-floppy-disk"></i> บันทึกตาราง
                 </button>
             </div>
         </div>
 
-        <!-- 📋 ตาราง (Handsontable) แสดงผลเวลารายละเอียด และ ชื่องาน -->
         <div class="bg-white rounded-lg shadow-sm border border-slate-200 flex-1 relative overflow-hidden">
             <div id="booking-grid-container" class="absolute inset-0 z-0"></div>
         </div>
-
     </main>
 
-    <!-- สคริปต์ควบคุมตาราง -->
+    <!-- 🪟 หน้าต่าง Pop-up (Modal) สำหรับแก้เวลา -->
+    <div id="datetime-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden items-center justify-center opacity-0 transition-opacity duration-200">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-95 transition-transform duration-200" id="datetime-modal-content">
+            <div class="bg-blue-50 px-5 py-3 border-b border-blue-100 flex justify-between items-center">
+                <h3 class="font-bold text-primary flex items-center gap-2"><i class="fa-solid fa-clock"></i> <span id="modal-title">ตั้งค่าเวลา</span></h3>
+                <button onclick="closeDateTimeModal()" class="text-slate-400 hover:text-red-500 transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-5 space-y-4" id="modal-body">
+                <!-- ช่องกรอกเวลาจะโผล่มาตรงนี้อัตโนมัติ -->
+            </div>
+            <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="closeDateTimeModal()" class="px-4 py-2 rounded-lg text-slate-600 bg-white border border-slate-300 text-sm font-bold hover:bg-slate-100 transition-colors">ยกเลิก</button>
+                <button onclick="saveDateTimeModal()" class="px-4 py-2 rounded-lg text-white bg-emerald-600 text-sm font-bold hover:bg-emerald-700 shadow-sm transition-colors">บันทึกเวลา</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/modules/booking/list.js"></script>
-    <script>
-        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
-    </script>
+    <script>function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }</script>
 </body>
 </html>

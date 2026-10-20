@@ -200,13 +200,12 @@ function initBookingHandsontable(data) {
                 renderer: function(instance, td, row, col, prop, value) {
                     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
                     if (value) {
+                        // 🌟 แก้ไข: จัดปุ่มเรียงเป็นแนวตั้ง (flex-col) 🌟
                         td.innerHTML = `
-                            <div class="flex items-center justify-center gap-1">
-                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-900 border border-amber-300 font-bold py-1 px-2 rounded flex items-center gap-1 text-[10px] transition-colors shadow-sm" title="แก้ไขฟอร์มเต็ม">
-                                    <i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม
-                                </button>
-                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
-                                <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
+                            <div class="flex flex-col items-stretch justify-center gap-1.5 py-1 px-1">
+                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 font-bold py-1 px-2 rounded text-[10px] shadow-sm"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm py-1"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
+                                <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm py-1"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
                             </div>
                         `;
                         td.style.verticalAlign = 'middle';
@@ -217,17 +216,34 @@ function initBookingHandsontable(data) {
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, 
         manualColumnMove: moveConfig,
-        colWidths: userGridSettings.columnWidths || [30, 45, 120, 75, 95, 120, 140, 90, 90, 90, 40, 80, 75, 75, 140, 140, 140, 130],
-        filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+        colWidths: userGridSettings.columnWidths || [30, 45, 120, 75, 95, 120, 140, 90, 90, 90, 40, 80, 75, 75, 140, 140, 140, 90],
+        filters: true, 
+        dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+        
+        // 🌟 แก้ไข: เพิ่มระบบซ่อนคอลัมน์ และจัดชิดซ้าย/ขวา/กลาง (คลิกขวาที่เซลล์) 🌟
+        hiddenColumns: { indicators: true },
+        contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'clear_column', 'undo', 'redo'],
+        
         licenseKey: 'non-commercial-and-evaluation',
 
         afterChange: function(changes, source) {
             if (source === 'loadData' || !changes) return;
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
-                
-                // ถ้าราคาเปลี่ยน จะแจ้งเตือนไหม หรือ auto-save ในตารางได้เลย
             });
+            updateSaveStatusBadge();
+            this.render(); 
+        },
+        afterColumnResize: function() { saveGridUIState(); },
+        afterColumnMove: function() { saveGridUIState(); },
+        
+        cells: function(row, col) {
+            const cp = {};
+            if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
+            return cp;
+        }
+    });
+       
             updateSaveStatusBadge();
             this.render(); 
         },

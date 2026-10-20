@@ -1,5 +1,5 @@
 // ==========================================
-// 📝 MODULE: BOOKING FORM (Data Entry & Edit)
+// 📝 MODULE: BOOKING FORM (Fix DateTime Input & Job Type)
 // ==========================================
 
 let rateDataMap = {};
@@ -25,7 +25,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (err) { console.error("Error loading rates", err); }
 
-    // 🌟 2. ดักจับ URL ว่าเป็นการ "แก้ไข" หรือไม่ (เช่น ?edit=BK-123)
     const urlParams = new URLSearchParams(window.location.search);
     const editBookingNo = urlParams.get('edit');
     if (editBookingNo) {
@@ -59,28 +58,28 @@ async function loadBookingForEdit(bookingNo) {
             document.getElementById('pCustomer').value = item.customer_name || '';
             document.getElementById('pOrigin').value = item.origin || '';
             document.getElementById('pDest').value = item.destination || '';
-            document.getElementById('pPriceType').value = item.price_type || '';
-            document.getElementById('pTripFee').value = item.trip_fee || '';
-            document.getElementById('pTransFee').value = item.trans_fee || '';
+            
+            // 🌟 แก้ไข: ดึงข้อมูลประเภทงานและราคามาใส่ให้ครบ 🌟
+            const elJobType = document.getElementById('pJobType');
+            if (elJobType) elJobType.value = item.job_type || '';
+            
+            const elPriceType = document.getElementById('pPriceType');
+            if (elPriceType) elPriceType.value = item.price_type || '';
+            
+            const elTripFee = document.getElementById('pTripFee');
+            if (elTripFee) elTripFee.value = item.trip_fee || '';
+            
+            const elTransFee = document.getElementById('pTransFee');
+            if (elTransFee) elTransFee.value = item.trans_fee || '';
 
-            // 🌟 ฟังก์ชันย่อยแยก Date/Time ฉบับถึกทน (รองรับเวลาทุกรูปแบบ)
+            // 🌟 แก้ไข: ฟังก์ชันยัดเวลาเข้ากล่อง datetime-local ช่องเดียว 🌟
             const setDateTime = (idBase, dtStr) => {
                 if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return;
-                
-                // แปลงค่าทุกอย่างให้อยู่ในรูปที่มีตัว T ตรงกลางเสมอ เช่น 2026-10-19T10:52:00
                 let cleanStr = String(dtStr).trim().replace(' ', 'T'); 
+                if (cleanStr.length > 16) cleanStr = cleanStr.substring(0, 16); // ตัดเหลือ YYYY-MM-DDTHH:mm
                 
-                // ตัดเอาแค่ 16 ตัวแรก (YYYY-MM-DDTHH:mm)
-                if (cleanStr.length > 16) cleanStr = cleanStr.substring(0, 16);
-                
-                // แยกเป็น วันที่ และ เวลา
-                const [d, t] = cleanStr.split('T');
-                
-                const dateInput = document.getElementById(idBase + 'Date');
-                const timeInput = document.getElementById(idBase + 'Time');
-                
-                if (dateInput && d) dateInput.value = d;
-                if (timeInput && t) timeInput.value = t;
+                const input = document.getElementById(idBase);
+                if (input) input.value = cleanStr;
             };
 
             // เติมข้อมูลแยกตามโหมด
@@ -113,9 +112,8 @@ async function loadBookingForEdit(bookingNo) {
     }
 }
 
-// ❌ ฟังก์ชันยกเลิกการแก้ไข
 window.cancelEdit = function() {
-    window.location.href = '/booking-list.html'; //กดยกเลิกให้เด้งกลับหน้าตาราง
+    window.location.href = '/booking-list.html'; 
 };
 
 // ==========================================
@@ -141,6 +139,9 @@ window.previewJobData = function() {
     document.getElementById('pOrigin').value = rate.origin || ''; 
     document.getElementById('pDest').value = rate.dest || ''; 
     
+    const elJobType = document.getElementById('pJobType');
+    if (elJobType && rate.jobType) elJobType.value = rate.jobType;
+    
     if (document.getElementById('pMode').value === 'EXPORT') {
         document.getElementById('pDepotExp').value = rate.origin || ''; 
         document.getElementById('pReturnExp').value = rate.dest || ''; 
@@ -150,11 +151,10 @@ window.previewJobData = function() {
     }
 }
 
+// 🌟 แก้ไข: ดึงเวลาจากช่อง datetime-local เพื่อเตรียมเซฟเข้าฐานข้อมูล 🌟
 function getCombinedDateTime(idBase) {
-    const d = document.getElementById(idBase + 'Date')?.value;
-    const t = document.getElementById(idBase + 'Time')?.value;
-    if (d && t) return `${d} ${t}`;
-    if (d) return `${d} 00:00`;
+    const input = document.getElementById(idBase);
+    if (input && input.value) return input.value.replace('T', ' ');
     return "";
 }
 
@@ -185,18 +185,33 @@ window.submitBookingForm = async function(btn) {
         returnDate = getCombinedDateTime('pReturnImp');
     }
 
+    // 🌟 แก้ไข: เพิ่มการดึงประเภทงานมาเซฟด้วย 🌟
+    const elJobType = document.getElementById('pJobType');
+    const jobTypeVal = elJobType ? elJobType.value : '';
+
+    const elPriceType = document.getElementById('pPriceType');
+    const priceTypeVal = elPriceType ? elPriceType.value : '';
+
+    const elTripFee = document.getElementById('pTripFee');
+    const tripFeeVal = elTripFee ? elTripFee.value : 0;
+
+    const elTransFee = document.getElementById('pTransFee');
+    const transFeeVal = elTransFee ? elTransFee.value : 0;
+
     const dataToSave = {
         mode: mode,
         run_date: runDate,
         customer_name: customer,
         job_name: document.getElementById('jobNameInput').value,
+        job_type: jobTypeVal,
         origin: document.getElementById('pOrigin').value,
         destination: document.getElementById('pDest').value,
         container_count: containerCount,
         booking_no: mode === 'EXPORT' ? document.getElementById('pBookingExp').value : document.getElementById('pBookingImp').value,
-        trip_fee: document.getElementById('pTripFee').value || 0,
-        trans_fee: document.getElementById('pTransFee').value || 0,
-        price_type: document.getElementById('pPriceType').value || '',
+        
+        price_type: priceTypeVal,
+        trip_fee: tripFeeVal,
+        trans_fee: transFeeVal,
         
         cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, 
         load_date: loadDate, open_gate: openGate,
@@ -218,7 +233,6 @@ window.submitBookingForm = async function(btn) {
 
         if (result.success) {
             alert('✅ บันทึก Booking เรียบร้อย!');
-            // ถ้ามาจากการกดแก้ฟอร์ม ให้เด้งกลับไปหน้าตารางเลย
             const urlParams = new URLSearchParams(window.location.search);
             if(urlParams.get('edit')) {
                 window.location.href = '/booking-list.html';

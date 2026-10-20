@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: CONTAINER MANAGE (Shipments Table)
+// 📋 MODULE: CONTAINER MANAGE (Zebra UI, URL Auto-Filter, Search)
 // ==========================================
 
 let hotGridInstance = null;
@@ -9,14 +9,32 @@ let editedRowIndices = new Set();
 let userGridSettings = {};
 
 window.addEventListener('DOMContentLoaded', () => {
+    applyZebraStripingCSS(); // 🎨 โหลด CSS สลับสีตาราง
+    
     const today = new Date();
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     try {
         const savedData = localStorage.getItem('tms_container_manage_settings');
         if (savedData) userGridSettings = JSON.parse(savedData);
     } catch (err) {}
+    
     loadContainerGridData();
 });
+
+// 🎨 ฟังก์ชันฝัง CSS ตารางมินิมอล (ใช้ร่วมกันได้)
+function applyZebraStripingCSS() {
+    if (!document.getElementById('tms-zebra-css')) {
+        const style = document.createElement('style');
+        style.id = 'tms-zebra-css';
+        style.innerHTML = `
+            .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
+            .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
+            .handsontable tbody tr td.ht-edited-row { background-color: #fef9c3 !important; }
+            .handsontable tbody tr:hover td { background-color: #e2e8f0 !important; transition: all 0.2s; }
+        `;
+        document.head.appendChild(style);
+    }
+}
 
 async function loadContainerGridData() {
     const monthVal = document.getElementById('filter-month').value;
@@ -24,14 +42,28 @@ async function loadContainerGridData() {
     const [year, month] = monthVal.split('-');
 
     try {
-        // ดึงจากตาราง shipments (ข้อมูลดิบ)
         const res = await fetch(`/api/shipments?year=${year}&month=${month}`);
         const result = await res.json();
         if (result.success && result.data) {
-            rawShipmentsList = result.data; // data เป็น array ซ้อน array (raw_data)
-            
-            // กรองหาตัวเลือก Dropdown
+            rawShipmentsList = result.data; 
             populateFilters(rawShipmentsList);
+            
+            // 🌟 ตรวจสอบ URL เพื่อ Filter อัตโนมัติเวลาข้ามหน้ามา 🌟
+            const urlParams = new URLSearchParams(window.location.search);
+            const selectBooking = urlParams.get('select');
+            if (selectBooking) {
+                const bFilter = document.getElementById('filter-booking-no');
+                if(bFilter) {
+                    // สร้าง option ให้ถ้าระบบยังโหลดไม่ทัน
+                    if(!Array.from(bFilter.options).some(o => o.value === selectBooking)) {
+                        bFilter.innerHTML += `<option value="${selectBooking}">${selectBooking}</option>`;
+                    }
+                    bFilter.value = selectBooking;
+                }
+                // ล้าง URL ป้องกันการติด Filter เดิมเวลารีเฟรช
+                window.history.replaceState({}, document.title, "/booking-manage.html");
+            }
+
             applyFilters();
         } else {
             initContainerHandsontable([]);
@@ -43,6 +75,8 @@ function populateFilters(data) {
     const sD = document.getElementById('filter-run-date');
     const sC = document.getElementById('filter-customer');
     const sB = document.getElementById('filter-booking-no');
+    if(!sD || !sC || !sB) return;
+    
     sD.innerHTML = '<option value="">-- วันที่วิ่งงาน --</option>';
     sC.innerHTML = '<option value="">-- ลูกค้า (Customer) --</option>';
     sB.innerHTML = '<option value="">-- ทุก Booking / BL --</option>';
@@ -61,36 +95,41 @@ function populateFilters(data) {
 
 function onCascadeChange() { applyFilters(); }
 
-function applyFilters() {
-    const d = document.getElementById('filter-run-date').value;
-    const c = document.getElementById('filter-customer').value;
-    const b = document.getElementById('filter-booking-no').value;
+// 🔍 ฟังก์ชันกรองข้อมูล + ค้นหา Free-text
+window.applyFilters = function() {
+    const d = document.getElementById('filter-run-date')?.value || '';
+    const c = document.getElementById('filter-customer')?.value || '';
+    const b = document.getElementById('filter-booking-no')?.value || '';
+    
+    const searchEl = document.getElementById('search-text');
+    const txt = searchEl ? searchEl.value.toLowerCase().trim() : '';
 
     filteredList = rawShipmentsList.filter(r => {
-        return (!d || r[4] === d) && (!c || r[6] === c) && (!b || r[7] === b);
+        const matchD = !d || r[4] === d;
+        const matchC = !c || r[6] === c;
+        const matchB = !b || r[7] === b;
+        const matchTxt = !txt || JSON.stringify(r).toLowerCase().includes(txt);
+        return matchD && matchC && matchB && matchTxt;
     });
     
-    // เรียงตามวันที่และ Order ID
     filteredList.sort((a,b) => String(a[1]).localeCompare(String(b[1])));
     initContainerHandsontable(filteredList);
-}
+};
 
-function clearQuickFilters() {
-    document.getElementById('filter-run-date').value = '';
-    document.getElementById('filter-customer').value = '';
-    document.getElementById('filter-booking-no').value = '';
+window.clearQuickFilters = function() {
+    if(document.getElementById('filter-run-date')) document.getElementById('filter-run-date').value = '';
+    if(document.getElementById('filter-customer')) document.getElementById('filter-customer').value = '';
+    if(document.getElementById('filter-booking-no')) document.getElementById('filter-booking-no').value = '';
+    if(document.getElementById('search-text')) document.getElementById('search-text').value = '';
     applyFilters();
-}
+};
 
-// ----------------------------------------------------
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid');
     if (hotGridInstance) { hotGridInstance.destroy(); }
     document.getElementById('total-count').innerText = `${data.length} รายการ`;
 
-    // ถ้าไม่มีข้อมูล ให้สร้างแถวว่างเพื่อกรอก
     const gridData = data.length > 0 ? data : Array.from({ length: 15 }, () => new Array(21).fill(""));
-
     const colHeaders = [
         '✔', 'order ID', 'MODE', 'วันที่Booking', 'วันที่วิ่งงาน', 'ชื่องาน', 'ลูกค้า', 'BOOKING NO.', 
         'เบอร์ตู้1', 'เบอร์ตู้2', 'จำนวนตู้/ใบ', 'ขนาดตู้', 'ประเภทงาน', 'AGENT', 'POD', 'SEAL NO.', 
@@ -107,13 +146,13 @@ function initContainerHandsontable(data) {
         colHeaders: colHeaders,
         columns: [
             { type: 'checkbox', className: 'htCenter htMiddle' }, 
-            { type: 'text', className: 'font-bold text-slate-400' }, // order ID
+            { type: 'text', className: 'font-bold text-slate-400' }, 
             { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, 
-            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, // bk date
-            { type: 'date', dateFormat: 'YYYY-MM-DD' }, // run date
+            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, 
+            { type: 'date', dateFormat: 'YYYY-MM-DD' }, 
             { type: 'text' }, { type: 'text' }, { type: 'text', className: 'font-bold uppercase text-primary' }, 
-            { type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, // เบอร์ตู้1
-            { type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, // เบอร์ตู้2
+            { type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
+            { type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
             { type: 'numeric' }, { type: 'dropdown', source: ['20', '40', '40HC'] }, 
             { type: 'dropdown', source: ['CONTAINER', 'Domestic'] }, 
             { type: 'text' }, { type: 'text' }, { type: 'text' }, 
@@ -162,6 +201,7 @@ function saveGridUIState() {
 
 function updateSaveStatusBadge() {
     const badge = document.getElementById('save-status-badge');
+    if(!badge) return;
     const count = editedRowIndices.size;
     if (count > 0) {
         badge.className = "text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse";
@@ -178,7 +218,6 @@ window.saveGridChanges = async function() {
     const orgText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
 
-    // กรองเอาเฉพาะข้อมูลที่มี Order ID เพื่อส่งให้ Backend
     const dataToSave = hotGridInstance.getData().filter(row => row && row[1]);
 
     try {
@@ -189,7 +228,7 @@ window.saveGridChanges = async function() {
         });
         const result = await res.json();
         if (result.success) {
-            alert('✅ บันทึกข้อมูลเบอร์ตู้ลงตารางสำเร็จ');
+            alert('✅ บันทึกข้อมูลตู้สำเร็จ');
             editedRowIndices.clear();
             loadContainerGridData();
         } else {

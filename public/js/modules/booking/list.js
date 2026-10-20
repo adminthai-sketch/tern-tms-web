@@ -1,19 +1,20 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (With Financial Columns & Auto-Save Grid Settings)
+// 📋 MODULE: BOOKING LIST (Zebra UI, Search, Auto-Save Settings)
 // ==========================================
 
 let hotGridInstance = null;
 let rawBookingList = []; 
 let filteredList = [];   
 let editedRowIndices = new Set(); 
-let userGridSettings = {}; // เก็บการตั้งค่าตาราง
+let userGridSettings = {}; 
 
 window.addEventListener('DOMContentLoaded', () => {
+    applyZebraStripingCSS(); // 🎨 โหลด CSS สลับสีตาราง
+    
     const today = new Date();
     const monthStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     document.getElementById('filter-month').value = monthStr;
     
-    // โหลดตั้งค่าตาราง (จำมุมมอง)
     try {
         const savedData = localStorage.getItem('tms_booking_list_settings');
         if (savedData) userGridSettings = JSON.parse(savedData);
@@ -21,6 +22,21 @@ window.addEventListener('DOMContentLoaded', () => {
 
     loadBookingGridData();
 });
+
+// 🎨 ฟังก์ชันฝัง CSS ตารางมินิมอล (เทาอ่อน-ขาว)
+function applyZebraStripingCSS() {
+    if (!document.getElementById('tms-zebra-css')) {
+        const style = document.createElement('style');
+        style.id = 'tms-zebra-css';
+        style.innerHTML = `
+            .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
+            .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
+            .handsontable tbody tr td.ht-edited-row { background-color: #fef9c3 !important; }
+            .handsontable tbody tr:hover td { background-color: #e2e8f0 !important; transition: all 0.2s; }
+        `;
+        document.head.appendChild(style);
+    }
+}
 
 async function loadBookingGridData() {
     const monthVal = document.getElementById('filter-month').value;
@@ -51,6 +67,7 @@ async function loadBookingGridData() {
 
 function populateRunDateFilter(data) {
     const sel = document.getElementById('filter-run-date');
+    if(!sel) return;
     sel.innerHTML = '<option value="">-- ทุกลักษณะวันที่ --</option>';
     const dates = new Set();
     data.forEach(i => { if (i.run_date) dates.add(String(i.run_date).split('T')[0]); });
@@ -59,6 +76,7 @@ function populateRunDateFilter(data) {
 
 function populateCustomerFilter(data) {
     const sel = document.getElementById('filter-customer');
+    if(!sel) return;
     sel.innerHTML = '<option value="">-- ทุกลูกค้า (Customer) --</option>';
     const custs = new Set();
     data.forEach(i => { if (i.customer_name) custs.add(String(i.customer_name).trim()); });
@@ -67,57 +85,49 @@ function populateCustomerFilter(data) {
 
 function populateBookingNoFilter(data) {
     const sel = document.getElementById('filter-booking-no');
+    if(!sel) return;
     sel.innerHTML = '<option value="">-- ทุก Booking / BL --</option>';
     const books = new Set();
     data.forEach(i => { if (i.booking_no) books.add(String(i.booking_no).trim()); });
     Array.from(books).sort().forEach(b => sel.innerHTML += `<option value="${b}">${b}</option>`);
 }
 
-function onRunDateChange() {
-    const d = document.getElementById('filter-run-date').value;
-    let scoped = rawBookingList;
-    if (d) scoped = rawBookingList.filter(i => i.run_date && String(i.run_date).split('T')[0] === d);
-    populateCustomerFilter(scoped);
-    populateBookingNoFilter(scoped);
-    applyFilters();
-}
+function onRunDateChange() { applyFilters(); }
+function onCustomerChange() { applyFilters(); }
 
-function onCustomerChange() {
-    const d = document.getElementById('filter-run-date').value;
-    const c = document.getElementById('filter-customer').value;
-    let scoped = rawBookingList;
-    if (d) scoped = scoped.filter(i => i.run_date && String(i.run_date).split('T')[0] === d);
-    if (c) scoped = scoped.filter(i => i.customer_name && String(i.customer_name).trim() === c);
-    populateBookingNoFilter(scoped);
-    applyFilters();
-}
+// 🔍 ฟังก์ชันกรองข้อมูล + ค้นหา Free-text
+window.applyFilters = function() {
+    const d = document.getElementById('filter-run-date')?.value || '';
+    const c = document.getElementById('filter-customer')?.value || '';
+    const b = document.getElementById('filter-booking-no')?.value || '';
+    
+    // ดึงค่าจากช่องค้นหา
+    const searchEl = document.getElementById('search-text');
+    const txt = searchEl ? searchEl.value.toLowerCase().trim() : '';
 
-function applyFilters() {
-    const d = document.getElementById('filter-run-date').value;
-    const c = document.getElementById('filter-customer').value;
-    const b = document.getElementById('filter-booking-no').value;
+    filteredList = rawBookingList.filter(item => {
+        const iD = item.run_date ? String(item.run_date).split('T')[0] : '';
+        const iC = item.customer_name ? String(item.customer_name).trim() : '';
+        const iB = item.booking_no ? String(item.booking_no).trim() : '';
+        
+        const matchD = !d || iD === d;
+        const matchC = !c || iC === c;
+        const matchB = !b || iB === b;
+        const matchTxt = !txt || JSON.stringify(item).toLowerCase().includes(txt);
 
-    filteredList = rawBookingList.filter(i => {
-        const iD = i.run_date ? String(i.run_date).split('T')[0] : '';
-        const iC = i.customer_name ? String(i.customer_name).trim() : '';
-        const iB = i.booking_no ? String(i.booking_no).trim() : '';
-        return (!d || iD === d) && (!c || iC === c) && (!b || iB === b);
+        return matchD && matchC && matchB && matchTxt;
     });
     initBookingHandsontable(filteredList);
-}
+};
 
-function clearQuickFilters() {
-    document.getElementById('filter-run-date').value = '';
-    document.getElementById('filter-customer').value = '';
-    document.getElementById('filter-booking-no').value = '';
-    populateCustomerFilter(rawBookingList);
-    populateBookingNoFilter(rawBookingList);
+window.clearQuickFilters = function() {
+    if(document.getElementById('filter-run-date')) document.getElementById('filter-run-date').value = '';
+    if(document.getElementById('filter-customer')) document.getElementById('filter-customer').value = '';
+    if(document.getElementById('filter-booking-no')) document.getElementById('filter-booking-no').value = '';
+    if(document.getElementById('search-text')) document.getElementById('search-text').value = '';
     applyFilters();
-}
+};
 
-// ----------------------------------------------------
-// 📊 จัดการตาราง Handsontable
-// ----------------------------------------------------
 function initBookingHandsontable(data) {
     const container = document.getElementById('booking-grid-container');
     if (hotGridInstance) { hotGridInstance.destroy(); }
@@ -142,24 +152,12 @@ function initBookingHandsontable(data) {
         const jobNameDisplay = (item.job_name && String(item.job_name).trim() !== 'NaN') ? item.job_name : (item.job_title || '-');
 
         return [
-            false, 
-            item.id, 
-            item.booking_no || '', 
-            item.mode || 'EXPORT', 
-            item.run_date ? String(item.run_date).split('T')[0] : '', 
-            item.customer_name || '', 
-            jobNameDisplay,
-            item.job_type || '',           // ประเภทงาน
-            item.origin || '', 
-            item.destination || '', 
-            item.container_count || 1, 
-            item.price_type || '',         // ประเภทรถ
-            item.trip_fee || 0,            // ค่าเที่ยว
-            item.trans_fee || 0,           // ค่าขนส่ง
-            pickup.join('\n') || 'คลิกเพิ่มเวลา', 
-            delivery.join('\n') || 'คลิกเพิ่มเวลา', 
-            ret.join('\n') || 'คลิกเพิ่มเวลา', 
-            item.booking_no 
+            false, item.id, item.booking_no || '', item.mode || 'EXPORT', 
+            item.run_date ? String(item.run_date).split('T')[0] : '', item.customer_name || '', 
+            jobNameDisplay, item.job_type || '', item.origin || '', item.destination || '', 
+            item.container_count || 1, item.price_type || '', item.trip_fee || 0, item.trans_fee || 0, 
+            pickup.join('\n') || 'คลิกเพิ่มเวลา', delivery.join('\n') || 'คลิกเพิ่มเวลา', 
+            ret.join('\n') || 'คลิกเพิ่มเวลา', item.booking_no 
         ];
     });
 
@@ -186,8 +184,7 @@ function initBookingHandsontable(data) {
             { type: 'text', className: 'font-semibold text-slate-800' }, 
             { type: 'text', className: 'font-medium text-slate-800' },
             { type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, 
-            { type: 'text' }, 
-            { type: 'text' }, 
+            { type: 'text' }, { type: 'text' }, 
             { type: 'numeric', className: 'htCenter font-bold text-blue-600 bg-blue-50/20' }, 
             { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, 
             { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold' }, 
@@ -202,9 +199,7 @@ function initBookingHandsontable(data) {
                     if (value) {
                         td.innerHTML = `
                             <div class="flex flex-col items-stretch justify-center gap-1.5 py-1 px-1">
-                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-900 border border-amber-300 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 text-[10px] transition-colors shadow-sm" title="กลับไปแก้ไขรายละเอียดในหน้าฟอร์ม">
-                                    <i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม
-                                </button>
+                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 font-bold py-1 px-2 rounded text-[10px] shadow-sm"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
                                 <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm py-1"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
                                 <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm py-1"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
                             </div>
@@ -215,15 +210,11 @@ function initBookingHandsontable(data) {
             }
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
-        manualColumnResize: true, 
-        manualColumnMove: moveConfig,
+        manualColumnResize: true, manualColumnMove: moveConfig,
         colWidths: userGridSettings.columnWidths || [30, 45, 120, 75, 95, 120, 140, 90, 90, 90, 40, 80, 75, 75, 140, 140, 140, 90],
-        filters: true, 
-        dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
-        
+        filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         hiddenColumns: { indicators: true },
         contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'clear_column', 'undo', 'redo'],
-        
         licenseKey: 'non-commercial-and-evaluation',
 
         afterChange: function(changes, source) {
@@ -236,7 +227,6 @@ function initBookingHandsontable(data) {
         },
         afterColumnResize: function() { saveGridUIState(); },
         afterColumnMove: function() { saveGridUIState(); },
-        
         cells: function(row, col) {
             const cp = {};
             if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
@@ -245,39 +235,30 @@ function initBookingHandsontable(data) {
     });
 }
 
-// 💾 ฟังก์ชันจำค่าคอลัมน์ลงเบราว์เซอร์
 function saveGridUIState() {
     if (!hotGridInstance) return;
     const colCount = hotGridInstance.countCols();
     const widths = [];
     for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
-
     const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
     let positions = [];
     if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
         positions = movePlugin.columnsMapper.getIndexesSequence();
     }
-
     userGridSettings = { columnWidths: widths, columnPositions: positions };
     localStorage.setItem('tms_booking_list_settings', JSON.stringify(userGridSettings));
 }
 
-// ฟังก์ชันสำหรับลิงก์ไปหน้า Edit Form
-window.goToFormEdit = function(bookingNo) {
-    window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`;
-};
+window.goToFormEdit = function(bookingNo) { window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`; };
 
 window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
     let content = value ? String(value).replace(/\n/g, '<br>') : '-';
     let textStyle = value === 'คลิกเพิ่มเวลา' ? 'text-slate-300 font-normal italic' : 'text-slate-800 font-bold';
-    
     td.innerHTML = `
         <div class="relative group cursor-pointer w-full h-full min-h-[35px] cell-time-hover p-1 rounded transition-colors ${textStyle}" onclick="openDateTimeModal(${row}, ${col})">
             ${content}
-            <div class="absolute top-1 right-1 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded p-1 shadow-sm items-center justify-center">
-               <i class="fa-solid fa-pen text-[10px]"></i>
-            </div>
+            <div class="absolute top-1 right-1 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded p-1 shadow-sm items-center justify-center"><i class="fa-solid fa-pen text-[10px]"></i></div>
         </div>
     `;
     td.style.fontSize = '10px'; td.style.lineHeight = '1.4';
@@ -289,9 +270,6 @@ function formatDateTime(dtStr) {
     return cleanStr.length >= 16 ? cleanStr.substring(0, 16) : cleanStr; 
 }
 
-// ----------------------------------------------------
-// 🪟 ระบบ Modal Pop-up แก้ไขเวลา
-// ----------------------------------------------------
 let currentModalRow = -1;
 let currentModalCol = -1;
 
@@ -307,7 +285,7 @@ window.openDateTimeModal = function(row, col) {
     let html = '';
     let title = '';
 
-    if (col === 14) { // PICK UP 
+    if (col === 14) { 
         title = 'เวลา PICK UP (รับตู้/ลาน)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
@@ -318,23 +296,21 @@ window.openDateTimeModal = function(row, col) {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (Time)', item.rent_cutoff);
             html += createDatetimeInput('demurrage', 'Demurrage', item.demurrage);
         }
-    } else if (col === 15) { // DELIVERY 
+    } else if (col === 15) { 
         title = 'เวลา DELIVERY (โหลดของ/ลงของ)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('load_date', 'Load Date & Time', item.load_date);
         } else {
             html += createDatetimeInput('unload_date', 'Unload Date & Time', item.unload_date);
         }
-    } else if (col === 16) { // RETURN 
+    } else if (col === 16) { 
         title = 'เวลา RETURN (คืนตู้/เข้าท่า)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
         } else {
             html += createDatetimeInput('return_date', 'Return Date & Time', item.return_date);
         }
-    } else {
-        return; 
-    }
+    } else { return; }
 
     document.getElementById('modal-title').innerText = title;
     document.getElementById('modal-body').innerHTML = html;
@@ -401,9 +377,9 @@ window.saveDateTimeModal = function() {
     closeDateTimeModal();
 };
 
-// ----------------------------------------------------
 function updateSaveStatusBadge() {
     const badge = document.getElementById('save-status-badge');
+    if(!badge) return;
     const count = editedRowIndices.size;
     if (count > 0) {
         badge.className = "text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse";
@@ -414,7 +390,6 @@ function updateSaveStatusBadge() {
     }
 }
 
-// 💾 บันทึกตาราง
 window.saveGridChanges = async function() {
     if (!hotGridInstance || editedRowIndices.size === 0) return;
     const btn = document.getElementById('btn-save-grid');

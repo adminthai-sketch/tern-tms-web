@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Zebra UI, Search, Auto-Save Settings)
+// 📋 MODULE: BOOKING LIST (Zebra UI, Search, Auto-Save Settings, Cascade Fix)
 // ==========================================
 
 let hotGridInstance = null;
@@ -9,7 +9,7 @@ let editedRowIndices = new Set();
 let userGridSettings = {}; 
 
 window.addEventListener('DOMContentLoaded', () => {
-    applyZebraStripingCSS(); // 🎨 โหลด CSS สลับสีตาราง
+    applyZebraStripingCSS();
     
     const today = new Date();
     const monthStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
@@ -23,7 +23,6 @@ window.addEventListener('DOMContentLoaded', () => {
     loadBookingGridData();
 });
 
-// 🎨 ฟังก์ชันฝัง CSS ตารางมินิมอล (เทาอ่อน-ขาว)
 function applyZebraStripingCSS() {
     if (!document.getElementById('tms-zebra-css')) {
         const style = document.createElement('style');
@@ -92,16 +91,30 @@ function populateBookingNoFilter(data) {
     Array.from(books).sort().forEach(b => sel.innerHTML += `<option value="${b}">${b}</option>`);
 }
 
-function onRunDateChange() { applyFilters(); }
-function onCustomerChange() { applyFilters(); }
+// 🌟 ซ่อมระบบกรองแบบ Cascade (กรองต่อเนื่องเป็นทอดๆ) 🌟
+window.onRunDateChange = function() {
+    const d = document.getElementById('filter-run-date').value;
+    let scoped = rawBookingList;
+    if (d) scoped = rawBookingList.filter(i => i.run_date && String(i.run_date).split('T')[0] === d);
+    populateCustomerFilter(scoped);
+    populateBookingNoFilter(scoped);
+    applyFilters();
+}
 
-// 🔍 ฟังก์ชันกรองข้อมูล + ค้นหา Free-text
+window.onCustomerChange = function() {
+    const d = document.getElementById('filter-run-date').value;
+    const c = document.getElementById('filter-customer').value;
+    let scoped = rawBookingList;
+    if (d) scoped = scoped.filter(i => i.run_date && String(i.run_date).split('T')[0] === d);
+    if (c) scoped = scoped.filter(i => i.customer_name && String(i.customer_name).trim() === c);
+    populateBookingNoFilter(scoped);
+    applyFilters();
+}
+
 window.applyFilters = function() {
     const d = document.getElementById('filter-run-date')?.value || '';
     const c = document.getElementById('filter-customer')?.value || '';
     const b = document.getElementById('filter-booking-no')?.value || '';
-    
-    // ดึงค่าจากช่องค้นหา
     const searchEl = document.getElementById('search-text');
     const txt = searchEl ? searchEl.value.toLowerCase().trim() : '';
 
@@ -125,6 +138,8 @@ window.clearQuickFilters = function() {
     if(document.getElementById('filter-customer')) document.getElementById('filter-customer').value = '';
     if(document.getElementById('filter-booking-no')) document.getElementById('filter-booking-no').value = '';
     if(document.getElementById('search-text')) document.getElementById('search-text').value = '';
+    populateCustomerFilter(rawBookingList);
+    populateBookingNoFilter(rawBookingList);
     applyFilters();
 };
 
@@ -199,7 +214,7 @@ function initBookingHandsontable(data) {
                     if (value) {
                         td.innerHTML = `
                             <div class="flex flex-col items-stretch justify-center gap-1.5 py-1 px-1">
-                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 font-bold py-1 px-2 rounded text-[10px] shadow-sm"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
+                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 text-[10px] shadow-sm"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
                                 <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm py-1"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
                                 <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm py-1"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
                             </div>

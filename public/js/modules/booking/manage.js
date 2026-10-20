@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: CONTAINER MANAGE (Zebra UI, URL Auto-Filter, Search)
+// 📋 MODULE: CONTAINER MANAGE (Zebra UI, URL Auto-Filter, Search, Cascade Fix)
 // ==========================================
 
 let hotGridInstance = null;
@@ -9,7 +9,7 @@ let editedRowIndices = new Set();
 let userGridSettings = {};
 
 window.addEventListener('DOMContentLoaded', () => {
-    applyZebraStripingCSS(); // 🎨 โหลด CSS สลับสีตาราง
+    applyZebraStripingCSS(); 
     
     const today = new Date();
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
@@ -21,7 +21,6 @@ window.addEventListener('DOMContentLoaded', () => {
     loadContainerGridData();
 });
 
-// 🎨 ฟังก์ชันฝัง CSS ตารางมินิมอล (ใช้ร่วมกันได้)
 function applyZebraStripingCSS() {
     if (!document.getElementById('tms-zebra-css')) {
         const style = document.createElement('style');
@@ -48,19 +47,17 @@ async function loadContainerGridData() {
             rawShipmentsList = result.data; 
             populateFilters(rawShipmentsList);
             
-            // 🌟 ตรวจสอบ URL เพื่อ Filter อัตโนมัติเวลาข้ามหน้ามา 🌟
+            // ตรวจสอบ URL เพื่อ Filter อัตโนมัติ (กรณีกดมาจากปุ่ม "ลงตู้")
             const urlParams = new URLSearchParams(window.location.search);
             const selectBooking = urlParams.get('select');
             if (selectBooking) {
                 const bFilter = document.getElementById('filter-booking-no');
                 if(bFilter) {
-                    // สร้าง option ให้ถ้าระบบยังโหลดไม่ทัน
                     if(!Array.from(bFilter.options).some(o => o.value === selectBooking)) {
                         bFilter.innerHTML += `<option value="${selectBooking}">${selectBooking}</option>`;
                     }
                     bFilter.value = selectBooking;
                 }
-                // ล้าง URL ป้องกันการติด Filter เดิมเวลารีเฟรช
                 window.history.replaceState({}, document.title, "/booking-manage.html");
             }
 
@@ -93,9 +90,46 @@ function populateFilters(data) {
     Array.from(books).sort().forEach(b => sB.innerHTML += `<option value="${b}">${b}</option>`);
 }
 
-function onCascadeChange() { applyFilters(); }
+// 🌟 ซ่อมระบบกรองแบบ Cascade (หน้าลงตู้) 🌟
+window.onCascadeChangeDate = function() {
+    const d = document.getElementById('filter-run-date').value;
+    let scoped = rawShipmentsList;
+    if (d) scoped = rawShipmentsList.filter(r => r[4] === d);
+    populateFiltersForCascade(scoped, true, true);
+    applyFilters();
+}
 
-// 🔍 ฟังก์ชันกรองข้อมูล + ค้นหา Free-text
+window.onCascadeChangeCustomer = function() {
+    const d = document.getElementById('filter-run-date').value;
+    const c = document.getElementById('filter-customer').value;
+    let scoped = rawShipmentsList;
+    if (d) scoped = scoped.filter(r => r[4] === d);
+    if (c) scoped = scoped.filter(r => r[6] === c);
+    populateFiltersForCascade(scoped, false, true);
+    applyFilters();
+}
+
+function populateFiltersForCascade(data, updateCust, updateBook) {
+    if(updateCust) {
+        const sC = document.getElementById('filter-customer');
+        const cVal = sC.value;
+        sC.innerHTML = '<option value="">-- ลูกค้า (Customer) --</option>';
+        const custs = new Set();
+        data.forEach(r => { if(r[6]) custs.add(r[6]); });
+        Array.from(custs).sort().forEach(c => sC.innerHTML += `<option value="${c}">${c}</option>`);
+        if(Array.from(custs).includes(cVal)) sC.value = cVal;
+    }
+    if(updateBook) {
+        const sB = document.getElementById('filter-booking-no');
+        const bVal = sB.value;
+        sB.innerHTML = '<option value="">-- ทุก Booking / BL --</option>';
+        const books = new Set();
+        data.forEach(r => { if(r[7]) books.add(r[7]); });
+        Array.from(books).sort().forEach(b => sB.innerHTML += `<option value="${b}">${b}</option>`);
+        if(Array.from(books).includes(bVal)) sB.value = bVal;
+    }
+}
+
 window.applyFilters = function() {
     const d = document.getElementById('filter-run-date')?.value || '';
     const c = document.getElementById('filter-customer')?.value || '';
@@ -121,6 +155,7 @@ window.clearQuickFilters = function() {
     if(document.getElementById('filter-customer')) document.getElementById('filter-customer').value = '';
     if(document.getElementById('filter-booking-no')) document.getElementById('filter-booking-no').value = '';
     if(document.getElementById('search-text')) document.getElementById('search-text').value = '';
+    populateFilters(rawShipmentsList);
     applyFilters();
 };
 
@@ -146,7 +181,7 @@ function initContainerHandsontable(data) {
         colHeaders: colHeaders,
         columns: [
             { type: 'checkbox', className: 'htCenter htMiddle' }, 
-            { type: 'text', className: 'font-bold text-slate-400' }, 
+            { type: 'text', className: 'font-bold text-slate-400', readOnly: true }, 
             { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, 
             { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, 
             { type: 'date', dateFormat: 'YYYY-MM-DD' }, 
@@ -218,6 +253,7 @@ window.saveGridChanges = async function() {
     const orgText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
 
+    // กรองเอาเฉพาะข้อมูลที่มี Order ID เพื่อส่งให้ Backend
     const dataToSave = hotGridInstance.getData().filter(row => row && row[1]);
 
     try {
@@ -228,7 +264,7 @@ window.saveGridChanges = async function() {
         });
         const result = await res.json();
         if (result.success) {
-            alert('✅ บันทึกข้อมูลตู้สำเร็จ');
+            alert('✅ บันทึกข้อมูลเบอร์ตู้ลงตารางสำเร็จ');
             editedRowIndices.clear();
             loadContainerGridData();
         } else {

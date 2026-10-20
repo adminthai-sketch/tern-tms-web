@@ -175,11 +175,15 @@ function initBookingHandsontable(data) {
                     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
                     if (value) {
                         td.innerHTML = `
-                            <button onclick="window.goToFormEdit('${value}')" class="btn-grid btn-edit" title="กลับไปแก้ฟอร์ม"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
-                            <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage" title="จัดการตู้"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
-                            <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch" title="จัดการรถ"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
+                            <div class="flex items-center justify-center gap-1">
+                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-900 border border-amber-300 font-bold py-1 px-2 rounded flex items-center gap-1 text-[10px] transition-colors shadow-sm" title="กลับไปแก้ไขรายละเอียดในหน้าฟอร์ม">
+                                    <i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม
+                                </button>
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm" title="จัดการตู้คอนเทนเนอร์"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
+                                <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm" title="จัดการรถและคนขับ"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
+                            </div>
                         `;
-                        td.style.textAlign = 'center';
+                        td.style.verticalAlign = 'middle';
                     }
                 } 
             }

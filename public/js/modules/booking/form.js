@@ -63,15 +63,24 @@ async function loadBookingForEdit(bookingNo) {
             document.getElementById('pTripFee').value = item.trip_fee || '';
             document.getElementById('pTransFee').value = item.trans_fee || '';
 
-            // ฟังก์ชันย่อยแยก Date/Time ยัดใส่ 2 ช่อง
+            // 🌟 ฟังก์ชันย่อยแยก Date/Time ฉบับถึกทน (รองรับเวลาทุกรูปแบบ)
             const setDateTime = (idBase, dtStr) => {
                 if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return;
-                const cleanStr = String(dtStr).replace('T', ' '); // รองรับทั้งมี T และไม่มี T
-                const [d, t] = cleanStr.split(' ');
+                
+                // แปลงค่าทุกอย่างให้อยู่ในรูปที่มีตัว T ตรงกลางเสมอ เช่น 2026-10-19T10:52:00
+                let cleanStr = String(dtStr).trim().replace(' ', 'T'); 
+                
+                // ตัดเอาแค่ 16 ตัวแรก (YYYY-MM-DDTHH:mm)
+                if (cleanStr.length > 16) cleanStr = cleanStr.substring(0, 16);
+                
+                // แยกเป็น วันที่ และ เวลา
+                const [d, t] = cleanStr.split('T');
+                
                 const dateInput = document.getElementById(idBase + 'Date');
                 const timeInput = document.getElementById(idBase + 'Time');
+                
                 if (dateInput && d) dateInput.value = d;
-                if (timeInput && t) timeInput.value = t.substring(0, 5);
+                if (timeInput && t) timeInput.value = t;
             };
 
             // เติมข้อมูลแยกตามโหมด

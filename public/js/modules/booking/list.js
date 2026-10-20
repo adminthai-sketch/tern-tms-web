@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Fix Demurrage Display)
+// 📋 MODULE: BOOKING LIST (Fix Demurrage Display & Edit Form Button)
 // ==========================================
 
 let hotGridInstance = null;
@@ -122,7 +122,6 @@ function initBookingHandsontable(data) {
         if (item.cutoff_time && String(item.cutoff_time).trim() !== 'NaN' && String(item.cutoff_time).trim() !== 'null') pickup.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
         if (item.rent_cutoff && String(item.rent_cutoff).trim() !== 'NaN' && String(item.rent_cutoff).trim() !== 'null') pickup.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
         
-        // 🌟 แก้ไข: เพิ่มแสดงผล Demurrage
         if (item.demurrage && String(item.demurrage).trim() !== 'NaN' && String(item.demurrage).trim() !== 'null') pickup.push(`DEMUR: ${formatDateTime(item.demurrage)}`);
 
         let delivery = [];
@@ -176,8 +175,9 @@ function initBookingHandsontable(data) {
                     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
                     if (value) {
                         td.innerHTML = `
-                            <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
-                            <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
+                            <button onclick="window.goToFormEdit('${value}')" class="btn-grid btn-edit" title="กลับไปแก้ฟอร์ม"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
+                            <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage" title="จัดการตู้"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
+                            <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch" title="จัดการรถ"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
                         `;
                         td.style.textAlign = 'center';
                     }
@@ -205,6 +205,11 @@ function initBookingHandsontable(data) {
         }
     });
 }
+
+// ฟังก์ชันสำหรับลิงก์ไปหน้า Edit Form (ต้องอยู่นอกสุด)
+window.goToFormEdit = function(bookingNo) {
+    window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`;
+};
 
 window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
     Handsontable.renderers.TextRenderer.apply(this, arguments);
@@ -321,8 +326,6 @@ window.saveDateTimeModal = function() {
     if (item.vgm_cutoff && item.vgm_cutoff !== 'null') pickupInfo.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
     if (item.cutoff_time && item.cutoff_time !== 'null') pickupInfo.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
     if (item.rent_cutoff && item.rent_cutoff !== 'null') pickupInfo.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
-    
-    // 🌟 แก้ไข: เพิ่มแสดงผล Demurrage หลังจากเซฟ
     if (item.demurrage && item.demurrage !== 'null') pickupInfo.push(`DEMUR: ${formatDateTime(item.demurrage)}`);
     
     if (item.load_date && item.load_date !== 'null') deliveryInfo.push(`LOAD: ${formatDateTime(item.load_date)}`);

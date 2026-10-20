@@ -12,11 +12,9 @@ const cleanNum = (val) => {
 
 // POST /api/bookings/header (บันทึกหัวบิล)
 router.post('/bookings/header', async (req, res) => {
-    // 1. รับค่าจาก req.body (เพิ่ม agent เข้ามาแก้ Error)
     const { 
         mode, run_date, container_count, job_name, customer_name, booking_no, origin, destination,
-        agent, // 👈 แกะตัวแปร agent ออกมาตรงนี้
-        cy_date, vgm_cutoff, cutoff_time, load_date, open_gate,
+        agent, cy_date, vgm_cutoff, cutoff_time, load_date, open_gate,
         rent_cutoff, demurrage, unload_date, return_date,
         job_type, price_type, trip_fee, trans_fee
     } = req.body;
@@ -26,7 +24,6 @@ router.post('/bookings/header', async (req, res) => {
     try {
         const b_no = booking_no || `BK-${Date.now()}`;
         
-        // 2. สร้าง SQL Query (เพิ่มคอลัมน์ agent และผูก $1 - $22)
         const query = `
             INSERT INTO bookings (
                 booking_no, mode, booking_date, run_date, job_name, customer_name, container_count, origin, destination,
@@ -46,30 +43,11 @@ router.post('/bookings/header', async (req, res) => {
             RETURNING id, booking_no;
         `;
 
-        // 3. ผูกค่าตัวแปร
         const values = [
-            b_no, 
-            cleanVal(mode),            // $2
-            run_date,                  // $3
-            job_name || '',            // $4
-            customer_name || '',       // $5
-            container_count || 1,      // $6
-            origin || '',              // $7
-            destination || '',         // $8
-            cleanVal(agent),           // $9 (ดึงค่าจาก req.body มาใช้)
-            cleanVal(cy_date),         // $10
-            cleanVal(vgm_cutoff),      // $11
-            cleanVal(cutoff_time),     // $12
-            cleanVal(load_date),       // $13
-            cleanVal(open_gate),       // $14
-            cleanVal(rent_cutoff),     // $15
-            cleanVal(demurrage),       // $16
-            cleanVal(unload_date),     // $17
-            cleanVal(return_date),     // $18
-            cleanVal(job_type),        // $19 
-            cleanVal(price_type),      // $20 
-            cleanNum(trip_fee),        // $21
-            cleanNum(trans_fee)        // $22
+            b_no, cleanVal(mode), run_date, job_name || '', customer_name || '', container_count || 1, origin || '', destination || '',
+            cleanVal(agent), cleanVal(cy_date), cleanVal(vgm_cutoff), cleanVal(cutoff_time), cleanVal(load_date), cleanVal(open_gate),
+            cleanVal(rent_cutoff), cleanVal(demurrage), cleanVal(unload_date), cleanVal(return_date),
+            cleanVal(job_type), cleanVal(price_type), cleanNum(trip_fee), cleanNum(trans_fee)
         ];
         
         const result = await pool.query(query, values);
@@ -156,8 +134,12 @@ router.get('/bookings/search', async (req, res) => {
     try {
         const { start_date, end_date, search, customer } = req.query;
         
+        // 🌟 แก้ไข: สั่งให้ดึงคอลัมน์เวลาต่างๆ และชื่องาน ออกมาให้ครบถ้วน 🌟
         let query = `
-            SELECT id, booking_no, run_date, customer_name, origin, destination, container_count, mode, job_type 
+            SELECT 
+                id, booking_no, run_date, customer_name, origin, destination, container_count, mode, job_type,
+                job_name, cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, 
+                rent_cutoff, demurrage, unload_date, return_date
             FROM bookings 
             WHERE 1=1
         `;
@@ -191,7 +173,6 @@ router.get('/bookings/search', async (req, res) => {
 router.get('/bookings/:booking_no/containers', async (req, res) => {
     try {
         const { booking_no } = req.params;
-        // ดึงข้อมูลจากตาราง shipments ที่มี booking_no ตรงกัน
         const result = await pool.query(`
             SELECT id, order_id, status, raw_data 
             FROM shipments 
@@ -208,7 +189,6 @@ router.get('/bookings/:booking_no/containers', async (req, res) => {
 // 3. PUT /api/shipments/update-container (อัปเดตข้อมูลรายตู้ เช่น จัดรถ, ใส่เบอร์ตู้)
 router.put('/shipments/update-container', async (req, res) => {
     const { order_id, status, raw_data } = req.body;
-    
     if (!order_id) return res.status(400).json({ success: false, message: 'ไม่พบ Order ID' });
 
     try {

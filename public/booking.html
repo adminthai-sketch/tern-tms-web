@@ -202,9 +202,9 @@
                         <p class="text-sm text-slate-500 font-medium"><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> กดบันทึกเพื่อยิงข้อมูล 1 Job นี้เข้าสู่ระบบฐานข้อมูล</p>
                         <div class="flex gap-3">
                             <button onclick="cancelEdit()" id="btn-cancel-edit" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-lg transition-colors border border-slate-300 shadow-sm">✖ ยกเลิกการแก้ไข</button>
-                            <button onclick="processSingleSave(this)" id="btn-submit-form" class="bg-primary hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5">
-                                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลรับงาน (Save)
-                            </button>
+                            <button onclick="submitBookingForm(this)" id="btn-submit-form" class="bg-primary hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5">
+    <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลรับงาน (Save)
+</button>
                         </div>
                     </div>
                 </div>
@@ -223,9 +223,7 @@
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
-        async function processSingleSave(btn) {
-            if (typeof generateData === 'function') await generateData(btn);
-        }
+       
     </script>
 </body>
 </html>

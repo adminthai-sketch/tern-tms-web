@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: CONTAINER MANAGE (Zebra UI, URL Auto-Filter, Search, Cascade Fix)
+// 📋 MODULE: CONTAINER MANAGE (Full Features, Auto-Count, Unhide Button)
 // ==========================================
 
 let hotGridInstance = null;
@@ -10,14 +10,12 @@ let userGridSettings = {};
 
 window.addEventListener('DOMContentLoaded', () => {
     applyZebraStripingCSS(); 
-    
     const today = new Date();
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     try {
         const savedData = localStorage.getItem('tms_container_manage_settings');
         if (savedData) userGridSettings = JSON.parse(savedData);
     } catch (err) {}
-    
     loadContainerGridData();
 });
 
@@ -47,7 +45,6 @@ async function loadContainerGridData() {
             rawShipmentsList = result.data; 
             populateFilters(rawShipmentsList);
             
-            // ตรวจสอบ URL เพื่อ Filter อัตโนมัติ (กรณีกดมาจากปุ่ม "ลงตู้")
             const urlParams = new URLSearchParams(window.location.search);
             const selectBooking = urlParams.get('select');
             if (selectBooking) {
@@ -60,7 +57,6 @@ async function loadContainerGridData() {
                 }
                 window.history.replaceState({}, document.title, "/booking-manage.html");
             }
-
             applyFilters();
         } else {
             initContainerHandsontable([]);
@@ -84,57 +80,44 @@ function populateFilters(data) {
         if(r[6]) custs.add(r[6]); 
         if(r[7]) books.add(r[7]);
     });
-    
     Array.from(dates).sort().forEach(d => sD.innerHTML += `<option value="${d}">${d}</option>`);
     Array.from(custs).sort().forEach(c => sC.innerHTML += `<option value="${c}">${c}</option>`);
     Array.from(books).sort().forEach(b => sB.innerHTML += `<option value="${b}">${b}</option>`);
 }
 
-// 🌟 ซ่อมระบบกรองแบบ Cascade (หน้าลงตู้) 🌟
-window.onCascadeChangeDate = function() {
-    const d = document.getElementById('filter-run-date').value;
-    let scoped = rawShipmentsList;
-    if (d) scoped = rawShipmentsList.filter(r => r[4] === d);
-    populateFiltersForCascade(scoped, true, true);
-    applyFilters();
-}
-
-window.onCascadeChangeCustomer = function() {
+// 🌟 ตัวกรองทำงานประสานกัน (Cascade) 🌟
+window.onCascadeChange = function() {
     const d = document.getElementById('filter-run-date').value;
     const c = document.getElementById('filter-customer').value;
+    
     let scoped = rawShipmentsList;
     if (d) scoped = scoped.filter(r => r[4] === d);
-    if (c) scoped = scoped.filter(r => r[6] === c);
-    populateFiltersForCascade(scoped, false, true);
-    applyFilters();
-}
+    
+    const sC = document.getElementById('filter-customer');
+    const cVal = sC.value;
+    sC.innerHTML = '<option value="">-- ลูกค้า (Customer) --</option>';
+    const custs = new Set();
+    scoped.forEach(r => { if(r[6]) custs.add(r[6]); });
+    Array.from(custs).sort().forEach(cust => sC.innerHTML += `<option value="${cust}">${cust}</option>`);
+    if(Array.from(custs).includes(cVal)) sC.value = cVal;
 
-function populateFiltersForCascade(data, updateCust, updateBook) {
-    if(updateCust) {
-        const sC = document.getElementById('filter-customer');
-        const cVal = sC.value;
-        sC.innerHTML = '<option value="">-- ลูกค้า (Customer) --</option>';
-        const custs = new Set();
-        data.forEach(r => { if(r[6]) custs.add(r[6]); });
-        Array.from(custs).sort().forEach(c => sC.innerHTML += `<option value="${c}">${c}</option>`);
-        if(Array.from(custs).includes(cVal)) sC.value = cVal;
-    }
-    if(updateBook) {
-        const sB = document.getElementById('filter-booking-no');
-        const bVal = sB.value;
-        sB.innerHTML = '<option value="">-- ทุก Booking / BL --</option>';
-        const books = new Set();
-        data.forEach(r => { if(r[7]) books.add(r[7]); });
-        Array.from(books).sort().forEach(b => sB.innerHTML += `<option value="${b}">${b}</option>`);
-        if(Array.from(books).includes(bVal)) sB.value = bVal;
-    }
+    if (c) scoped = scoped.filter(r => r[6] === c);
+    
+    const sB = document.getElementById('filter-booking-no');
+    const bVal = sB.value;
+    sB.innerHTML = '<option value="">-- ทุก Booking / BL --</option>';
+    const books = new Set();
+    scoped.forEach(r => { if(r[7]) books.add(r[7]); });
+    Array.from(books).sort().forEach(book => sB.innerHTML += `<option value="${book}">${book}</option>`);
+    if(Array.from(books).includes(bVal)) sB.value = bVal;
+
+    applyFilters();
 }
 
 window.applyFilters = function() {
     const d = document.getElementById('filter-run-date')?.value || '';
     const c = document.getElementById('filter-customer')?.value || '';
     const b = document.getElementById('filter-booking-no')?.value || '';
-    
     const searchEl = document.getElementById('search-text');
     const txt = searchEl ? searchEl.value.toLowerCase().trim() : '';
 
@@ -159,16 +142,26 @@ window.clearQuickFilters = function() {
     applyFilters();
 };
 
+// 🌟 ฟังก์ชันยกเลิกซ่อนคอลัมน์ (ง่ายๆ แค่กดปุ่มเดียว) 🌟
+window.unhideAllColumns = function() {
+    if (!hotGridInstance) return;
+    const plugin = hotGridInstance.getPlugin('hiddenColumns');
+    plugin.showColumns(Array.from({length: hotGridInstance.countCols()}, (_, i) => i));
+    hotGridInstance.render();
+    saveGridUIState();
+};
+
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid');
     if (hotGridInstance) { hotGridInstance.destroy(); }
     document.getElementById('total-count').innerText = `${data.length} รายการ`;
 
-    const gridData = data.length > 0 ? data : Array.from({ length: 15 }, () => new Array(21).fill(""));
+    const gridData = data.length > 0 ? data : Array.from({ length: 15 }, () => new Array(29).fill(""));
     const colHeaders = [
         '✔', 'order ID', 'MODE', 'วันที่Booking', 'วันที่วิ่งงาน', 'ชื่องาน', 'ลูกค้า', 'BOOKING NO.', 
         'เบอร์ตู้1', 'เบอร์ตู้2', 'จำนวนตู้/ใบ', 'ขนาดตู้', 'ประเภทงาน', 'AGENT', 'POD', 'SEAL NO.', 
-        'TARE', 'MAX GROSS', 'CY DATE (EX/IM)', 'ค่าเที่ยว', 'ค่าขนส่ง'
+        'TARE', 'MAX GROSS', 'CY DATE', 'ค่าเที่ยว', 'ค่าขนส่ง',
+        'VGM CUTOFF', 'CUTOFF TIME', 'RENT CUTOFF', 'DEMURRAGE', 'LOAD DATE', 'UNLOAD DATE', 'OPEN GATE', 'RETURN DATE'
     ];
 
     let moveConfig = true;
@@ -188,32 +181,51 @@ function initContainerHandsontable(data) {
             { type: 'text' }, { type: 'text' }, { type: 'text', className: 'font-bold uppercase text-primary' }, 
             { type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
             { type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
-            { type: 'numeric' }, { type: 'dropdown', source: ['20', '40', '40HC'] }, 
+            { type: 'numeric', className: 'htCenter font-bold bg-amber-50' }, 
+            { type: 'dropdown', source: ['20', '40', '40HC'] }, 
             { type: 'dropdown', source: ['CONTAINER', 'Domestic'] }, 
             { type: 'text' }, { type: 'text' }, { type: 'text' }, 
             { type: 'numeric' }, { type: 'numeric' }, 
             { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, 
             { type: 'numeric', numericFormat: { pattern: '0,0' } }, 
-            { type: 'numeric', numericFormat: { pattern: '0,0' } }
+            { type: 'numeric', numericFormat: { pattern: '0,0' } },
+            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' },
+            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' },
+            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' },
+            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', minSpareRows: 1,
         manualColumnResize: true, manualColumnMove: moveConfig,
         colWidths: userGridSettings.columnWidths || undefined,
-        hiddenColumns: { indicators: true },
-        contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'clear_column', 'undo', 'redo'],
+        
+        hiddenColumns: { indicators: true, hiddenColumns: userGridSettings.hiddenColumns || [] },
+        contextMenu: ['alignment', 'hidden_columns_hide', 'clear_column', 'undo', 'redo'],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
 
         afterChange: function(changes, source) {
             if (source === 'loadData' || !changes) return;
             changes.forEach(([row, prop, oldVal, newVal]) => {
-                if (oldVal !== newVal) editedRowIndices.add(row);
+                if (oldVal !== newVal) {
+                    editedRowIndices.add(row);
+                    // 🌟 นับจำนวนตู้อัตโนมัติเวลาใส่เบอร์ตู้ 1, 2 🌟
+                    if (prop === 8 || prop === 9) {
+                        const c1 = this.getDataAtCell(row, 8);
+                        const c2 = this.getDataAtCell(row, 9);
+                        let count = 0;
+                        if (c1 && String(c1).trim() !== '') count++;
+                        if (c2 && String(c2).trim() !== '') count++;
+                        this.setDataAtCell(row, 10, count > 0 ? count : 1, 'autoCalc'); 
+                    }
+                }
             });
             updateSaveStatusBadge();
             this.render(); 
         },
         afterColumnResize: function() { saveGridUIState(); },
         afterColumnMove: function() { saveGridUIState(); },
+        afterHideColumns: function() { saveGridUIState(); },
+        afterUnhideColumns: function() { saveGridUIState(); },
         cells: function(row, col) {
             const cp = {};
             if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
@@ -227,10 +239,15 @@ function saveGridUIState() {
     const colCount = hotGridInstance.countCols();
     const widths = [];
     for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
+    
     const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
     let positions = [];
     if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') positions = movePlugin.columnsMapper.getIndexesSequence();
-    userGridSettings = { columnWidths: widths, columnPositions: positions };
+    
+    const hiddenPlugin = hotGridInstance.getPlugin('hiddenColumns');
+    const hiddenCols = hiddenPlugin ? hiddenPlugin.getHiddenColumns() : [];
+
+    userGridSettings = { columnWidths: widths, columnPositions: positions, hiddenColumns: hiddenCols };
     localStorage.setItem('tms_container_manage_settings', JSON.stringify(userGridSettings));
 }
 
@@ -253,8 +270,7 @@ window.saveGridChanges = async function() {
     const orgText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
 
-    // กรองเอาเฉพาะข้อมูลที่มี Order ID เพื่อส่งให้ Backend
-    const dataToSave = hotGridInstance.getData().filter(row => row && row[1]);
+    const dataToSave = hotGridInstance.getData().filter(row => row && (row[1] || row[4]));
 
     try {
         const res = await fetch('/api/shipments', {

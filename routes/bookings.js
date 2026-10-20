@@ -9,15 +9,45 @@ const cleanNum = (val) => {
     return isNaN(num) ? 0 : num;
 };
 
-// 🌟 ฟังก์ชันฮีโร่: ซิงค์จำนวนตู้ (สร้าง/ลบ ออเดอร์อัตโนมัติ) 🌟
-async function syncShipments(client, booking_no, run_date, target_count, customer_name, job_name, mode, job_type, origin, destination, price_type, trip_fee, trans_fee, cy_date) {
-    const res = await client.query('SELECT order_id FROM shipments WHERE booking_no = $1 ORDER BY order_id ASC', [booking_no]);
+// 🌟 ฟังก์ชันฮีโร่: ซิงค์เวลาลงตู้ย่อย และ สร้าง/ลบตู้อัตโนมัติ 🌟
+async function syncShipments(client, b) {
+    const res = await client.query('SELECT order_id, raw_data FROM shipments WHERE booking_no = $1 ORDER BY order_id ASC', [b.booking_no]);
     const current_shipments = res.rows;
     const current_count = current_shipments.length;
+    const target_count = parseInt(b.container_count || 1);
+    
+    // 1. อัปเดตข้อมูลตู้ที่มีอยู่แล้ว ให้ตรงกับหัวบิลที่แก้ไข (เผื่อเปลี่ยนเวลาหรือลูกค้า)
+    for (const ship of current_shipments) {
+        let raw = [];
+        try { raw = JSON.parse(ship.raw_data); } catch(e) {}
+        while (raw.length < 29) raw.push(''); // ขยายแถวให้ครบ 29 คอลัมน์ (เผื่อของเก่าสั้น)
+        
+        raw[2] = b.mode || raw[2];
+        raw[4] = b.run_date || raw[4];
+        raw[5] = b.job_name || raw[5];
+        raw[6] = b.customer_name || raw[6];
+        raw[12] = b.job_type || raw[12];
+        raw[13] = b.agent || raw[13];
+        raw[18] = b.cy_date || raw[18];
+        raw[19] = b.trip_fee !== undefined ? b.trip_fee : raw[19];
+        raw[20] = b.trans_fee !== undefined ? b.trans_fee : raw[20];
+        raw[21] = b.vgm_cutoff || raw[21];
+        raw[22] = b.cutoff_time || raw[22];
+        raw[23] = b.rent_cutoff || raw[23];
+        raw[24] = b.demurrage || raw[24];
+        raw[25] = b.load_date || raw[25];
+        raw[26] = b.unload_date || raw[26];
+        raw[27] = b.open_gate || raw[27];
+        raw[28] = b.return_date || raw[28];
+        
+        await client.query(`UPDATE shipments SET run_date=$1, customer_name=$2, raw_data=$3 WHERE order_id=$4`, 
+        [raw[4], raw[6], JSON.stringify(raw), ship.order_id]);
+    }
 
+    // 2. ถ้าเพิ่มจำนวนตู้ -> สร้างออเดอร์ใหม่เพิ่ม
     if (current_count < target_count) {
         const to_create = target_count - current_count;
-        const dateObj = new Date(run_date);
+        const dateObj = new Date(b.run_date);
         const yy = String(dateObj.getFullYear()).substring(2);
         const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
         const dd = String(dateObj.getDate()).padStart(2, '0');
@@ -33,14 +63,16 @@ async function syncShipments(client, booking_no, run_date, target_count, custome
         for (let i = 0; i < to_create; i++) {
             const new_order_id = `${prefix}${String(start_num + i).padStart(3, '0')}`;
             const raw_data = [
-                false, new_order_id, mode || '', '', run_date || '', job_name || '', customer_name || '', booking_no,
-                '', '', 1, '', job_type || '', '', '', '', '', '', cy_date || '', trip_fee || 0, trans_fee || 0
+                false, new_order_id, b.mode || '', '', b.run_date || '', b.job_name || '', b.customer_name || '', b.booking_no,
+                '', '', 1, '', b.job_type || '', b.agent || '', '', '', '', '', b.cy_date || '', b.trip_fee || 0, b.trans_fee || 0,
+                b.vgm_cutoff || '', b.cutoff_time || '', b.rent_cutoff || '', b.demurrage || '', b.load_date || '', b.unload_date || '', b.open_gate || '', b.return_date || ''
             ];
             await client.query(`INSERT INTO shipments (order_id, run_date, customer_name, booking_no, status, raw_data) VALUES ($1, $2, $3, $4, 'รอจัดรถ', $5)`, 
-            [new_order_id, run_date, customer_name, booking_no, JSON.stringify(raw_data)]);
+            [new_order_id, b.run_date, b.customer_name, b.booking_no, JSON.stringify(raw_data)]);
         }
-    } else if (current_count > target_count) {
-        const to_delete = current_count - target_count;
+    } 
+    // 3. ถ้าลดจำนวนตู้ -> ลบออเดอร์ส่วนเกินทิ้ง (ลบจากล่างขึ้นบน)
+    else if (current_count > target_count) {
         const ids_to_delete = [];
         for (let i = current_count - 1; i >= target_count; i--) ids_to_delete.push(current_shipments[i].order_id);
         if (ids_to_delete.length > 0) {
@@ -50,20 +82,15 @@ async function syncShipments(client, booking_no, run_date, target_count, custome
     }
 }
 
-// POST /api/bookings/header (บันทึกหัวบิล + ซิงค์ตู้)
+// POST /api/bookings/header (บันทึกหัวบิล)
 router.post('/bookings/header', async (req, res) => {
-    const { 
-        mode, run_date, container_count, job_name, customer_name, booking_no, origin, destination,
-        agent, cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, rent_cutoff, demurrage, unload_date, return_date,
-        job_type, price_type, trip_fee, trans_fee
-    } = req.body;
-
-    if (!mode || !run_date) return res.status(400).json({ success: false, message: 'กรุณากรอก Mode และวันที่วิ่งงาน' });
+    const b = req.body;
+    if (!b.mode || !b.run_date) return res.status(400).json({ success: false, message: 'กรุณากรอก Mode และวันที่วิ่งงาน' });
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const b_no = booking_no || `BK-${Date.now()}`;
+        b.booking_no = b.booking_no || `BK-${Date.now()}`;
         const query = `
             INSERT INTO bookings (
                 booking_no, mode, booking_date, run_date, job_name, customer_name, container_count, origin, destination,
@@ -80,34 +107,29 @@ router.post('/bookings/header', async (req, res) => {
             RETURNING id, booking_no;
         `;
         const values = [
-            b_no, cleanVal(mode), run_date, job_name || '', customer_name || '', container_count || 1, origin || '', destination || '',
-            cleanVal(agent), cleanVal(cy_date), cleanVal(vgm_cutoff), cleanVal(cutoff_time), cleanVal(load_date), cleanVal(open_gate),
-            cleanVal(rent_cutoff), cleanVal(demurrage), cleanVal(unload_date), cleanVal(return_date),
-            cleanVal(job_type), cleanVal(price_type), cleanNum(trip_fee), cleanNum(trans_fee)
+            b.booking_no, cleanVal(b.mode), b.run_date, b.job_name || '', b.customer_name || '', b.container_count || 1, b.origin || '', b.destination || '',
+            cleanVal(b.agent), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.load_date), cleanVal(b.open_gate),
+            cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.unload_date), cleanVal(b.return_date),
+            cleanVal(b.job_type), cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee)
         ];
         
         const result = await client.query(query, values);
         
-        // 🌟 เรียกใช้ฮีโร่ของเราเพื่อซิงค์จำนวนตู้ลงใน shipments อัตโนมัติ 🌟
-        await syncShipments(client, b_no, run_date, parseInt(container_count || 1), customer_name, job_name, mode, job_type, origin, destination, price_type, trip_fee, trans_fee, cy_date);
+        // ส่งออบเจกต์ b ไปให้ฟังก์ชันซิงค์จัดการต่อ
+        await syncShipments(client, b);
         
         await client.query('COMMIT');
         res.json({ success: true, message: `บันทึกหัวบุคกิ้งเลข ${result.rows[0].booking_no} เรียบร้อย!`, bookingId: result.rows[0].id });
     } catch (error) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการบันทึกลง DB: ' + error.message });
-    } finally {
-        client.release();
-    }
+    } finally { client.release(); }
 });
 
 // PUT /api/bookings/:id (อัปเดตจากหน้ากริด)
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
-    const { 
-        booking_no, mode, run_date, customer_name, job_name, job_type, origin, destination, container_count, price_type, trip_fee, trans_fee,
-        cy_date, vgm_cutoff, cutoff_time, rent_cutoff, demurrage, load_date, unload_date, open_gate, return_date
-    } = req.body;
+    const b = req.body;
 
     const client = await pool.connect();
     try {
@@ -119,24 +141,22 @@ router.put('/bookings/:id', async (req, res) => {
                 demurrage=$16, load_date=$17, unload_date=$18, open_gate=$19, return_date=$20, updated_at=NOW()
             WHERE id=$21
         `, [
-            cleanVal(mode), run_date, customer_name || '', job_name || '', cleanVal(job_type), origin || '', destination || '', container_count || 1,
-            cleanVal(price_type), cleanNum(trip_fee), cleanNum(trans_fee), cleanVal(cy_date), cleanVal(vgm_cutoff), cleanVal(cutoff_time), cleanVal(rent_cutoff),
-            cleanVal(demurrage), cleanVal(load_date), cleanVal(unload_date), cleanVal(open_gate), cleanVal(return_date), id
+            cleanVal(b.mode), b.run_date, b.customer_name || '', b.job_name || '', cleanVal(b.job_type), b.origin || '', b.destination || '', b.container_count || 1,
+            cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.rent_cutoff),
+            cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), cleanVal(b.open_gate), cleanVal(b.return_date), id
         ]);
         
-        await syncShipments(client, booking_no, run_date, parseInt(container_count || 1), customer_name, job_name, mode, job_type, origin, destination, price_type, trip_fee, trans_fee, cy_date);
+        await syncShipments(client, b);
         
         await client.query('COMMIT');
         res.json({ success: true, message: 'อัปเดตและซิงค์ตู้สำเร็จ' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
-    } finally {
-        client.release();
-    }
+    } finally { client.release(); }
 });
 
-// GET /api/shipments (โหลดตารางลงตู้)
+// GET /api/shipments
 router.get('/shipments', async (req, res) => {
     try {
         const { year, month } = req.query;
@@ -152,7 +172,7 @@ router.get('/shipments', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-// POST /api/shipments (บันทึกตารางลงตู้แบบ Manual)
+// POST /api/shipments (บันทึกและรันออเดอร์ให้แถวใหม่)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลสำหรับบันทึก' });
@@ -161,12 +181,30 @@ router.post('/shipments', async (req, res) => {
     try {
         await client.query('BEGIN');
         for (const row of data) {
-            const order_id = cleanVal(row[1]);
-            if (!order_id) continue;
+            let order_id = cleanVal(row[1]);
             const run_date = cleanVal(row[4]);
             const customer_name = cleanVal(row[6]) || '';
             const booking_no = cleanVal(row[7]) || '';
             const status = row[row.length - 1] || 'รอจัดรถ';
+
+            // ถ้าไม่มี Order ID ให้ระบบรันเลขให้ใหม่
+            if (!order_id) {
+                if (!run_date) continue; 
+                const dateObj = new Date(run_date);
+                const yy = String(dateObj.getFullYear()).substring(2);
+                const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const dd = String(dateObj.getDate()).padStart(2, '0');
+                const prefix = `ORD-${yy}${mm}${dd}-`;
+
+                const lastOrderRes = await client.query(`SELECT order_id FROM shipments WHERE order_id LIKE $1 ORDER BY order_id DESC LIMIT 1`, [`${prefix}%`]);
+                let start_num = 1;
+                if (lastOrderRes.rows.length > 0) {
+                    const parts = lastOrderRes.rows[0].order_id.split('-');
+                    if (parts.length === 3) start_num = parseInt(parts[2], 10) + 1;
+                }
+                order_id = `${prefix}${String(start_num).padStart(3, '0')}`;
+                row[1] = order_id; // เขียนทับใส่กลับไปใน raw_data
+            }
 
             await client.query(`
                 INSERT INTO shipments (order_id, run_date, customer_name, booking_no, status, raw_data)

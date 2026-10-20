@@ -135,10 +135,11 @@ router.get('/bookings/search', async (req, res) => {
         const { start_date, end_date, search, customer } = req.query;
         
         // 🌟 แก้ไข: สั่งให้ดึงคอลัมน์เวลาต่างๆ และชื่องาน ออกมาให้ครบถ้วน 🌟
-        let query = `
+      let query = `
             SELECT 
                 id, booking_no, run_date, customer_name, origin, destination, container_count, mode, job_type,
-                job_name, cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, 
+                job_name, price_type, trip_fee, trans_fee,
+                cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, 
                 rent_cutoff, demurrage, unload_date, return_date
             FROM bookings 
             WHERE 1=1

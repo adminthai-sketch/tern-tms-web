@@ -1,16 +1,24 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Fix Demurrage Display & Edit Form Button)
+// 📋 MODULE: BOOKING LIST (With Financial Columns & Auto-Save Grid Settings)
 // ==========================================
 
 let hotGridInstance = null;
 let rawBookingList = []; 
 let filteredList = [];   
 let editedRowIndices = new Set(); 
+let userGridSettings = {}; // เก็บการตั้งค่าตาราง
 
 window.addEventListener('DOMContentLoaded', () => {
     const today = new Date();
     const monthStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     document.getElementById('filter-month').value = monthStr;
+    
+    // โหลดตั้งค่าตาราง (จำมุมมอง)
+    try {
+        const savedData = localStorage.getItem('tms_booking_list_settings');
+        if (savedData) userGridSettings = JSON.parse(savedData);
+    } catch (err) {}
+
     loadBookingGridData();
 });
 
@@ -121,7 +129,6 @@ function initBookingHandsontable(data) {
         if (item.vgm_cutoff && String(item.vgm_cutoff).trim() !== 'NaN' && String(item.vgm_cutoff).trim() !== 'null') pickup.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
         if (item.cutoff_time && String(item.cutoff_time).trim() !== 'NaN' && String(item.cutoff_time).trim() !== 'null') pickup.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
         if (item.rent_cutoff && String(item.rent_cutoff).trim() !== 'NaN' && String(item.rent_cutoff).trim() !== 'null') pickup.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
-        
         if (item.demurrage && String(item.demurrage).trim() !== 'NaN' && String(item.demurrage).trim() !== 'null') pickup.push(`DEMUR: ${formatDateTime(item.demurrage)}`);
 
         let delivery = [];
@@ -142,9 +149,13 @@ function initBookingHandsontable(data) {
             item.run_date ? String(item.run_date).split('T')[0] : '', 
             item.customer_name || '', 
             jobNameDisplay,
+            item.job_type || '',           // ประเภทงาน
             item.origin || '', 
             item.destination || '', 
             item.container_count || 1, 
+            item.price_type || '',         // ประเภทรถ
+            item.trip_fee || 0,            // ค่าเที่ยว
+            item.trans_fee || 0,           // ค่าขนส่ง
             pickup.join('\n') || 'คลิกเพิ่มเวลา', 
             delivery.join('\n') || 'คลิกเพิ่มเวลา', 
             ret.join('\n') || 'คลิกเพิ่มเวลา', 
@@ -152,9 +163,20 @@ function initBookingHandsontable(data) {
         ];
     });
 
+    const colHeaders = [
+        '✔', 'ID', 'Booking / BL', 'MODE', '📅 วันที่วิ่งงาน', 'ลูกค้า', 'ชื่องาน', 'ประเภทงาน', 
+        'ต้นทาง', 'ปลายทาง', 'ตู้', 'ประเภทรถ', 'ค่าเที่ยว', 'ค่าขนส่ง', 
+        '📦 PICK UP', '🚚 DELIVERY', '🔄 RETURN', 'การจัดการ'
+    ];
+
+    let moveConfig = true;
+    if (userGridSettings.columnPositions && userGridSettings.columnPositions.length === colHeaders.length) {
+        moveConfig = userGridSettings.columnPositions;
+    }
+
     hotGridInstance = new Handsontable(container, {
         data: formattedTableData,
-        colHeaders: ['✔', 'ID', 'Booking / BL', 'MODE', '📅 วันที่วิ่งงาน', 'ลูกค้า', 'ชื่องาน', 'ต้นทาง', 'ปลายทาง', 'ตู้', '📦 PICK UP', '🚚 DELIVERY', '🔄 RETURN', 'การจัดการ'],
+        colHeaders: colHeaders,
         columns: [
             { type: 'checkbox', className: 'htCenter htMiddle' }, 
             { readOnly: true, className: 'htCenter htMiddle text-slate-400 font-bold' }, 
@@ -163,9 +185,13 @@ function initBookingHandsontable(data) {
             { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter cursor-pointer' }, 
             { type: 'text', className: 'font-semibold text-slate-800' }, 
             { type: 'text', className: 'font-medium text-slate-800' },
+            { type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, 
             { type: 'text' }, 
             { type: 'text' }, 
             { type: 'numeric', className: 'htCenter font-bold text-blue-600 bg-blue-50/20' }, 
+            { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, 
+            { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold' }, 
+            { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold' }, 
             { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
             { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
             { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
@@ -176,11 +202,11 @@ function initBookingHandsontable(data) {
                     if (value) {
                         td.innerHTML = `
                             <div class="flex items-center justify-center gap-1">
-                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-900 border border-amber-300 font-bold py-1 px-2 rounded flex items-center gap-1 text-[10px] transition-colors shadow-sm" title="กลับไปแก้ไขรายละเอียดในหน้าฟอร์ม">
+                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-900 border border-amber-300 font-bold py-1 px-2 rounded flex items-center gap-1 text-[10px] transition-colors shadow-sm" title="แก้ไขฟอร์มเต็ม">
                                     <i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม
                                 </button>
-                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm" title="จัดการตู้คอนเทนเนอร์"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
-                                <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm" title="จัดการรถและคนขับ"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
+                                <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
                             </div>
                         `;
                         td.style.verticalAlign = 'middle';
@@ -189,19 +215,25 @@ function initBookingHandsontable(data) {
             }
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
-        manualColumnResize: true, manualColumnMove: true,
+        manualColumnResize: true, 
+        manualColumnMove: moveConfig,
+        colWidths: userGridSettings.columnWidths || [30, 45, 120, 75, 95, 120, 140, 90, 90, 90, 40, 80, 75, 75, 140, 140, 140, 130],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
-        colWidths: [30, 45, 120, 75, 95, 120, 140, 90, 90, 40, 140, 140, 140, 130],
 
         afterChange: function(changes, source) {
             if (source === 'loadData' || !changes) return;
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
+                
+                // ถ้าราคาเปลี่ยน จะแจ้งเตือนไหม หรือ auto-save ในตารางได้เลย
             });
             updateSaveStatusBadge();
             this.render(); 
         },
+        afterColumnResize: function() { saveGridUIState(); },
+        afterColumnMove: function() { saveGridUIState(); },
+        
         cells: function(row, col) {
             const cp = {};
             if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
@@ -210,7 +242,24 @@ function initBookingHandsontable(data) {
     });
 }
 
-// ฟังก์ชันสำหรับลิงก์ไปหน้า Edit Form (ต้องอยู่นอกสุด)
+// 💾 ฟังก์ชันจำค่าคอลัมน์ลงเบราว์เซอร์
+function saveGridUIState() {
+    if (!hotGridInstance) return;
+    const colCount = hotGridInstance.countCols();
+    const widths = [];
+    for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
+
+    const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
+    let positions = [];
+    if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
+        positions = movePlugin.columnsMapper.getIndexesSequence();
+    }
+
+    userGridSettings = { columnWidths: widths, columnPositions: positions };
+    localStorage.setItem('tms_booking_list_settings', JSON.stringify(userGridSettings));
+}
+
+// ฟังก์ชันสำหรับลิงก์ไปหน้า Edit Form
 window.goToFormEdit = function(bookingNo) {
     window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`;
 };
@@ -255,7 +304,7 @@ window.openDateTimeModal = function(row, col) {
     let html = '';
     let title = '';
 
-    if (col === 10) { // PICK UP
+    if (col === 14) { // PICK UP (คอลัมน์ขยับจาก 10 เป็น 14 เพราะแทรกไป 4 คอลัมน์)
         title = 'เวลา PICK UP (รับตู้/ลาน)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
@@ -266,20 +315,22 @@ window.openDateTimeModal = function(row, col) {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (Time)', item.rent_cutoff);
             html += createDatetimeInput('demurrage', 'Demurrage', item.demurrage);
         }
-    } else if (col === 11) { // DELIVERY
+    } else if (col === 15) { // DELIVERY (11 -> 15)
         title = 'เวลา DELIVERY (โหลดของ/ลงของ)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('load_date', 'Load Date & Time', item.load_date);
         } else {
             html += createDatetimeInput('unload_date', 'Unload Date & Time', item.unload_date);
         }
-    } else if (col === 12) { // RETURN
+    } else if (col === 16) { // RETURN (12 -> 16)
         title = 'เวลา RETURN (คืนตู้/เข้าท่า)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
         } else {
             html += createDatetimeInput('return_date', 'Return Date & Time', item.return_date);
         }
+    } else {
+        return; // ไม่ใช่ช่องเวลา
     }
 
     document.getElementById('modal-title').innerText = title;
@@ -338,9 +389,9 @@ window.saveDateTimeModal = function() {
     if (item.open_gate && item.open_gate !== 'null') returnInfo.push(`GATE: ${formatDateTime(item.open_gate)}`);
     if (item.return_date && item.return_date !== 'null') returnInfo.push(`RETURN: ${formatDateTime(item.return_date)}`);
 
-    if (currentModalCol === 10) hotGridInstance.setDataAtCell(currentModalRow, 10, pickupInfo.join('\n') || 'คลิกเพิ่มเวลา');
-    if (currentModalCol === 11) hotGridInstance.setDataAtCell(currentModalRow, 11, deliveryInfo.join('\n') || 'คลิกเพิ่มเวลา');
-    if (currentModalCol === 12) hotGridInstance.setDataAtCell(currentModalRow, 12, returnInfo.join('\n') || 'คลิกเพิ่มเวลา');
+    if (currentModalCol === 14) hotGridInstance.setDataAtCell(currentModalRow, 14, pickupInfo.join('\n') || 'คลิกเพิ่มเวลา');
+    if (currentModalCol === 15) hotGridInstance.setDataAtCell(currentModalRow, 15, deliveryInfo.join('\n') || 'คลิกเพิ่มเวลา');
+    if (currentModalCol === 16) hotGridInstance.setDataAtCell(currentModalRow, 16, returnInfo.join('\n') || 'คลิกเพิ่มเวลา');
 
     editedRowIndices.add(currentModalRow);
     updateSaveStatusBadge();
@@ -377,8 +428,9 @@ window.saveGridChanges = async function() {
 
         const updateData = {
             booking_no: row[2], mode: row[3], run_date: row[4],
-            customer_name: row[5], job_name: row[6], origin: row[7], 
-            destination: row[8], container_count: row[9],
+            customer_name: row[5], job_name: row[6], job_type: row[7], origin: row[8], 
+            destination: row[9], container_count: row[10], price_type: row[11],
+            trip_fee: row[12], trans_fee: row[13],
             cy_date: item.cy_date, vgm_cutoff: item.vgm_cutoff, cutoff_time: item.cutoff_time,
             rent_cutoff: item.rent_cutoff, demurrage: item.demurrage,
             load_date: item.load_date, unload_date: item.unload_date,

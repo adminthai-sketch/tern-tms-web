@@ -9,16 +9,22 @@ let editedRowIndices = new Set();
 let userGridSettings = {}; 
 
 window.addEventListener('DOMContentLoaded', () => {
-    applyZebraStripingCSS();
+    applyZebraStripingCSS(); 
     
     const today = new Date();
     const monthStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     document.getElementById('filter-month').value = monthStr;
     
-    try {
-        const savedData = localStorage.getItem('tms_booking_list_settings');
-        if (savedData) userGridSettings = JSON.parse(savedData);
-    } catch (err) {}
+    // 🌟 เพิ่ม Version Control เคลียร์ค่าจำผิดปกติ
+    if (localStorage.getItem('tms_list_version') !== '1.2') {
+        localStorage.removeItem('tms_booking_list_settings');
+        localStorage.setItem('tms_list_version', '1.2');
+    } else {
+        try {
+            const savedData = localStorage.getItem('tms_booking_list_settings');
+            if (savedData) userGridSettings = JSON.parse(savedData);
+        } catch (err) {}
+    }
 
     loadBookingGridData();
 });

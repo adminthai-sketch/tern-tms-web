@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: CONTAINER MANAGE (Full Features, Auto-Count, Unhide Button)
+// 📋 MODULE: CONTAINER MANAGE (Grouped Dates, Auto Order ID, Auto Count Container)
 // ==========================================
 
 let hotGridInstance = null;
@@ -12,10 +12,17 @@ window.addEventListener('DOMContentLoaded', () => {
     applyZebraStripingCSS(); 
     const today = new Date();
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-    try {
-        const savedData = localStorage.getItem('tms_container_manage_settings');
-        if (savedData) userGridSettings = JSON.parse(savedData);
-    } catch (err) {}
+    
+    // 🌟 รีเซ็ตการจำค่าเก่าที่พัง และโหลดค่าใหม่
+    if (localStorage.getItem('tms_manage_version') !== '1.2') {
+        localStorage.removeItem('tms_container_manage_settings');
+        localStorage.setItem('tms_manage_version', '1.2');
+    } else {
+        try {
+            const savedData = localStorage.getItem('tms_container_manage_settings');
+            if (savedData) userGridSettings = JSON.parse(savedData);
+        } catch (err) {}
+    }
     loadContainerGridData();
 });
 
@@ -85,7 +92,6 @@ function populateFilters(data) {
     Array.from(books).sort().forEach(b => sB.innerHTML += `<option value="${b}">${b}</option>`);
 }
 
-// 🌟 ตัวกรองทำงานประสานกัน (Cascade) 🌟
 window.onCascadeChange = function() {
     const d = document.getElementById('filter-run-date').value;
     const c = document.getElementById('filter-customer').value;
@@ -142,7 +148,6 @@ window.clearQuickFilters = function() {
     applyFilters();
 };
 
-// 🌟 ฟังก์ชันยกเลิกซ่อนคอลัมน์ (ง่ายๆ แค่กดปุ่มเดียว) 🌟
 window.unhideAllColumns = function() {
     if (!hotGridInstance) return;
     const plugin = hotGridInstance.getPlugin('hiddenColumns');
@@ -150,6 +155,36 @@ window.unhideAllColumns = function() {
     hotGridInstance.render();
     saveGridUIState();
 };
+
+// 🌟 Renderer จัดกลุ่มเวลาให้สวยงาม 🌟
+function renderGroupedDate(instance, td, row, col, prop, value, type) {
+    Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+    const rData = instance.getSourceDataAtRow(row);
+    let arr = [];
+    if (type === 'PICKUP') {
+        if (rData[18]) arr.push(`CY: ${formatDateTime(rData[18])}`);
+        if (rData[21]) arr.push(`VGM: ${formatDateTime(rData[21])}`);
+        if (rData[22]) arr.push(`CUTOFF: ${formatDateTime(rData[22])}`);
+        if (rData[23]) arr.push(`RENT: ${formatDateTime(rData[23])}`);
+        if (rData[24]) arr.push(`DEMUR: ${formatDateTime(rData[24])}`);
+    } else if (type === 'DELIVERY') {
+        if (rData[25]) arr.push(`LOAD: ${formatDateTime(rData[25])}`);
+        if (rData[26]) arr.push(`UNLOAD: ${formatDateTime(rData[26])}`);
+    } else if (type === 'RETURN') {
+        if (rData[27]) arr.push(`GATE: ${formatDateTime(rData[27])}`);
+        if (rData[28]) arr.push(`RETURN: ${formatDateTime(rData[28])}`);
+    }
+    
+    let content = arr.join('<br>') || 'คลิกเพิ่มเวลา';
+    let textStyle = content === 'คลิกเพิ่มเวลา' ? 'text-slate-300 font-normal italic' : 'text-slate-800 font-bold';
+    td.innerHTML = `
+        <div class="relative group cursor-pointer w-full h-full min-h-[35px] cell-time-hover p-1 rounded transition-colors ${textStyle}" onclick="openGroupModal(${row}, '${type}')">
+            ${content}
+            <div class="absolute top-1 right-1 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded p-1 shadow-sm items-center justify-center"><i class="fa-solid fa-pen text-[10px]"></i></div>
+        </div>
+    `;
+    td.style.fontSize = '10px'; td.style.lineHeight = '1.4';
+}
 
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid');
@@ -160,8 +195,9 @@ function initContainerHandsontable(data) {
     const colHeaders = [
         '✔', 'order ID', 'MODE', 'วันที่Booking', 'วันที่วิ่งงาน', 'ชื่องาน', 'ลูกค้า', 'BOOKING NO.', 
         'เบอร์ตู้1', 'เบอร์ตู้2', 'จำนวนตู้/ใบ', 'ขนาดตู้', 'ประเภทงาน', 'AGENT', 'POD', 'SEAL NO.', 
-        'TARE', 'MAX GROSS', 'CY DATE', 'ค่าเที่ยว', 'ค่าขนส่ง',
-        'VGM CUTOFF', 'CUTOFF TIME', 'RENT CUTOFF', 'DEMURRAGE', 'LOAD DATE', 'UNLOAD DATE', 'OPEN GATE', 'RETURN DATE'
+        'TARE', 'MAX GROSS', 'ค่าเที่ยว', 'ค่าขนส่ง',
+        '📦 PICK UP', '🚚 DELIVERY', '🔄 RETURN', // คอลัมน์โชว์แบบจัดกลุ่ม
+        'CY_HIDDEN', 'VGM_HIDDEN', 'CUT_HIDDEN', 'RENT_HIDDEN', 'DEMUR_HIDDEN', 'LOAD_HIDDEN', 'UNLOAD_HIDDEN', 'GATE_HIDDEN', 'RET_HIDDEN'
     ];
 
     let moveConfig = true;
@@ -169,36 +205,39 @@ function initContainerHandsontable(data) {
         moveConfig = userGridSettings.columnPositions;
     }
 
+    // Default column widths (23 columns visual)
+    const defaultWidths = [30, 110, 70, 95, 95, 120, 100, 110, 100, 100, 50, 60, 90, 80, 80, 80, 60, 60, 70, 70, 140, 140, 140, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
     hotGridInstance = new Handsontable(container, {
         data: gridData,
         colHeaders: colHeaders,
         columns: [
-            { type: 'checkbox', className: 'htCenter htMiddle' }, 
-            { type: 'text', className: 'font-bold text-slate-400', readOnly: true }, 
-            { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, 
-            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, 
-            { type: 'date', dateFormat: 'YYYY-MM-DD' }, 
-            { type: 'text' }, { type: 'text' }, { type: 'text', className: 'font-bold uppercase text-primary' }, 
-            { type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
-            { type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
-            { type: 'numeric', className: 'htCenter font-bold bg-amber-50' }, 
-            { type: 'dropdown', source: ['20', '40', '40HC'] }, 
-            { type: 'dropdown', source: ['CONTAINER', 'Domestic'] }, 
-            { type: 'text' }, { type: 'text' }, { type: 'text' }, 
-            { type: 'numeric' }, { type: 'numeric' }, 
-            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, 
-            { type: 'numeric', numericFormat: { pattern: '0,0' } }, 
-            { type: 'numeric', numericFormat: { pattern: '0,0' } },
-            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' },
-            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' },
-            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' },
-            { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, { type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }
+            { data: 0, type: 'checkbox', className: 'htCenter htMiddle' }, 
+            { data: 1, type: 'text', className: 'font-bold text-slate-400', readOnly: true }, 
+            { data: 2, type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, 
+            { data: 3, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, 
+            { data: 4, type: 'date', dateFormat: 'YYYY-MM-DD', className: 'font-bold' }, 
+            { data: 5, type: 'text' }, { data: 6, type: 'text' }, { data: 7, type: 'text', className: 'font-bold uppercase text-primary' }, 
+            { data: 8, type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
+            { data: 9, type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
+            { data: 10, type: 'numeric', className: 'htCenter font-bold bg-amber-50' }, 
+            { data: 11, type: 'dropdown', source: ['20', '40', '40HC'] }, 
+            { data: 12, type: 'dropdown', source: ['CONTAINER', 'Domestic'] }, 
+            { data: 13, type: 'text' }, { data: 14, type: 'text' }, { data: 15, type: 'text' }, 
+            { data: 16, type: 'numeric' }, { data: 17, type: 'numeric' }, 
+            { data: 19, type: 'numeric', numericFormat: { pattern: '0,0' } }, 
+            { data: 20, type: 'numeric', numericFormat: { pattern: '0,0' } },
+            // คอลัมน์จัดกลุ่มเวลา
+            { data: 18, renderer: function(...args) { renderGroupedDate.apply(this, [...args, 'PICKUP']); }, readOnly: true },
+            { data: 25, renderer: function(...args) { renderGroupedDate.apply(this, [...args, 'DELIVERY']); }, readOnly: true },
+            { data: 27, renderer: function(...args) { renderGroupedDate.apply(this, [...args, 'RETURN']); }, readOnly: true },
+            // คอลัมน์ดิบ (ซ่อนไว้หลังบ้าน)
+            { data: 18 }, { data: 21 }, { data: 22 }, { data: 23 }, { data: 24 }, { data: 25 }, { data: 26 }, { data: 27 }, { data: 28 }
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', minSpareRows: 1,
         manualColumnResize: true, manualColumnMove: moveConfig,
-        colWidths: userGridSettings.columnWidths || undefined,
-        
-        hiddenColumns: { indicators: true, hiddenColumns: userGridSettings.hiddenColumns || [] },
+        colWidths: userGridSettings.columnWidths && userGridSettings.columnWidths.length === colHeaders.length ? userGridSettings.columnWidths : defaultWidths,
+        hiddenColumns: { indicators: true, columns: userGridSettings.hiddenColumns || [23,24,25,26,27,28,29,30,31] },
         contextMenu: ['alignment', 'hidden_columns_hide', 'clear_column', 'undo', 'redo'],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
@@ -208,14 +247,33 @@ function initContainerHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal) {
                     editedRowIndices.add(row);
-                    // 🌟 นับจำนวนตู้อัตโนมัติเวลาใส่เบอร์ตู้ 1, 2 🌟
+                    
+                    // 🌟 1. นับจำนวนตู้อัตโนมัติเวลาใส่เบอร์ตู้ 1, 2 🌟
                     if (prop === 8 || prop === 9) {
-                        const c1 = this.getDataAtCell(row, 8);
-                        const c2 = this.getDataAtCell(row, 9);
+                        const c1 = this.getSourceDataAtCell(row, 8);
+                        const c2 = this.getSourceDataAtCell(row, 9);
                         let count = 0;
                         if (c1 && String(c1).trim() !== '') count++;
                         if (c2 && String(c2).trim() !== '') count++;
                         this.setDataAtCell(row, 10, count > 0 ? count : 1, 'autoCalc'); 
+                    }
+
+                    // 🌟 2. Auto Generate Order ID เมื่อพิมพ์วันที่วิ่งงาน 🌟
+                    if (prop === 4) { 
+                        const currentOrderId = this.getSourceDataAtCell(row, 1);
+                        const runDate = newVal;
+                        if (!currentOrderId && runDate) {
+                            const d = new Date(runDate);
+                            const prefix = `ORD-${String(d.getFullYear()).substring(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-`;
+                            let maxNum = 0;
+                            this.getData().forEach(r => {
+                                if (r && r[1] && String(r[1]).startsWith(prefix)) {
+                                    const num = parseInt(String(r[1]).split('-')[2], 10);
+                                    if (num > maxNum) maxNum = num;
+                                }
+                            });
+                            this.setDataAtCell(row, 1, `${prefix}${String(maxNum + 1).padStart(3, '0')}`, 'autoGen');
+                        }
                     }
                 }
             });
@@ -251,6 +309,92 @@ function saveGridUIState() {
     localStorage.setItem('tms_container_manage_settings', JSON.stringify(userGridSettings));
 }
 
+// ----------------------------------------------------
+// 🪟 ระบบ Modal Popup จัดการเวลาแบบใหม่
+// ----------------------------------------------------
+let activeModalRow = -1;
+
+function formatDateTime(dtStr) {
+    if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return '';
+    const cleanStr = String(dtStr).replace('T', ' '); 
+    return cleanStr.length >= 16 ? cleanStr.substring(0, 16) : cleanStr; 
+}
+
+window.openGroupModal = function(row, type) {
+    activeModalRow = row;
+    const rData = hotGridInstance.getSourceDataAtRow(row);
+    const mode = rData[2];
+    
+    let html = '';
+    let title = '';
+
+    if (type === 'PICKUP') {
+        title = 'เวลา PICK UP (รับตู้/ลาน)';
+        if (mode === 'EXPORT') {
+            html += createInput(18, 'CY Date & Time', rData[18]);
+            html += createInput(21, 'VGM Cutoff (Time)', rData[21]);
+            html += createInput(22, 'Cutoff Time', rData[22]);
+        } else {
+            html += createInput(18, 'CY Date & Time', rData[18]);
+            html += createInput(23, 'Rent Cutoff (Time)', rData[23]);
+            html += createInput(24, 'Demurrage', rData[24]);
+        }
+    } else if (type === 'DELIVERY') {
+        title = 'เวลา DELIVERY (โหลดของ/ลงของ)';
+        if (mode === 'EXPORT') html += createInput(25, 'Load Date & Time', rData[25]);
+        else html += createInput(26, 'Unload Date & Time', rData[26]);
+    } else if (type === 'RETURN') {
+        title = 'เวลา RETURN (คืนตู้/เข้าท่า)';
+        if (mode === 'EXPORT') html += createInput(27, 'Open Gate & Time', rData[27]);
+        else html += createInput(28, 'Return Date & Time', rData[28]);
+    }
+
+    document.getElementById('modal-title').innerText = title;
+    document.getElementById('modal-body').innerHTML = html;
+
+    const modal = document.getElementById('datetime-modal');
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        document.getElementById('datetime-modal-content').classList.remove('scale-95');
+    }, 10);
+};
+
+function createInput(index, label, val) {
+    let formattedVal = '';
+    if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') {
+        formattedVal = String(val).replace(' ', 'T').substring(0, 16);
+    }
+    return `
+        <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">${label}</label>
+            <input type="datetime-local" id="modal_input_${index}" value="${formattedVal}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary shadow-sm bg-slate-50">
+        </div>
+    `;
+}
+
+window.closeDateTimeModal = function() {
+    const modal = document.getElementById('datetime-modal');
+    modal.classList.add('opacity-0');
+    document.getElementById('datetime-modal-content').classList.add('scale-95');
+    setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
+};
+
+window.saveDateTimeModal = function() {
+    const rData = hotGridInstance.getSourceDataAtRow(activeModalRow);
+    const inputs = document.querySelectorAll('#modal-body input[type="datetime-local"]');
+    
+    inputs.forEach(input => {
+        const dataIndex = parseInt(input.id.replace('modal_input_', ''));
+        rData[dataIndex] = input.value ? input.value.replace('T', ' ') : null; 
+    });
+
+    editedRowIndices.add(activeModalRow);
+    hotGridInstance.render(); // อัปเดตตารางให้แสดงค่าใหม่ทันที
+    updateSaveStatusBadge();
+    closeDateTimeModal();
+};
+
 function updateSaveStatusBadge() {
     const badge = document.getElementById('save-status-badge');
     if(!badge) return;
@@ -270,7 +414,8 @@ window.saveGridChanges = async function() {
     const orgText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
 
-    const dataToSave = hotGridInstance.getData().filter(row => row && (row[1] || row[4]));
+    // กรองเอาข้อมูลที่จะบันทึก (ต้องมีการระบุวันที่วิ่งงาน หรือ มี Order ID แล้ว)
+    const dataToSave = hotGridInstance.getSourceData().filter(row => row && (row[1] || row[4]));
 
     try {
         const res = await fetch('/api/shipments', {

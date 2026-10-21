@@ -275,4 +275,34 @@ router.delete('/bookings/:id', async (req, res) => {
     }
 });
 
+
+// 🌟 POST /api/rates/single (เพิ่ม/อัปเดตเรทราคาแบบรายการเดียวตอนรับงาน) 🌟
+router.post('/rates/single', async (req, res) => {
+    const r = req.body;
+    if (!r.job_name) return res.status(400).json({ success: false });
+    const client = await pool.connect();
+    try {
+        await client.query(`
+            INSERT INTO rates (job_name, customer_name, origin, destination, job_type, 
+                               trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash,
+                               trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ON CONFLICT (job_name) DO UPDATE SET 
+                customer_name=EXCLUDED.customer_name, origin=EXCLUDED.origin, destination=EXCLUDED.destination, job_type=EXCLUDED.job_type,
+                trip_fee_6w = COALESCE(EXCLUDED.trip_fee_6w, rates.trip_fee_6w),
+                trip_fee_10w = COALESCE(EXCLUDED.trip_fee_10w, rates.trip_fee_10w),
+                trip_fee_12w = COALESCE(EXCLUDED.trip_fee_12w, rates.trip_fee_12w),
+                trip_fee_cash = COALESCE(EXCLUDED.trip_fee_cash, rates.trip_fee_cash),
+                trans_fee_6w = COALESCE(EXCLUDED.trans_fee_6w, rates.trans_fee_6w),
+                trans_fee_10w = COALESCE(EXCLUDED.trans_fee_10w, rates.trans_fee_10w),
+                trans_fee_12w = COALESCE(EXCLUDED.trans_fee_12w, rates.trans_fee_12w),
+                trans_fee_cash = COALESCE(EXCLUDED.trans_fee_cash, rates.trans_fee_cash)
+        `, [
+            r.job_name, r.customer_name, r.origin, r.destination, r.job_type,
+            r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash,
+            r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash
+        ]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ success: false }); } finally { client.release(); }
+});
 module.exports = router;

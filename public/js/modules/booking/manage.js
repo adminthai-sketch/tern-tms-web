@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: CONTAINER MANAGE (Clean UI - Removed Booking Dates)
+// 📋 MODULE: CONTAINER MANAGE (Remove Booking Date, Keep Run Date & Search)
 // ==========================================
 
 let hotGridInstance = null;
@@ -7,16 +7,17 @@ let rawShipmentsList = [];
 let filteredList = [];   
 let editedRowIndices = new Set(); 
 let userGridSettings = {};
+let allBookingNumbers = [];
 
 window.addEventListener('DOMContentLoaded', () => {
     applyZebraStripingCSS(); 
     const today = new Date();
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     
-    // 🌟 เคลียร์ค่าจำเดิมทิ้ง เพราะเราลบคอลัมน์เวลาออกแล้ว (Version 1.5)
-    if (localStorage.getItem('tms_manage_version') !== '1.5') {
+    // 🌟 เคลียร์ค่าจำเดิมทิ้ง เพราะเราลบคอลัมน์วันที่ Booking ออกแล้ว (Version 1.7)
+    if (localStorage.getItem('tms_manage_version') !== '1.7') {
         localStorage.removeItem('tms_container_manage_settings');
-        localStorage.setItem('tms_manage_version', '1.5');
+        localStorage.setItem('tms_manage_version', '1.7');
     } else {
         try {
             const savedData = localStorage.getItem('tms_container_manage_settings');
@@ -46,11 +47,20 @@ async function loadContainerGridData() {
     const [year, month] = monthVal.split('-');
 
     try {
-        const res = await fetch(`/api/shipments?year=${year}&month=${month}`);
-        const result = await res.json();
-        if (result.success && result.data) {
-            // ดึงข้อมูลมา แต่รองรับ 32 คอลัมน์เหมือนเดิมเพื่อรักษาข้อมูลเวลาไว้หลังบ้าน
-            rawShipmentsList = result.data.map(r => {
+        const [resShip, resBook] = await Promise.all([
+            fetch(`/api/shipments?year=${year}&month=${month}`),
+            fetch(`/api/bookings/search`)
+        ]);
+        
+        const shipData = await resShip.json();
+        const bookData = await resBook.json();
+
+        if (bookData.success && bookData.data) {
+            allBookingNumbers = bookData.data.map(b => b.booking_no).filter(Boolean);
+        }
+
+        if (shipData.success && shipData.data) {
+            rawShipmentsList = shipData.data.map(r => {
                 while(r.length < 32) r.push('');
                 return r;
             });
@@ -75,6 +85,7 @@ async function loadContainerGridData() {
     } catch (err) { initContainerHandsontable([]); }
 }
 
+// 🌟 ตัวกรองหลัก 3 ตัว: วันที่วิ่งงาน / ลูกค้า / Booking 🌟
 function populateFilters(data) {
     const sD = document.getElementById('filter-run-date');
     const sC = document.getElementById('filter-customer');
@@ -130,10 +141,12 @@ window.onCascadeChangeCustomer = function() {
     applyFilters();
 }
 
+// 🌟 ฟังก์ชันรวมตัวกรองทั้งหมด + ค้นหาอิสระ (Search Box) 🌟
 window.applyFilters = function() {
     const d = document.getElementById('filter-run-date')?.value || '';
     const c = document.getElementById('filter-customer')?.value || '';
     const b = document.getElementById('filter-booking-no')?.value || '';
+    
     const searchEl = document.getElementById('search-text');
     const txt = searchEl ? searchEl.value.toLowerCase().trim() : '';
 
@@ -141,7 +154,10 @@ window.applyFilters = function() {
         const matchD = !d || r[4] === d;
         const matchC = !c || r[6] === c;
         const matchB = !b || r[7] === b;
+        
+        // ค้นหาข้อความอิสระ (พิมพ์เพื่อค้นหา)
         const matchTxt = !txt || JSON.stringify(r).toLowerCase().includes(txt);
+        
         return matchD && matchC && matchB && matchTxt;
     });
     
@@ -173,9 +189,9 @@ function initContainerHandsontable(data) {
 
     const gridData = data.length > 0 ? data : Array.from({ length: 15 }, () => new Array(32).fill(""));
     
-    // 🌟 เอาคอลัมน์เวลาออก โฟกัสเฉพาะรายละเอียดตู้ 🌟
+    // 🌟 เอา "วันที่ Booking" ออกเหลือ 19 คอลัมน์ 🌟
     const colHeaders = [
-        '✔', 'order ID', 'MODE', 'วันที่Booking', 'วันที่วิ่งงาน', 'ชื่องาน', 'ลูกค้า', 'BOOKING NO.', 
+        '✔', 'order ID', 'MODE', 'วันที่วิ่งงาน', 'ชื่องาน', 'ลูกค้า', 'BOOKING NO.', 
         'เบอร์ตู้1', 'เบอร์ตู้2', 'จำนวนตู้/ใบ', 'ขนาดตู้', 'ประเภทงาน', 'AGENT', 'POD', 'SEAL NO.', 
         'TARE', 'MAX GROSS', 'ค่าเที่ยว', 'ค่าขนส่ง'
     ];
@@ -185,7 +201,7 @@ function initContainerHandsontable(data) {
         moveConfig = userGridSettings.columnPositions;
     }
 
-    const defaultWidths = [30, 110, 70, 95, 95, 120, 100, 110, 100, 100, 70, 60, 90, 80, 80, 80, 60, 60, 70, 70];
+    const defaultWidths = [30, 110, 70, 95, 120, 100, 120, 100, 100, 70, 60, 90, 80, 80, 80, 60, 60, 70, 70];
 
     hotGridInstance = new Handsontable(container, {
         data: gridData,
@@ -194,9 +210,10 @@ function initContainerHandsontable(data) {
             { data: 0, type: 'checkbox', className: 'htCenter htMiddle' }, 
             { data: 1, type: 'text', className: 'font-bold text-slate-400', readOnly: true }, 
             { data: 2, type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'] }, 
-            { data: 3, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm' }, 
+            // ลบ { data: 3 } (วันที่Booking) ออกจาก UI แต่อยู่หลังบ้าน
             { data: 4, type: 'date', dateFormat: 'YYYY-MM-DD', className: 'font-bold' }, 
-            { data: 5, type: 'text' }, { data: 6, type: 'text' }, { data: 7, type: 'text', className: 'font-bold uppercase text-primary' }, 
+            { data: 5, type: 'text' }, { data: 6, type: 'text' }, 
+            { data: 7, type: 'dropdown', source: allBookingNumbers, className: 'font-bold uppercase text-primary' }, 
             { data: 8, type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
             { data: 9, type: 'text', className: 'font-bold uppercase text-blue-600 bg-blue-50/30' }, 
             { data: 10, type: 'numeric', className: 'htCenter font-bold bg-amber-50' }, 
@@ -204,7 +221,6 @@ function initContainerHandsontable(data) {
             { data: 12, type: 'dropdown', source: ['CONTAINER', 'Domestic'] }, 
             { data: 13, type: 'text' }, { data: 14, type: 'text' }, { data: 15, type: 'text' }, 
             { data: 16, type: 'numeric' }, { data: 17, type: 'numeric' }, 
-            // 🌟 แมป data ไปที่ index 19 (ค่าเที่ยว) และ 20 (ค่าขนส่ง) ตามฐานข้อมูล
             { data: 19, type: 'numeric', numericFormat: { pattern: '0,0' } }, 
             { data: 20, type: 'numeric', numericFormat: { pattern: '0,0' } }
         ],
@@ -222,8 +238,8 @@ function initContainerHandsontable(data) {
                 if (oldVal !== newVal) {
                     editedRowIndices.add(row);
                     
-                    // นับจำนวนตู้
-                    if (prop === '8' || prop === '9') {
+                    // นับจำนวนตู้เมื่อคีย์เบอร์ตู้ 1, 2
+                    if (String(prop) === '8' || String(prop) === '9') {
                         const c1 = this.getSourceDataAtCell(row, 8);
                         const c2 = this.getSourceDataAtCell(row, 9);
                         let count = 0;
@@ -232,8 +248,8 @@ function initContainerHandsontable(data) {
                         this.setDataAtCell(row, 10, count > 0 ? count : 1, 'autoCalc'); 
                     }
 
-                    // Auto Generate Order ID
-                    if (prop === '4') { 
+                    // สร้างเลข Order ID ให้ตอนพิมพ์วันที่วิ่งงาน
+                    if (String(prop) === '4') { 
                         const currentOrderId = this.getSourceDataAtCell(row, 1);
                         const runDate = newVal;
                         if (!currentOrderId && runDate) {
@@ -302,7 +318,6 @@ window.saveGridChanges = async function() {
     const orgText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
 
-    // เราใช้ getSourceData() ทำให้ข้อมูลเวลายังถูกส่งกลับไปบันทึกอยู่ ไม่สูญหาย!
     const dataToSave = hotGridInstance.getSourceData().filter(row => row && (row[1] || row[4]));
 
     try {

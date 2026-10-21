@@ -247,4 +247,32 @@ router.get('/bookings/search', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// 🌟 DELETE /api/bookings/:id (ลบหัวบิลและตู้ทั้งหมดที่เกี่ยวข้อง) 🌟
+router.delete('/bookings/:id', async (req, res) => {
+    const { id } = req.params;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. ดึงเลข Booking No ออกมาก่อน
+        const bRes = await client.query('SELECT booking_no FROM bookings WHERE id = $1', [id]);
+        if (bRes.rows.length > 0) {
+            const booking_no = bRes.rows[0].booking_no;
+            // 2. สั่งลบตู้ (shipments) ทั้งหมดที่ผูกกับ Booking นี้ทิ้งก่อน
+            await client.query('DELETE FROM shipments WHERE booking_no = $1', [booking_no]);
+        }
+        
+        // 3. เมื่อตู้หายไปหมดแล้ว ก็ลบหัวบิลทิ้งได้อย่างปลอดภัย
+        await client.query('DELETE FROM bookings WHERE id = $1', [id]);
+        
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'ลบรายการสำเร็จ' });
+    } catch (err) { 
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: err.message }); 
+    } finally {
+        client.release();
+    }
+});
+
 module.exports = router;

@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Zebra UI, Search, Auto-Save Settings, Cascade Fix)
+// 📋 MODULE: BOOKING LIST (Typeable Filters & Overdue Blinking)
 // ==========================================
 
 let hotGridInstance = null;
@@ -7,25 +7,23 @@ let rawBookingList = [];
 let filteredList = [];   
 let editedRowIndices = new Set(); 
 let userGridSettings = {}; 
+let showOnlyOverdue = false; // 🌟 สถานะปุ่มกดดูเฉพาะ Overdue
 
 window.addEventListener('DOMContentLoaded', () => {
     applyZebraStripingCSS(); 
-    
     const today = new Date();
-    const monthStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-    document.getElementById('filter-month').value = monthStr;
+    document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     
-    // 🌟 เพิ่ม Version Control เคลียร์ค่าจำผิดปกติ
-    if (localStorage.getItem('tms_list_version') !== '1.2') {
+    // เคลียร์ความจำตาราง Version 1.4
+    if (localStorage.getItem('tms_list_version') !== '1.4') {
         localStorage.removeItem('tms_booking_list_settings');
-        localStorage.setItem('tms_list_version', '1.2');
+        localStorage.setItem('tms_list_version', '1.4');
     } else {
         try {
             const savedData = localStorage.getItem('tms_booking_list_settings');
             if (savedData) userGridSettings = JSON.parse(savedData);
         } catch (err) {}
     }
-
     loadBookingGridData();
 });
 
@@ -58,10 +56,14 @@ async function loadBookingGridData() {
             rawBookingList = result.data;
             filteredList = [...rawBookingList];
             editedRowIndices.clear();
+            
             updateSaveStatusBadge();
+            updateOverdueBadge(); // 🌟 อัปเดตปุ่ม Overdue
+            
             populateRunDateFilter(rawBookingList);
             populateCustomerFilter(rawBookingList);
             populateBookingNoFilter(rawBookingList);
+            
             initBookingHandsontable(rawBookingList);
         } else {
             rawBookingList = []; filteredList = [];
@@ -70,34 +72,34 @@ async function loadBookingGridData() {
     } catch (err) { initBookingHandsontable([]); }
 }
 
+// 🌟 เปลี่ยนจาก select เป็นเติมค่าใน datalist แทน 🌟
 function populateRunDateFilter(data) {
-    const sel = document.getElementById('filter-run-date');
-    if(!sel) return;
-    sel.innerHTML = '<option value="">-- ทุกลักษณะวันที่ --</option>';
+    const dl = document.getElementById('dl-run-date');
+    if(!dl) return;
+    dl.innerHTML = '';
     const dates = new Set();
     data.forEach(i => { if (i.run_date) dates.add(String(i.run_date).split('T')[0]); });
-    Array.from(dates).sort().forEach(d => sel.innerHTML += `<option value="${d}">${d}</option>`);
+    Array.from(dates).sort().forEach(d => dl.innerHTML += `<option value="${d}">`);
 }
 
 function populateCustomerFilter(data) {
-    const sel = document.getElementById('filter-customer');
-    if(!sel) return;
-    sel.innerHTML = '<option value="">-- ทุกลูกค้า (Customer) --</option>';
+    const dl = document.getElementById('dl-customer');
+    if(!dl) return;
+    dl.innerHTML = '';
     const custs = new Set();
     data.forEach(i => { if (i.customer_name) custs.add(String(i.customer_name).trim()); });
-    Array.from(custs).sort().forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
+    Array.from(custs).sort().forEach(c => dl.innerHTML += `<option value="${c}">`);
 }
 
 function populateBookingNoFilter(data) {
-    const sel = document.getElementById('filter-booking-no');
-    if(!sel) return;
-    sel.innerHTML = '<option value="">-- ทุก Booking / BL --</option>';
+    const dl = document.getElementById('dl-booking-no');
+    if(!dl) return;
+    dl.innerHTML = '';
     const books = new Set();
     data.forEach(i => { if (i.booking_no) books.add(String(i.booking_no).trim()); });
-    Array.from(books).sort().forEach(b => sel.innerHTML += `<option value="${b}">${b}</option>`);
+    Array.from(books).sort().forEach(b => dl.innerHTML += `<option value="${b}">`);
 }
 
-// 🌟 ซ่อมระบบกรองแบบ Cascade (กรองต่อเนื่องเป็นทอดๆ) 🌟
 window.onRunDateChange = function() {
     const d = document.getElementById('filter-run-date').value;
     let scoped = rawBookingList;
@@ -117,6 +119,50 @@ window.onCustomerChange = function() {
     applyFilters();
 }
 
+// 🌟 ฟังก์ชันเช็คว่า Booking นี้ Overdue หรือไม่
+window.isOverdueItem = function(item) {
+    const now = new Date();
+    const datesToCheck = [item.cy_date, item.vgm_cutoff, item.cutoff_time, item.rent_cutoff, item.demurrage, item.load_date, item.unload_date, item.open_gate, item.return_date];
+    for (let d of datesToCheck) {
+        if (d && String(d).trim() !== 'NaN' && String(d).trim() !== 'null') {
+            const dt = new Date(String(d).replace(' ', 'T'));
+            if (dt < now) return true;
+        }
+    }
+    return false;
+};
+
+// 🌟 อัปเดตป้ายแจ้งเตือนจำนวน Overdue
+function updateOverdueBadge() {
+    const badge = document.getElementById('overdue-badge');
+    const badgeCount = document.getElementById('overdue-count');
+    if (!badge || !badgeCount) return;
+    
+    const overdueCount = rawBookingList.filter(window.isOverdueItem).length;
+    if (overdueCount > 0) {
+        badgeCount.innerText = overdueCount;
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+    } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+    }
+}
+
+// 🌟 ฟังก์ชันกดปุ่ม Filter ตัว Overdue
+window.toggleOverdueFilter = function() {
+    showOnlyOverdue = !showOnlyOverdue;
+    const badge = document.getElementById('overdue-badge');
+    if(badge) {
+        if(showOnlyOverdue) {
+            badge.classList.add('ring-2', 'ring-red-500', 'bg-red-200');
+        } else {
+            badge.classList.remove('ring-2', 'ring-red-500', 'bg-red-200');
+        }
+    }
+    applyFilters();
+};
+
 window.applyFilters = function() {
     const d = document.getElementById('filter-run-date')?.value || '';
     const c = document.getElementById('filter-customer')?.value || '';
@@ -133,8 +179,11 @@ window.applyFilters = function() {
         const matchC = !c || iC === c;
         const matchB = !b || iB === b;
         const matchTxt = !txt || JSON.stringify(item).toLowerCase().includes(txt);
+        
+        // 🌟 กรองแสดงเฉพาะ Overdue ถ้าเปิดใช้งาน
+        const matchOverdue = !showOnlyOverdue || window.isOverdueItem(item);
 
-        return matchD && matchC && matchB && matchTxt;
+        return matchD && matchC && matchB && matchTxt && matchOverdue;
     });
     initBookingHandsontable(filteredList);
 };
@@ -144,9 +193,21 @@ window.clearQuickFilters = function() {
     if(document.getElementById('filter-customer')) document.getElementById('filter-customer').value = '';
     if(document.getElementById('filter-booking-no')) document.getElementById('filter-booking-no').value = '';
     if(document.getElementById('search-text')) document.getElementById('search-text').value = '';
+    showOnlyOverdue = false;
+    const badge = document.getElementById('overdue-badge');
+    if(badge) badge.classList.remove('ring-2', 'ring-red-500', 'bg-red-200');
+    
     populateCustomerFilter(rawBookingList);
     populateBookingNoFilter(rawBookingList);
     applyFilters();
+};
+
+window.unhideAllColumns = function() {
+    if (!hotGridInstance) return;
+    const plugin = hotGridInstance.getPlugin('hiddenColumns');
+    plugin.showColumns(Array.from({length: hotGridInstance.countCols()}, (_, i) => i));
+    hotGridInstance.render();
+    saveGridUIState();
 };
 
 function initBookingHandsontable(data) {
@@ -156,21 +217,21 @@ function initBookingHandsontable(data) {
 
     const formattedTableData = data.map(item => {
         let pickup = [];
-        if (item.cy_date && String(item.cy_date).trim() !== 'NaN' && String(item.cy_date).trim() !== 'null') pickup.push(`CY: ${formatDateTime(item.cy_date)}`);
-        if (item.vgm_cutoff && String(item.vgm_cutoff).trim() !== 'NaN' && String(item.vgm_cutoff).trim() !== 'null') pickup.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
-        if (item.cutoff_time && String(item.cutoff_time).trim() !== 'NaN' && String(item.cutoff_time).trim() !== 'null') pickup.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
-        if (item.rent_cutoff && String(item.rent_cutoff).trim() !== 'NaN' && String(item.rent_cutoff).trim() !== 'null') pickup.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
-        if (item.demurrage && String(item.demurrage).trim() !== 'NaN' && String(item.demurrage).trim() !== 'null') pickup.push(`DEMUR: ${formatDateTime(item.demurrage)}`);
+        if (item.cy_date && item.cy_date !== 'null') pickup.push(`CY: ${formatDateTime(item.cy_date)}`);
+        if (item.vgm_cutoff && item.vgm_cutoff !== 'null') pickup.push(`VGM: ${formatDateTime(item.vgm_cutoff)}`);
+        if (item.cutoff_time && item.cutoff_time !== 'null') pickup.push(`CUTOFF: ${formatDateTime(item.cutoff_time)}`);
+        if (item.rent_cutoff && item.rent_cutoff !== 'null') pickup.push(`RENT: ${formatDateTime(item.rent_cutoff)}`);
+        if (item.demurrage && item.demurrage !== 'null') pickup.push(`DEMUR: ${formatDateTime(item.demurrage)}`);
 
         let delivery = [];
-        if (item.load_date && String(item.load_date).trim() !== 'NaN' && String(item.load_date).trim() !== 'null') delivery.push(`LOAD: ${formatDateTime(item.load_date)}`);
-        if (item.unload_date && String(item.unload_date).trim() !== 'NaN' && String(item.unload_date).trim() !== 'null') delivery.push(`UNLOAD: ${formatDateTime(item.unload_date)}`);
+        if (item.load_date && item.load_date !== 'null') delivery.push(`LOAD: ${formatDateTime(item.load_date)}`);
+        if (item.unload_date && item.unload_date !== 'null') delivery.push(`UNLOAD: ${formatDateTime(item.unload_date)}`);
 
         let ret = [];
-        if (item.open_gate && String(item.open_gate).trim() !== 'NaN' && String(item.open_gate).trim() !== 'null') ret.push(`GATE: ${formatDateTime(item.open_gate)}`);
-        if (item.return_date && String(item.return_date).trim() !== 'NaN' && String(item.return_date).trim() !== 'null') ret.push(`RETURN: ${formatDateTime(item.return_date)}`);
+        if (item.open_gate && item.open_gate !== 'null') ret.push(`GATE: ${formatDateTime(item.open_gate)}`);
+        if (item.return_date && item.return_date !== 'null') ret.push(`RETURN: ${formatDateTime(item.return_date)}`);
 
-        const jobNameDisplay = (item.job_name && String(item.job_name).trim() !== 'NaN') ? item.job_name : (item.job_title || '-');
+        const jobNameDisplay = (item.job_name && item.job_name !== 'NaN') ? item.job_name : (item.job_title || '-');
 
         return [
             false, item.id, item.booking_no || '', item.mode || 'EXPORT', 
@@ -220,7 +281,7 @@ function initBookingHandsontable(data) {
                     if (value) {
                         td.innerHTML = `
                             <div class="flex flex-col items-stretch justify-center gap-1.5 py-1 px-1">
-                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 font-bold py-1 px-2 rounded flex items-center justify-center gap-1 text-[10px] shadow-sm"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
+                                <button onclick="window.goToFormEdit('${value}')" class="bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 font-bold py-1 px-2 rounded text-[10px] shadow-sm"><i class="fa-solid fa-pen-to-square"></i> แก้ฟอร์ม</button>
                                 <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-manage shadow-sm py-1"><i class="fa-solid fa-boxes-stacked"></i> ลงตู้</button>
                                 <button onclick="window.location.href='/booking-monitor.html?select=${encodeURIComponent(value)}'" class="btn-grid btn-dispatch shadow-sm py-1"><i class="fa-solid fa-truck-fast"></i> จัดรถ</button>
                             </div>
@@ -234,8 +295,8 @@ function initBookingHandsontable(data) {
         manualColumnResize: true, manualColumnMove: moveConfig,
         colWidths: userGridSettings.columnWidths || [30, 45, 120, 75, 95, 120, 140, 90, 90, 90, 40, 80, 75, 75, 140, 140, 140, 90],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
-        hiddenColumns: { indicators: true },
-        contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'clear_column', 'undo', 'redo'],
+        hiddenColumns: { indicators: true, columns: userGridSettings.hiddenColumns || [] },
+        contextMenu: ['alignment', 'hidden_columns_hide', 'clear_column', 'undo', 'redo'],
         licenseKey: 'non-commercial-and-evaluation',
 
         afterChange: function(changes, source) {
@@ -248,6 +309,8 @@ function initBookingHandsontable(data) {
         },
         afterColumnResize: function() { saveGridUIState(); },
         afterColumnMove: function() { saveGridUIState(); },
+        afterHideColumns: function() { saveGridUIState(); },
+        afterUnhideColumns: function() { saveGridUIState(); },
         cells: function(row, col) {
             const cp = {};
             if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
@@ -261,23 +324,49 @@ function saveGridUIState() {
     const colCount = hotGridInstance.countCols();
     const widths = [];
     for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
+    
     const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
     let positions = [];
-    if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
-        positions = movePlugin.columnsMapper.getIndexesSequence();
-    }
-    userGridSettings = { columnWidths: widths, columnPositions: positions };
+    if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') positions = movePlugin.columnsMapper.getIndexesSequence();
+    
+    const hiddenPlugin = hotGridInstance.getPlugin('hiddenColumns');
+    const hiddenCols = hiddenPlugin ? hiddenPlugin.getHiddenColumns() : [];
+
+    userGridSettings = { columnWidths: widths, columnPositions: positions, hiddenColumns: hiddenCols };
     localStorage.setItem('tms_booking_list_settings', JSON.stringify(userGridSettings));
 }
 
 window.goToFormEdit = function(bookingNo) { window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`; };
 
+// 🌟 ตัว Render ที่ทำหน้าที่เปรียบเทียบเวลาว่า Overdue หรือยัง และสั่งให้กระพริบแดง 🌟
 window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
-    Handsontable.renderers.TextRenderer.apply(this, arguments);
-    let content = value ? String(value).replace(/\n/g, '<br>') : '-';
-    let textStyle = value === 'คลิกเพิ่มเวลา' ? 'text-slate-300 font-normal italic' : 'text-slate-800 font-bold';
+    Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+    let content = '-';
+    let textStyle = 'text-slate-800 font-bold';
+    
+    if (value && value !== 'คลิกเพิ่มเวลา') {
+        const lines = String(value).split('\n');
+        const now = new Date();
+        const htmlLines = lines.map(line => {
+            const parts = line.split(': ');
+            if (parts.length >= 2) {
+                const dtStr = parts.slice(1).join(': ').trim();
+                const dt = new Date(dtStr.replace(' ', 'T'));
+                // ตรวจสอบว่าเวลาที่ระบุ น้อยกว่าเวลาปัจจุบันหรือไม่ (ถ้าใช่นับเป็น Overdue ทันที)
+                if (dt < now) {
+                    return `<span class="text-red-600 animate-pulse font-extrabold" title="เลยกำหนดเวลาแล้ว!"><i class="fa-solid fa-circle-exclamation text-[10px]"></i> ${line}</span>`;
+                }
+            }
+            return line;
+        });
+        content = htmlLines.join('<br>');
+    } else if (value === 'คลิกเพิ่มเวลา') {
+        content = value;
+        textStyle = 'text-slate-300 font-normal italic';
+    }
+
     td.innerHTML = `
-        <div class="relative group cursor-pointer w-full h-full min-h-[35px] cell-time-hover p-1 rounded transition-colors ${textStyle}" onclick="openDateTimeModal(${row}, ${col})">
+        <div class="relative group cursor-pointer w-full h-full min-h-[35px] cell-time-hover p-1 rounded transition-colors ${textStyle}" onclick="openDateTimeModal(${row}, ${prop})">
             ${content}
             <div class="absolute top-1 right-1 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded p-1 shadow-sm items-center justify-center"><i class="fa-solid fa-pen text-[10px]"></i></div>
         </div>
@@ -292,13 +381,15 @@ function formatDateTime(dtStr) {
 }
 
 let currentModalRow = -1;
-let currentModalCol = -1;
+let currentModalProp = -1;
 
-window.openDateTimeModal = function(row, col) {
-    currentModalRow = row; currentModalCol = col;
-    const gridData = hotGridInstance.getDataAtRow(row);
-    const bookingNo = gridData[2];
-    const mode = gridData[3];
+window.openDateTimeModal = function(row, prop) {
+    currentModalRow = row; 
+    currentModalProp = prop;
+    
+    const rData = hotGridInstance.getSourceDataAtRow(row);
+    const bookingNo = rData[2]; 
+    const mode = rData[3];
     
     const item = filteredList.find(i => i.booking_no === bookingNo);
     if (!item) return;
@@ -306,7 +397,7 @@ window.openDateTimeModal = function(row, col) {
     let html = '';
     let title = '';
 
-    if (col === 14) { 
+    if (prop === 14) { 
         title = 'เวลา PICK UP (รับตู้/ลาน)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
@@ -317,14 +408,14 @@ window.openDateTimeModal = function(row, col) {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (Time)', item.rent_cutoff);
             html += createDatetimeInput('demurrage', 'Demurrage', item.demurrage);
         }
-    } else if (col === 15) { 
+    } else if (prop === 15) { 
         title = 'เวลา DELIVERY (โหลดของ/ลงของ)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('load_date', 'Load Date & Time', item.load_date);
         } else {
             html += createDatetimeInput('unload_date', 'Unload Date & Time', item.unload_date);
         }
-    } else if (col === 16) { 
+    } else if (prop === 16) { 
         title = 'เวลา RETURN (คืนตู้/เข้าท่า)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
@@ -365,8 +456,8 @@ window.closeDateTimeModal = function() {
 };
 
 window.saveDateTimeModal = function() {
-    const gridData = hotGridInstance.getDataAtRow(currentModalRow);
-    const bookingNo = gridData[2];
+    const rData = hotGridInstance.getSourceDataAtRow(currentModalRow);
+    const bookingNo = rData[2];
     const item = filteredList.find(i => i.booking_no === bookingNo);
     if(!item) return;
 
@@ -389,11 +480,14 @@ window.saveDateTimeModal = function() {
     if (item.open_gate && item.open_gate !== 'null') returnInfo.push(`GATE: ${formatDateTime(item.open_gate)}`);
     if (item.return_date && item.return_date !== 'null') returnInfo.push(`RETURN: ${formatDateTime(item.return_date)}`);
 
-    if (currentModalCol === 14) hotGridInstance.setDataAtCell(currentModalRow, 14, pickupInfo.join('\n') || 'คลิกเพิ่มเวลา');
-    if (currentModalCol === 15) hotGridInstance.setDataAtCell(currentModalRow, 15, deliveryInfo.join('\n') || 'คลิกเพิ่มเวลา');
-    if (currentModalCol === 16) hotGridInstance.setDataAtCell(currentModalRow, 16, returnInfo.join('\n') || 'คลิกเพิ่มเวลา');
+    if (currentModalProp === 14) hotGridInstance.setDataAtRowProp(currentModalRow, 14, pickupInfo.join('\n') || 'คลิกเพิ่มเวลา');
+    if (currentModalProp === 15) hotGridInstance.setDataAtRowProp(currentModalRow, 15, deliveryInfo.join('\n') || 'คลิกเพิ่มเวลา');
+    if (currentModalProp === 16) hotGridInstance.setDataAtRowProp(currentModalRow, 16, returnInfo.join('\n') || 'คลิกเพิ่มเวลา');
 
     editedRowIndices.add(currentModalRow);
+    
+    // รีเฟรชป้ายแจ้งเตือนเผื่อมีการเลื่อนเวลาให้รอดพ้น Overdue
+    updateOverdueBadge();
     updateSaveStatusBadge();
     closeDateTimeModal();
 };
@@ -451,10 +545,48 @@ window.saveGridChanges = async function() {
 
 window.deleteSelectedRows = async function() {
     if (!hotGridInstance) return;
-    const idsToDelete = [];
-    hotGridInstance.getData().forEach(row => { if (row[0] && row[1]) idsToDelete.push(row[1]); });
-    if (idsToDelete.length === 0) return;
-    if (!confirm(`⚠️ ยืนยันการลบ ${idsToDelete.length} รายการ?`)) return;
-    for (let id of idsToDelete) { try { await fetch(`/api/bookings/${id}`, { method: 'DELETE' }); } catch (err) {} }
-    alert('✅ ลบรายการสำเร็จ'); loadBookingGridData();
+    const selectedRanges = hotGridInstance.getSelected() || [];
+    const data = hotGridInstance.getData();
+    const idsToDelete = new Set();
+    
+    selectedRanges.forEach(([row1, col1, row2, col2]) => {
+        const startRow = Math.min(row1, row2);
+        const endRow = Math.max(row1, row2);
+        for (let r = startRow; r <= endRow; r++) {
+            const rowData = hotGridInstance.getSourceDataAtRow(r);
+            if (rowData && rowData[1]) idsToDelete.add(rowData[1]); 
+        }
+    });
+
+    data.forEach((row, index) => {
+        if (row[0] === true) {
+            const rowData = hotGridInstance.getSourceDataAtRow(index);
+            if (rowData && rowData[1]) idsToDelete.add(rowData[1]);
+        }
+    });
+
+    const idsArray = Array.from(idsToDelete);
+    if (idsArray.length === 0) {
+        alert('🖱️ กรุณาคลุมดำแถว (หรือติ๊กถูกหน้าแถว) ที่ต้องการจะลบก่อนครับ');
+        return;
+    }
+
+    if (!confirm(`⚠️ ยืนยันการลบทิ้ง ${idsArray.length} บุคกิ้ง?\n\n(ตู้ทั้งหมดที่อยู่ในบุคกิ้งเหล่านี้จะถูกลบทิ้งไปด้วยอัตโนมัติ)`)) return;
+
+    let successCount = 0;
+    for (let id of idsArray) { 
+        try { 
+            const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' }); 
+            if(res.ok) successCount++;
+        } catch (err) {} 
+    }
+    
+    if (successCount > 0) {
+        alert(`✅ ลบรายการสำเร็จ ${successCount} บุคกิ้ง`); 
+        editedRowIndices.clear(); 
+        updateSaveStatusBadge();
+        loadBookingGridData();
+    } else {
+        alert(`❌ ไม่สามารถลบข้อมูลได้ หรือเชื่อมต่อเซิร์ฟเวอร์ไม่ได้`);
+    }
 };

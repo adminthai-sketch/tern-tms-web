@@ -48,13 +48,16 @@
     <div class="flex-1 flex overflow-hidden justify-center relative">
         <main class="w-full max-w-7xl p-6 overflow-y-auto flex flex-col relative bg-bglight gap-4">
             
-            <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน -->
-            <div class="flex gap-3 shrink-0">
-                <a href="/booking.html" class="bg-white text-slate-500 hover:bg-slate-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors">
-                    <i class="fa-solid fa-file-lines"></i> 1. สร้างรายการแบบเดี่ยว (1 Job)
+            <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน (เพิ่มปุ่มที่ 3: ตารางบุคกิ้ง) 🌟 -->
+            <div class="flex flex-wrap gap-3 shrink-0">
+                <a href="/booking.html" class="bg-white text-slate-500 hover:bg-slate-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
+                    <i class="fa-solid fa-pen-to-square"></i> 1. สร้างรายการแบบเดี่ยว (1 Job)
                 </a>
                 <a href="/booking-bulk.html" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-sm border border-primary shadow-md flex items-center gap-2 transition-colors">
                     <i class="fa-solid fa-file-excel"></i> 2. อัปโหลดหลาย Job พร้อมกัน (Bulk Excel)
+                </a>
+                <a href="/booking-list.html" class="bg-white text-slate-600 hover:text-primary hover:bg-blue-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm ml-auto">
+                    <i class="fa-solid fa-table-list"></i> 3. ดูรายการบุคกิ้งทั้งหมด (Booking List)
                 </a>
             </div>
 
@@ -159,14 +162,11 @@
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
-        // 🌟 ฟังก์ชันอัจฉริยะ แปลงเลขรหัส Excel (เช่น 46325 หรือ 46320.3541) ให้กลับเป็นวันที่ YYYY-MM-DD หรือ YYYY-MM-DD HH:mm 🌟
         function formatExcelDate(val) {
             if (val === null || val === undefined || val === '') return '';
             
-            // ถ้ามาเป็นตัวเลขรหัส Excel หรือข้อความตัวเลขล้วน
             const num = Number(val);
             if (!isNaN(num) && num > 20000 && num < 80000) {
-                // แก้บั๊กวันปี 1900 ของ Excel
                 const adjustedNum = num > 59 ? num - 1 : num;
                 const dateObj = new Date((adjustedNum - 25568) * 86400 * 1000);
                 
@@ -176,7 +176,6 @@
                 const hours = String(dateObj.getUTCHours()).padStart(2, '0');
                 const minutes = String(dateObj.getUTCMinutes()).padStart(2, '0');
 
-                // ถ้ามีเศษทศนิยม (แปลว่ามีเวลาติดมาด้วย)
                 if (num % 1 !== 0) {
                     return `${year}-${month}-${day} ${hours}:${minutes}`;
                 }
@@ -370,7 +369,6 @@
                         const transIdx = headersNow.indexOf('ค่าขนส่ง');
                         const jobNameIdx = headersNow.indexOf('ชื่องาน');
 
-                        // เติมลูกค้าอัตโนมัติเมื่อพิมพ์ชื่องาน
                         if (colName === 'ชื่องาน' && newVal) {
                             const rate = rateDataMap[newVal.trim()];
                             if (rate) {
@@ -386,7 +384,6 @@
                             }
                         }
                         
-                        // เติมราคาเมื่อเลือกประเภทรถ
                         if (colName === 'ประเภทรถ' && newVal) {
                             if(jobNameIdx >= 0) {
                                 const jobName = this.getDataAtCell(row, jobNameIdx); 
@@ -445,7 +442,6 @@
             XLSX.writeFile(wb, `TMS_Bulk_Template_${mode}.xlsx`);
         }
 
-        // 🌟 อัปโหลดไฟล์ Excel พร้อมฟังก์ชันตรวจจับและแปลงวันที่/เวลาแบบอัตโนมัติ 🌟
         function uploadExcelFile(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -459,7 +455,6 @@
                 const mode = document.getElementById('bulk-mode').value;
                 const headers = getBulkHeaders(mode).map(c => c.title);
 
-                // ดึงตำแหน่งของคอลัมน์ที่เป็น วันที่ และ เวลา
                 const dateCols = [];
                 headers.forEach((h, idx) => {
                     if (h.includes('วันที่วิ่งงาน') || h.includes('Date & Time') || h.includes('Cutoff') || h.includes('Demurrage') || h.includes('Gate')) {
@@ -467,10 +462,8 @@
                     }
                 });
 
-                // แปลงข้อมูลทุกแถว
                 const formattedRows = rawJson.slice(1).map(row => {
                     let newRow = ["", ...row];
-                    // แปลงค่าในคอลัมน์วันที่
                     dateCols.forEach(colIdx => {
                         if (newRow[colIdx] !== undefined && newRow[colIdx] !== null) {
                             newRow[colIdx] = formatExcelDate(newRow[colIdx]);

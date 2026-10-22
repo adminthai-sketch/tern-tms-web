@@ -24,22 +24,22 @@ window.addEventListener('DOMContentLoaded', async () => {
     initBulkGrid();
 });
 
-// กำหนดคอลัมน์ให้ตรงตามโหมด (แยก Date กับ Time ออกจากกันอย่างชัดเจน)
+// กำหนดคอลัมน์ให้ตรงตามโหมด (จัดเรียงตามที่คุณขอมาล่าสุด)
 function getColumnsConfig(mode) {
     const commonCols = [
-        { title: 'สถานะ', readOnly: true, className: 'htCenter htMiddle font-bold text-lg' }, // Index 0
+        { title: 'สถานะเซฟ', readOnly: true, className: 'htCenter htMiddle font-bold text-lg' }, // Index 0
         { title: 'วันที่วิ่งงาน (YYYY-MM-DD)', type: 'date', dateFormat: 'YYYY-MM-DD' }, // Index 1
-        { title: 'ชื่องาน', type: 'text' }, // Index 2 (ย้ายมาต่อจากวันที่)
-        { title: 'จำนวนตู้', type: 'numeric' }, // Index 3 (ย้ายมาหลังชื่องาน)
-        { title: 'ลูกค้า', type: 'text' }, // Index 4
-        { title: 'Booking/BL No.', type: 'text' }, // Index 5
-        { title: 'ประเภทรถ', type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, // Index 6
-        { title: 'ค่าเที่ยว', type: 'numeric', numericFormat: { pattern: '0,0' } }, // Index 7
-        { title: 'ค่าขนส่ง', type: 'numeric', numericFormat: { pattern: '0,0' } }, // Index 8
-        { title: 'ประเภทงาน', type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, // Index 9
-        { title: 'ต้นทาง (Origin)', type: 'text' }, // Index 10
-        { title: 'ปลายทาง (Dest)', type: 'text' }, // Index 11
-        { title: 'Agent', type: 'text' } // Index 12
+        { title: 'ชื่องาน', type: 'text' }, // Index 2 🌟 ย้ายมาตรงนี้
+        { title: 'จำนวนตู้', type: 'numeric' }, // Index 3
+        { title: 'ลูกค้า', type: 'text', readOnly: true, className: 'text-slate-500 font-bold' }, // Index 4 🌟
+        { title: 'Job Type', type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, // Index 5
+        { title: 'Agent', type: 'text' }, // Index 6
+        { title: 'ต้นทาง (Origin)', type: 'text' }, // Index 7
+        { title: 'ปลายทาง (Dest)', type: 'text' }, // Index 8
+        { title: 'Booking/BL No.', type: 'text' }, // Index 9
+        { title: 'ประเภทรถ', type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, // Index 10
+        { title: 'ค่าเที่ยว', type: 'numeric', numericFormat: { pattern: '0,0' } }, // Index 11
+        { title: 'ค่าขนส่ง', type: 'numeric', numericFormat: { pattern: '0,0' } } // Index 12
     ];
 
     let timeCols = [];
@@ -89,31 +89,31 @@ window.initBulkGrid = function(dataRows = null) {
         contextMenu: ['row_above', 'row_below', 'remove_row', 'undo', 'redo', 'copy', 'cut'],
         licenseKey: 'non-commercial-and-evaluation',
         
-        // 🌟 ลอจิกความฉลาด: เติมข้อมูลอัตโนมัติเมื่อพิมพ์ชื่องาน และเลือกรถ 🌟
+        // 🌟 ลอจิกความฉลาด: ดึงข้อมูลลูกค้าและราคาอัตโนมัติ 🌟
         afterChange: function(changes, source) {
             if (source === 'loadData' || !changes) return;
             
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal === newVal) return;
                 
-                // 1. ถ้าพิมพ์ "ชื่องาน" (Index เปลี่ยนเป็น 2 แล้ว) -> ให้เติมลูกค้า, ต้นทาง, ปลายทาง อัตโนมัติ
+                // 1. ถ้าพิมพ์ "ชื่องาน" (Index 2) -> ให้เติมลูกค้า(4), ต้นทาง(7), ปลายทาง(8), JobType(5) อัตโนมัติ
                 if (prop === 2 && newVal) {
                     const rate = rateDataMap[newVal.trim()];
                     if (rate) {
-                        this.setDataAtCell(row, 4, rate.customer || '', 'auto'); // ช่องลูกค้า (Index 4)
-                        this.setDataAtCell(row, 9, rate.jobType || '', 'auto'); // ประเภทงาน
-                        this.setDataAtCell(row, 10, rate.origin || '', 'auto'); // ต้นทาง
-                        this.setDataAtCell(row, 11, rate.dest || '', 'auto'); // ปลายทาง
+                        this.setDataAtCell(row, 4, rate.customer || '', 'auto'); 
+                        this.setDataAtCell(row, 5, rate.jobType || '', 'auto'); 
+                        this.setDataAtCell(row, 7, rate.origin || '', 'auto'); 
+                        this.setDataAtCell(row, 8, rate.dest || '', 'auto'); 
                         
-                        // ดึงราคาต่อเลยถ้ารถถูกเลือกไว้ก่อนหน้าแล้ว
-                        const carType = this.getDataAtCell(row, 6);
+                        // ถ้ารถ (Index 10) ถูกเลือกไว้แล้ว ให้ดึงราคาด้วย
+                        const carType = this.getDataAtCell(row, 10);
                         if (carType) applyRateToGrid(this, row, rate, carType);
                     }
                 }
                 
-                // 2. ถ้าเลือกรถ (Index 6) -> เติมราคา
-                if (prop === 6 && newVal) {
-                    const jobName = this.getDataAtCell(row, 2); // ชื่องานอยู่ช่อง 2
+                // 2. ถ้าเลือกรถ (Index 10) -> เติมราคา
+                if (prop === 10 && newVal) {
+                    const jobName = this.getDataAtCell(row, 2); 
                     if (jobName && rateDataMap[jobName.trim()]) {
                         applyRateToGrid(this, row, rateDataMap[jobName.trim()], newVal);
                     }
@@ -124,10 +124,10 @@ window.initBulkGrid = function(dataRows = null) {
 };
 
 function applyRateToGrid(hot, row, rate, type) {
-    if(type === '6W') { hot.setDataAtCell(row, 7, rate.trp6||''); hot.setDataAtCell(row, 8, rate.trn6||''); }
-    else if(type === '10W') { hot.setDataAtCell(row, 7, rate.trp10||''); hot.setDataAtCell(row, 8, rate.trn10||''); }
-    else if(type === '12W*2') { hot.setDataAtCell(row, 7, rate.trp12||''); hot.setDataAtCell(row, 8, rate.trn12||''); }
-    else if(type === 'เงินสด') { hot.setDataAtCell(row, 7, rate.trpCash||''); hot.setDataAtCell(row, 8, rate.trnCash||''); }
+    if(type === '6W') { hot.setDataAtCell(row, 11, rate.trp6||''); hot.setDataAtCell(row, 12, rate.trn6||''); }
+    else if(type === '10W') { hot.setDataAtCell(row, 11, rate.trp10||''); hot.setDataAtCell(row, 12, rate.trn10||''); }
+    else if(type === '12W*2') { hot.setDataAtCell(row, 11, rate.trp12||''); hot.setDataAtCell(row, 12, rate.trn12||''); }
+    else if(type === 'เงินสด') { hot.setDataAtCell(row, 11, rate.trpCash||''); hot.setDataAtCell(row, 12, rate.trnCash||''); }
 }
 
 // ==========================================
@@ -146,26 +146,26 @@ window.saveBulkData = async function() {
 
     for (let r = 0; r < data.length; r++) {
         const row = data[r];
-        // ตรวจสอบว่าแถวนี้มีข้อมูล "วันที่วิ่งงาน" (Index 1) และ "ลูกค้า" (Index 4) ถึงจะยอมบันทึก
-        if (!row[1] || !row[4]) continue;
+        // เช็คว่าต้องมี วันที่วิ่งงาน (1) และ ชื่องาน (2)
+        if (!row[1] || !row[2]) continue;
 
-        // จัดการรวบ Date และ Time เข้าด้วยกันเพื่อยิงเข้า DB
+        // ฟังก์ชันจับคู่ Date และ Time เข้าด้วยกัน
         const combineDT = (d, t) => (d && String(d).trim() !== '') ? `${d} ${t || '00:00'}` : null;
 
         let bData = {
             mode: mode,
             run_date: row[1],
-            job_name: row[2] || '', // ชื่องาน
-            container_count: row[3] || 1, // จำนวนตู้
-            customer_name: row[4] || '', // ลูกค้า
-            booking_no: row[5] || `BK-BULK-${Date.now().toString().slice(-5)}${r}`,
-            price_type: row[6] || '',
-            trip_fee: row[7] || 0,
-            trans_fee: row[8] || 0,
-            job_type: row[9] || '',
-            origin: row[10] || '',
-            destination: row[11] || '',
-            agent: row[12] || ''
+            job_name: row[2] || '', 
+            container_count: row[3] || 1, 
+            customer_name: row[4] || '', 
+            job_type: row[5] || '',
+            agent: row[6] || '',
+            origin: row[7] || '',
+            destination: row[8] || '',
+            booking_no: row[9] || `BK-BULK-${Date.now().toString().slice(-5)}${r}`,
+            price_type: row[10] || '',
+            trip_fee: row[11] || 0,
+            trans_fee: row[12] || 0
         };
 
         if (mode === 'EXPORT') {
@@ -200,7 +200,7 @@ window.saveBulkData = async function() {
                 failCount++;
             }
         } catch (err) {
-            hotBulkInstance.setDataAtCell(r, 0, '❌ ติดต่อเซิร์ฟไม่ได้', 'auto');
+            hotBulkInstance.setDataAtCell(r, 0, '❌ เชื่อมต่อล้มเหลว', 'auto');
             hotBulkInstance.getCellMeta(r, 0).className = 'htCenter htMiddle font-bold text-red-600 bg-red-50';
             failCount++;
         }
@@ -217,7 +217,7 @@ window.saveBulkData = async function() {
 // ==========================================
 window.downloadTemplate = function() {
     const mode = document.getElementById('bulkMode').value;
-    const cols = getColumnsConfig(mode).map(c => c.title).slice(1); // หักคอลัมน์สถานะทิ้งตอนทำ Excel
+    const cols = getColumnsConfig(mode).map(c => c.title).slice(1); 
     
     const ws = XLSX.utils.aoa_to_sheet([cols]);
     const wb = XLSX.utils.book_new();
@@ -236,11 +236,9 @@ window.importExcel = function(e) {
         const worksheet = workbook.Sheets[sheetName];
         const excelData = XLSX.utils.sheet_to_json(worksheet, {header: 1, raw: false});
         
-        // ตัดแถว Header ทิ้ง
         const rows = excelData.slice(1).map(r => {
             let newRow = new Array(getColumnsConfig(document.getElementById('bulkMode').value).length).fill("");
-            newRow[0] = ''; // เว้นช่องสถานะ
-            // เติมข้อมูล Excel ใส่ช่องอื่นๆ
+            newRow[0] = ''; 
             for(let i=0; i<r.length; i++) { newRow[i+1] = r[i] || ''; }
             return newRow;
         });

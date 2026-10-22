@@ -193,16 +193,19 @@ window.setQuickFilter = function(type) {
     applyFilters();
 };
 
-// 💰 อัปเดตแถบสรุปยอดด้านล่าง
+/// 💰 อัปเดตแถบสรุปยอดด้านล่าง
 function updateSummaryFooter(data) {
     let sumContainers = 0;
     let sumTrans = 0;
     let sumTrip = 0;
 
     data.forEach(item => {
-        sumContainers += parseInt(item.container_count) || 0;
-        sumTrans += parseFloat(item.trans_fee) || 0;
-        sumTrip += parseFloat(item.trip_fee) || 0;
+        let count = parseInt(item.container_count) || 0;
+        sumContainers += count;
+        
+        // 🌟 เอาค่าขนส่งและค่าเที่ยว คูณด้วยจำนวนตู้
+        sumTrans += (parseFloat(item.trans_fee) || 0) * count;
+        sumTrip += (parseFloat(item.trip_fee) || 0) * count;
     });
 
     document.getElementById('sum-count').innerText = data.length.toLocaleString();

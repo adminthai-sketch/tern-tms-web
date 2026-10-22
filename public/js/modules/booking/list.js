@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Typeable Filters & Overdue Blinking)
+// 📋 MODULE: BOOKING LIST (Cross-Filtering, Global Search, Summary Footer)
 // ==========================================
 
 let hotGridInstance = null;
@@ -7,23 +7,22 @@ let rawBookingList = [];
 let filteredList = [];   
 let editedRowIndices = new Set(); 
 let userGridSettings = {}; 
-let showOnlyOverdue = false; // 🌟 สถานะปุ่มกดดูเฉพาะ Overdue
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
     const today = new Date();
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     
-    // เคลียร์ความจำตาราง Version 1.4
-    if (localStorage.getItem('tms_list_version') !== '1.4') {
-        localStorage.removeItem('tms_booking_list_settings');
-        localStorage.setItem('tms_list_version', '1.4');
-    } else {
-        try {
-            const savedData = localStorage.getItem('tms_booking_list_settings');
-            if (savedData) userGridSettings = JSON.parse(savedData);
-        } catch (err) {}
-    }
+    // ดึงค่าการตั้งค่ามุมมองตาราง (ความกว้างคอลัมน์) จาก DB 
+    const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
+    try {
+        const res = await fetch(`/api/users/grid-settings?userId=${user.id}`);
+        if (res.ok) {
+            const data = await res.json();
+            userGridSettings = data.settings?.['booking_list'] || {};
+        }
+    } catch (err) {}
+    
     loadBookingGridData();
 });
 
@@ -48,6 +47,8 @@ async function loadBookingGridData() {
     const startDate = `${year}-${month}-01`;
     const lastDay = new Date(year, month, 0).getDate();
     const endDate = `${year}-${month}-${lastDay}`;
+    
+    document.getElementById('loading-overlay').classList.remove('hidden');
 
     try {
         const res = await fetch(`/api/bookings/search?start_date=${startDate}&end_date=${endDate}`);
@@ -58,162 +59,165 @@ async function loadBookingGridData() {
             editedRowIndices.clear();
             
             updateSaveStatusBadge();
-            updateOverdueBadge(); // 🌟 อัปเดตปุ่ม Overdue
-            
-            populateRunDateFilter(rawBookingList);
-            populateCustomerFilter(rawBookingList);
-            populateBookingNoFilter(rawBookingList);
-            
-            initBookingHandsontable(rawBookingList);
+            updateDropdownOptions(); // อัปเดต Dropdown (Cross-Filter)
+            initBookingHandsontable(filteredList);
+            updateSummaryFooter(filteredList); // คำนวณสรุปยอด
         } else {
             rawBookingList = []; filteredList = [];
             initBookingHandsontable([]);
+            updateSummaryFooter([]);
         }
-    } catch (err) { initBookingHandsontable([]); }
+    } catch (err) { 
+        initBookingHandsontable([]); 
+    } finally {
+        document.getElementById('loading-overlay').classList.add('hidden');
+    }
 }
 
-// 🌟 เปลี่ยนจาก select เป็นเติมค่าใน datalist แทน 🌟
-function populateRunDateFilter(data) {
-    const dl = document.getElementById('dl-run-date');
-    if(!dl) return;
-    dl.innerHTML = '';
-    const dates = new Set();
-    data.forEach(i => { if (i.run_date) dates.add(String(i.run_date).split('T')[0]); });
-    Array.from(dates).sort().forEach(d => dl.innerHTML += `<option value="${d}">`);
+// ==========================================
+// 🔍 ระบบ Cross-Filtering (ตัวกรองไขว้)
+// ==========================================
+function updateDropdownOptions() {
+    const dVal = document.getElementById('filter-run-date').value;
+    const cVal = document.getElementById('filter-customer').value;
+    const bVal = document.getElementById('filter-booking-no').value;
+
+    const dates = new Set(), custs = new Set(), books = new Set();
+
+    rawBookingList.forEach(i => {
+        const iD = i.run_date ? String(i.run_date).split('T')[0] : '';
+        const iC = i.customer_name ? String(i.customer_name).trim() : '';
+        const iJ = i.job_name ? String(i.job_name).trim() : '';
+        const iB = i.booking_no ? String(i.booking_no).trim() : '';
+
+        // เช็คว่าถ้าช่องไหนถูกเลือกแล้ว แถวข้อมูลนี้ตรงกับเงื่อนไขนั้นไหม?
+        const matchC = !cVal || iC === cVal || iJ === cVal;
+        const matchB = !bVal || iB === bVal;
+        const matchD = !dVal || iD === dVal;
+
+        // ถ้าตรงกับเงื่อนไขอื่น ก็เอาค่ามาเติมใส่ Dropdown นี้
+        if (matchC && matchB && iD) dates.add(iD);
+        if (matchD && matchB) { if (iC) custs.add(iC); if (iJ) custs.add(iJ); }
+        if (matchD && matchC && iB) books.add(iB);
+    });
+
+    const dlDate = document.getElementById('dl-run-date');
+    const dlCust = document.getElementById('dl-customer');
+    const dlBook = document.getElementById('dl-booking-no');
+
+    dlDate.innerHTML = ''; Array.from(dates).sort().forEach(v => dlDate.innerHTML += `<option value="${v}">`);
+    dlCust.innerHTML = ''; Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`);
+    dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`);
 }
 
-function populateCustomerFilter(data) {
-    const dl = document.getElementById('dl-customer');
-    if(!dl) return;
-    dl.innerHTML = '';
-    const custs = new Set();
-    data.forEach(i => { if (i.customer_name) custs.add(String(i.customer_name).trim()); });
-    Array.from(custs).sort().forEach(c => dl.innerHTML += `<option value="${c}">`);
-}
+window.handleCrossFilter = function() {
+    updateDropdownOptions(); 
+    applyFilters(); 
+};
 
-function populateBookingNoFilter(data) {
-    const dl = document.getElementById('dl-booking-no');
-    if(!dl) return;
-    dl.innerHTML = '';
-    const books = new Set();
-    data.forEach(i => { if (i.booking_no) books.add(String(i.booking_no).trim()); });
-    Array.from(books).sort().forEach(b => dl.innerHTML += `<option value="${b}">`);
-}
-
-window.onRunDateChange = function() {
-    const d = document.getElementById('filter-run-date').value;
-    let scoped = rawBookingList;
-    if (d) scoped = rawBookingList.filter(i => i.run_date && String(i.run_date).split('T')[0] === d);
-    populateCustomerFilter(scoped);
-    populateBookingNoFilter(scoped);
-    applyFilters();
-}
-
-window.onCustomerChange = function() {
+// 🌟 ตัวกรองหลักรวมกันทั้งหมด 🌟
+window.applyFilters = function() {
     const d = document.getElementById('filter-run-date').value;
     const c = document.getElementById('filter-customer').value;
-    let scoped = rawBookingList;
-    if (d) scoped = scoped.filter(i => i.run_date && String(i.run_date).split('T')[0] === d);
-    if (c) scoped = scoped.filter(i => i.customer_name && String(i.customer_name).trim() === c);
-    populateBookingNoFilter(scoped);
-    applyFilters();
-}
+    const b = document.getElementById('filter-booking-no').value;
+    const searchTxt = document.getElementById('global-search').value.toLowerCase().trim();
 
-// 🌟 ฟังก์ชันเช็คว่า Booking นี้ Overdue หรือไม่
-window.isOverdueItem = function(item) {
-    const now = new Date();
-    const datesToCheck = [item.cy_date, item.vgm_cutoff, item.cutoff_time, item.rent_cutoff, item.demurrage, item.load_date, item.unload_date, item.open_gate, item.return_date];
-    for (let d of datesToCheck) {
-        if (d && String(d).trim() !== 'NaN' && String(d).trim() !== 'null') {
-            const dt = new Date(String(d).replace(' ', 'T'));
-            if (dt < now) return true;
-        }
-    }
-    return false;
-};
+    const isToday = document.getElementById('qf-today').classList.contains('bg-blue-50');
+    const isTomorrow = document.getElementById('qf-tomorrow').classList.contains('bg-blue-50');
 
-// 🌟 อัปเดตป้ายแจ้งเตือนจำนวน Overdue
-function updateOverdueBadge() {
-    const badge = document.getElementById('overdue-badge');
-    const badgeCount = document.getElementById('overdue-count');
-    if (!badge || !badgeCount) return;
-    
-    const overdueCount = rawBookingList.filter(window.isOverdueItem).length;
-    if (overdueCount > 0) {
-        badgeCount.innerText = overdueCount;
-        badge.classList.remove('hidden');
-        badge.classList.add('flex');
-    } else {
-        badge.classList.add('hidden');
-        badge.classList.remove('flex');
-    }
-}
-
-// 🌟 ฟังก์ชันกดปุ่ม Filter ตัว Overdue
-window.toggleOverdueFilter = function() {
-    showOnlyOverdue = !showOnlyOverdue;
-    const badge = document.getElementById('overdue-badge');
-    if(badge) {
-        if(showOnlyOverdue) {
-            badge.classList.add('ring-2', 'ring-red-500', 'bg-red-200');
-        } else {
-            badge.classList.remove('ring-2', 'ring-red-500', 'bg-red-200');
-        }
-    }
-    applyFilters();
-};
-
-window.applyFilters = function() {
-    const d = document.getElementById('filter-run-date')?.value || '';
-    const c = document.getElementById('filter-customer')?.value || '';
-    const b = document.getElementById('filter-booking-no')?.value || '';
-    const searchEl = document.getElementById('search-text');
-    const txt = searchEl ? searchEl.value.toLowerCase().trim() : '';
+    const todayStr = new Date().toISOString().split('T')[0];
+    const tomDate = new Date(); tomDate.setDate(tomDate.getDate() + 1);
+    const tomorrowStr = tomDate.toISOString().split('T')[0];
 
     filteredList = rawBookingList.filter(item => {
         const iD = item.run_date ? String(item.run_date).split('T')[0] : '';
         const iC = item.customer_name ? String(item.customer_name).trim() : '';
+        const iJ = item.job_name ? String(item.job_name).trim() : '';
         const iB = item.booking_no ? String(item.booking_no).trim() : '';
         
         const matchD = !d || iD === d;
-        const matchC = !c || iC === c;
+        const matchC = !c || iC === c || iJ === c;
         const matchB = !b || iB === b;
-        const matchTxt = !txt || JSON.stringify(item).toLowerCase().includes(txt);
         
-        // 🌟 กรองแสดงเฉพาะ Overdue ถ้าเปิดใช้งาน
-        const matchOverdue = !showOnlyOverdue || window.isOverdueItem(item);
+        // 🔎 Global Search กวาดหาข้อมูลทั้งแถว
+        const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
 
-        return matchD && matchC && matchB && matchTxt && matchOverdue;
+        // ⚡ Quick Filters
+        let matchQF = true;
+        if (isToday) matchQF = matchQF && (iD === todayStr);
+        if (isTomorrow) matchQF = matchQF && (iD === tomorrowStr);
+
+        return matchD && matchC && matchB && matchGlobal && matchQF;
     });
+
     initBookingHandsontable(filteredList);
+    updateSummaryFooter(filteredList);
 };
 
-window.clearQuickFilters = function() {
-    if(document.getElementById('filter-run-date')) document.getElementById('filter-run-date').value = '';
-    if(document.getElementById('filter-customer')) document.getElementById('filter-customer').value = '';
-    if(document.getElementById('filter-booking-no')) document.getElementById('filter-booking-no').value = '';
-    if(document.getElementById('search-text')) document.getElementById('search-text').value = '';
-    showOnlyOverdue = false;
-    const badge = document.getElementById('overdue-badge');
-    if(badge) badge.classList.remove('ring-2', 'ring-red-500', 'bg-red-200');
+window.clearAllFilters = function() {
+    document.getElementById('filter-run-date').value = '';
+    document.getElementById('filter-customer').value = '';
+    document.getElementById('filter-booking-no').value = '';
+    document.getElementById('global-search').value = '';
     
-    populateCustomerFilter(rawBookingList);
-    populateBookingNoFilter(rawBookingList);
+    // เคลียร์ปุ่ม Quick Filter
+    ['today', 'tomorrow'].forEach(id => {
+        const btn = document.getElementById('qf-' + id);
+        btn.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-300');
+        btn.classList.add('bg-white', 'text-slate-600');
+    });
+
+    updateDropdownOptions();
     applyFilters();
 };
 
-window.unhideAllColumns = function() {
-    if (!hotGridInstance) return;
-    const plugin = hotGridInstance.getPlugin('hiddenColumns');
-    plugin.showColumns(Array.from({length: hotGridInstance.countCols()}, (_, i) => i));
-    hotGridInstance.render();
-    saveGridUIState();
+window.setQuickFilter = function(type) {
+    const btn = document.getElementById('qf-' + type);
+    
+    // สลับล้างค่าปุ่มอื่น
+    ['today', 'tomorrow'].forEach(id => {
+        if (id !== type) {
+            const b = document.getElementById('qf-' + id);
+            b.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-300');
+            b.classList.add('bg-white', 'text-slate-600');
+        }
+    });
+    
+    // Toggle ปุ่มปัจจุบัน
+    btn.classList.toggle('bg-blue-50'); 
+    btn.classList.toggle('text-blue-600'); 
+    btn.classList.toggle('border-blue-300');
+    btn.classList.toggle('bg-white'); 
+    btn.classList.toggle('text-slate-600');
+    
+    applyFilters();
 };
 
+// 💰 อัปเดตแถบสรุปยอดด้านล่าง
+function updateSummaryFooter(data) {
+    let sumContainers = 0;
+    let sumTrans = 0;
+    let sumTrip = 0;
+
+    data.forEach(item => {
+        sumContainers += parseInt(item.container_count) || 0;
+        sumTrans += parseFloat(item.trans_fee) || 0;
+        sumTrip += parseFloat(item.trip_fee) || 0;
+    });
+
+    document.getElementById('sum-count').innerText = data.length.toLocaleString();
+    document.getElementById('sum-container').innerText = sumContainers.toLocaleString();
+    document.getElementById('sum-trans').innerText = sumTrans.toLocaleString();
+    document.getElementById('sum-trip').innerText = sumTrip.toLocaleString();
+}
+
+// ==========================================
+// 📊 จัดการตาราง Handsontable
+// ==========================================
 function initBookingHandsontable(data) {
     const container = document.getElementById('booking-grid-container');
+    if (!container) return;
     if (hotGridInstance) { hotGridInstance.destroy(); }
-    document.getElementById('total-count').innerText = `${data.length} รายการ`;
 
     const formattedTableData = data.map(item => {
         let pickup = [];
@@ -248,11 +252,6 @@ function initBookingHandsontable(data) {
         'ต้นทาง', 'ปลายทาง', 'ตู้', 'ประเภทรถ', 'ค่าเที่ยว', 'ค่าขนส่ง', 
         '📦 PICK UP', '🚚 DELIVERY', '🔄 RETURN', 'การจัดการ'
     ];
-
-    let moveConfig = true;
-    if (userGridSettings.columnPositions && userGridSettings.columnPositions.length === colHeaders.length) {
-        moveConfig = userGridSettings.columnPositions;
-    }
 
     hotGridInstance = new Handsontable(container, {
         data: formattedTableData,
@@ -292,11 +291,9 @@ function initBookingHandsontable(data) {
             }
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
-        manualColumnResize: true, manualColumnMove: moveConfig,
+        manualColumnResize: true, manualColumnMove: true,
         colWidths: userGridSettings.columnWidths || [30, 45, 120, 75, 95, 120, 140, 90, 90, 90, 40, 80, 75, 75, 140, 140, 140, 90],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
-        hiddenColumns: { indicators: true, columns: userGridSettings.hiddenColumns || [] },
-        contextMenu: ['alignment', 'hidden_columns_hide', 'clear_column', 'undo', 'redo'],
         licenseKey: 'non-commercial-and-evaluation',
 
         afterChange: function(changes, source) {
@@ -307,59 +304,50 @@ function initBookingHandsontable(data) {
             updateSaveStatusBadge();
             this.render(); 
         },
-        afterColumnResize: function() { saveGridUIState(); },
-        afterColumnMove: function() { saveGridUIState(); },
-        afterHideColumns: function() { saveGridUIState(); },
-        afterUnhideColumns: function() { saveGridUIState(); },
         cells: function(row, col) {
             const cp = {};
             if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
             return cp;
         }
     });
+
+    if (userGridSettings.columnPositions && userGridSettings.columnPositions.length === colHeaders.length) {
+        try { hotGridInstance.getPlugin('manualColumnMove').moveColumns(userGridSettings.columnPositions, 0); } catch(e) {}
+    }
 }
 
-function saveGridUIState() {
+window.saveGridSettings = async function() {
     if (!hotGridInstance) return;
+    const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
     const colCount = hotGridInstance.countCols();
     const widths = [];
     for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
     
     const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
     let positions = [];
-    if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') positions = movePlugin.columnsMapper.getIndexesSequence();
-    
-    const hiddenPlugin = hotGridInstance.getPlugin('hiddenColumns');
-    const hiddenCols = hiddenPlugin ? hiddenPlugin.getHiddenColumns() : [];
+    if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
+        positions = movePlugin.columnsMapper.getIndexesSequence();
+    }
 
-    userGridSettings = { columnWidths: widths, columnPositions: positions, hiddenColumns: hiddenCols };
-    localStorage.setItem('tms_booking_list_settings', JSON.stringify(userGridSettings));
-}
+    try {
+        await fetch('/api/users/grid-settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, gridName: 'booking_list', settings: { columnWidths: widths, columnPositions: positions } })
+        });
+        alert('✅ บันทึกมุมมองตารางสำหรับคุณเรียบร้อยแล้ว!');
+    } catch (err) {}
+};
 
 window.goToFormEdit = function(bookingNo) { window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`; };
 
-// 🌟 ตัว Render ที่ทำหน้าที่เปรียบเทียบเวลาว่า Overdue หรือยัง และสั่งให้กระพริบแดง 🌟
 window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
     let content = '-';
     let textStyle = 'text-slate-800 font-bold';
     
     if (value && value !== 'คลิกเพิ่มเวลา') {
-        const lines = String(value).split('\n');
-        const now = new Date();
-        const htmlLines = lines.map(line => {
-            const parts = line.split(': ');
-            if (parts.length >= 2) {
-                const dtStr = parts.slice(1).join(': ').trim();
-                const dt = new Date(dtStr.replace(' ', 'T'));
-                // ตรวจสอบว่าเวลาที่ระบุ น้อยกว่าเวลาปัจจุบันหรือไม่ (ถ้าใช่นับเป็น Overdue ทันที)
-                if (dt < now) {
-                    return `<span class="text-red-600 animate-pulse font-extrabold" title="เลยกำหนดเวลาแล้ว!"><i class="fa-solid fa-circle-exclamation text-[10px]"></i> ${line}</span>`;
-                }
-            }
-            return line;
-        });
-        content = htmlLines.join('<br>');
+        content = String(value).replace(/\n/g, '<br>');
     } else if (value === 'คลิกเพิ่มเวลา') {
         content = value;
         textStyle = 'text-slate-300 font-normal italic';
@@ -486,8 +474,6 @@ window.saveDateTimeModal = function() {
 
     editedRowIndices.add(currentModalRow);
     
-    // รีเฟรชป้ายแจ้งเตือนเผื่อมีการเลื่อนเวลาให้รอดพ้น Overdue
-    updateOverdueBadge();
     updateSaveStatusBadge();
     closeDateTimeModal();
 };
@@ -497,11 +483,11 @@ function updateSaveStatusBadge() {
     if(!badge) return;
     const count = editedRowIndices.size;
     if (count > 0) {
-        badge.className = "text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse";
-        badge.innerHTML = `<i class="fa-solid fa-pen"></i> ${count} รายการรอการบันทึก`;
+        badge.className = "ml-auto text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse";
+        badge.innerHTML = `<i class="fa-solid fa-pen"></i> ${count} รายการรอเซฟ`;
     } else {
-        badge.className = "text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1";
-        badge.innerHTML = `<i class="fa-solid fa-check text-emerald-500"></i> บันทึกข้อมูลแล้ว`;
+        badge.className = "ml-auto text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1";
+        badge.innerHTML = `<i class="fa-solid fa-check text-emerald-500"></i> บันทึกแล้ว`;
     }
 }
 
@@ -545,18 +531,8 @@ window.saveGridChanges = async function() {
 
 window.deleteSelectedRows = async function() {
     if (!hotGridInstance) return;
-    const selectedRanges = hotGridInstance.getSelected() || [];
     const data = hotGridInstance.getData();
     const idsToDelete = new Set();
-    
-    selectedRanges.forEach(([row1, col1, row2, col2]) => {
-        const startRow = Math.min(row1, row2);
-        const endRow = Math.max(row1, row2);
-        for (let r = startRow; r <= endRow; r++) {
-            const rowData = hotGridInstance.getSourceDataAtRow(r);
-            if (rowData && rowData[1]) idsToDelete.add(rowData[1]); 
-        }
-    });
 
     data.forEach((row, index) => {
         if (row[0] === true) {
@@ -567,7 +543,7 @@ window.deleteSelectedRows = async function() {
 
     const idsArray = Array.from(idsToDelete);
     if (idsArray.length === 0) {
-        alert('🖱️ กรุณาคลุมดำแถว (หรือติ๊กถูกหน้าแถว) ที่ต้องการจะลบก่อนครับ');
+        alert('🖱️ กรุณาติ๊กถูกหน้าแถว ที่ต้องการจะลบก่อนครับ');
         return;
     }
 

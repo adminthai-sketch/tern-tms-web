@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: CONTAINER MANAGE (Fixed Origin, Destination, POD Mapping)
+// 📦 MODULE: CONTAINER MANAGE (Auto-Sync Origin & Destination from Bookings)
 // ==========================================
 
 let hotGridInstance = null;
@@ -45,14 +45,47 @@ async function loadContainerGridData() {
     if (!monthVal) return;
     const [year, month] = monthVal.split('-');
     
+    // คำนวณวันหัวท้าย เพื่อเอาไปดึงข้อมูลหัวบิล
+    const startDate = `${year}-${month}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${month}-${lastDay}`;
+    
     document.getElementById('loading-overlay').classList.remove('hidden');
 
     try {
-        const res = await fetch(`/api/shipments?year=${year}&month=${month}`);
-        const result = await res.json();
+        // 🌟 ดึงข้อมูลตู้ (Shipments) และ ข้อมูลหัวบิล (Bookings) มาพร้อมๆ กัน
+        const [resShipments, resBookings] = await Promise.all([
+            fetch(`/api/shipments?year=${year}&month=${month}`),
+            fetch(`/api/bookings/search?start_date=${startDate}&end_date=${endDate}`)
+        ]);
         
+        const result = await resShipments.json();
+        const bResult = await resBookings.json();
+
+        // 🌟 สร้างดิกชันนารีเก็บ ต้นทาง/ปลายทาง จากหัวบิล
+        const bookingsMap = {};
+        if (bResult.success && bResult.data) {
+            bResult.data.forEach(b => {
+                bookingsMap[b.booking_no] = { origin: b.origin, destination: b.destination };
+            });
+        }
+
         if (result.success && result.data) {
-            rawShipmentList = result.data;
+            // 🌟 ตรวจสอบและประกอบร่างข้อมูล: เอาต้นทาง/ปลายทาง จากหัวบิลมาหยอดใส่ตารางตู้ย่อย
+            rawShipmentList = result.data.map(row => {
+                const fullRow = Array.isArray(row) ? [...row] : [];
+                while (fullRow.length < 80) fullRow.push(''); // ขยายให้ครบ 80 ช่องกันเหนียว
+
+                const bNo = fullRow[7] ? String(fullRow[7]).trim() : ''; // ช่องที่ 7 คือ เลข Booking
+                
+                // ถ้าในฐานข้อมูลตู้ยังไม่มี ต้นทาง/ปลายทาง ให้ดึงจากหัวบิลมาเติมให้อัตโนมัติ!
+                if (bookingsMap[bNo]) {
+                    if (!fullRow[78]) fullRow[78] = bookingsMap[bNo].origin || '';
+                    if (!fullRow[79]) fullRow[79] = bookingsMap[bNo].destination || '';
+                }
+                return fullRow;
+            });
+
             editedRowIndices.clear();
             
             const urlParams = new URLSearchParams(window.location.search);
@@ -208,7 +241,7 @@ function containerValidator(value, callback) {
 }
 
 // ==========================================
-// 📊 จัดการตาราง Handsontable (แก้ไขคอลัมน์ Origin, Dest, POD ให้ถูกต้องเป๊ะ!)
+// 📊 จัดการตาราง Handsontable
 // ==========================================
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -222,7 +255,6 @@ function initContainerHandsontable(data) {
         'Seal No.', 'Tare', 'Max Gross', 'ค่าเที่ยว', 'ค่าขนส่ง'
     ];
 
-    // ขยายความจุเป็น 80 ช่อง เผื่อรองรับข้อมูล ต้นทาง(78) ปลายทาง(79)
     const emptyArray = new Array(80).fill("");
     const gridData = data.length > 0 ? data : Array.from({ length: 10 }, () => [...emptyArray]);
 
@@ -232,35 +264,29 @@ function initContainerHandsontable(data) {
         columns: [
             { data: 0, type: 'checkbox', className: 'htCenter htMiddle' }, 
             
-            // ข้อมูลอ้างอิงของงาน
-            { data: 1, type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter' }, // 1: Order ID
-            { data: 2, type: 'text', readOnly: true, className: 'htCenter font-bold text-slate-500' }, // 2: MODE
-            { data: 4, type: 'date', dateFormat: 'YYYY-MM-DD', readOnly: true, className: 'htCenter text-slate-600' }, // 4: วันที่วิ่งงาน
-            { data: 5, type: 'text', readOnly: true, className: 'font-semibold text-slate-700' }, // 5: ชื่องาน
-            { data: 6, type: 'text', readOnly: true, className: 'text-slate-600' }, // 6: ลูกค้า
-            { data: 7, type: 'text', readOnly: true, className: 'font-bold text-emerald-700 htCenter bg-emerald-50/20' }, // 7: BOOKING NO.
+            { data: 1, type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter' }, 
+            { data: 2, type: 'text', readOnly: true, className: 'htCenter font-bold text-slate-500' }, 
+            { data: 4, type: 'date', dateFormat: 'YYYY-MM-DD', readOnly: true, className: 'htCenter text-slate-600' }, 
+            { data: 5, type: 'text', readOnly: true, className: 'font-semibold text-slate-700' }, 
+            { data: 6, type: 'text', readOnly: true, className: 'text-slate-600' }, 
+            { data: 7, type: 'text', readOnly: true, className: 'font-bold text-emerald-700 htCenter bg-emerald-50/20' }, 
             
-            // ประเภทงาน (Autocomplete พิมพ์คำใหม่ได้)
-            { data: 12, type: 'autocomplete', source: ['ตู้บรรจุ 1*40', 'ทอยตู้เปล่า 1*40', 'ทอยตู้เปล่า 2*20'], strict: false }, // 12: ประเภทงาน
+            { data: 12, type: 'autocomplete', source: ['ตู้บรรจุ 1*40', 'ทอยตู้เปล่า 1*40', 'ทอยตู้เปล่า 2*20'], strict: false }, 
             
-            // 🌟 แก้ไข: ต้นทาง, ปลายทาง, POD แยกคอลัมน์ชัดเจน 🌟
-            { data: 78, type: 'text', className: 'font-medium text-amber-700 bg-amber-50/30' }, // 78: ต้นทาง (Origin - ใช้ช่องใหม่ 78)
-            { data: 79, type: 'text', className: 'font-medium text-amber-700 bg-amber-50/30' }, // 79: ปลายทาง (Destination - ใช้ช่องใหม่ 79)
-            { data: 14, type: 'text', className: 'font-bold text-blue-600 htCenter bg-blue-50/20' }, // 14: POD (แยกเดี่ยวตามตำแหน่งเดิมเป๊ะ)
+            { data: 78, type: 'text', className: 'font-medium text-amber-700 bg-amber-50/30' }, 
+            { data: 79, type: 'text', className: 'font-medium text-amber-700 bg-amber-50/30' }, 
+            { data: 14, type: 'text', className: 'font-bold text-blue-600 htCenter bg-blue-50/20' }, 
             
-            // ข้อมูลตู้
-            { data: 8, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, // 8: เบอร์ตู้ 1
-            { data: 9, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, // 9: เบอร์ตู้ 2
-            { data: 11, type: 'dropdown', source: ['20', '40', '40HC', '45HC'] }, // 11: ขนาดตู้
+            { data: 8, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, 
+            { data: 9, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, 
+            { data: 11, type: 'dropdown', source: ['20', '40', '40HC', '45HC'] }, 
             
-            // ข้อมูลซีลและน้ำหนัก
-            { data: 15, type: 'text' }, // 15: Seal No.
-            { data: 16, type: 'numeric', numericFormat: { pattern: '0,0' } }, // 16: Tare
-            { data: 17, type: 'numeric', numericFormat: { pattern: '0,0' } }, // 17: Max Gross
+            { data: 15, type: 'text' }, 
+            { data: 16, type: 'numeric', numericFormat: { pattern: '0,0' } }, 
+            { data: 17, type: 'numeric', numericFormat: { pattern: '0,0' } }, 
             
-            // ค่าเที่ยว / ค่าขนส่ง
-            { data: 56, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold bg-green-50/30 htRight' }, // 56: ค่าเที่ยว
-            { data: 57, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50/30 htRight' }  // 57: ค่าขนส่ง
+            { data: 56, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold bg-green-50/30 htRight' }, 
+            { data: 57, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50/30 htRight' }  
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
@@ -273,7 +299,6 @@ function initContainerHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
                 
-                // แปลงเบอร์ตู้เป็นตัวพิมพ์ใหญ่อัตโนมัติ
                 if ((prop === 8 || prop === 9) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
                     if (cleanVal !== newVal) {
@@ -338,18 +363,22 @@ window.addNewContainerRow = function() {
     const newRow = new Array(80).fill('');
     newRow[0] = false; 
     newRow[1] = timestampID; 
-    newRow[2] = templateRow[2]; // Mode
-    newRow[4] = templateRow[4]; // วันที่วิ่งงาน
-    newRow[5] = templateRow[5]; // ชื่องาน
-    newRow[6] = templateRow[6]; // ลูกค้า
-    newRow[7] = filterBooking;  // Booking
-    newRow[11] = templateRow[11]; // ขนาดตู้
-    newRow[12] = templateRow[12]; // ประเภทงาน
-    newRow[14] = templateRow[14]; // POD
-    newRow[78] = templateRow[78] || ''; // ต้นทาง
-    newRow[79] = templateRow[79] || ''; // ปลายทาง
-    newRow[56] = templateRow[56]; // ค่าเที่ยว
-    newRow[57] = templateRow[57]; // ค่าขนส่ง
+    newRow[2] = templateRow[2]; 
+    newRow[4] = templateRow[4]; 
+    newRow[5] = templateRow[5]; 
+    newRow[6] = templateRow[6]; 
+    newRow[7] = filterBooking;  
+    newRow[10] = templateRow[10]; // ต้นทาง (ที่พึ่งออโต้เติมมา)
+    newRow[11] = templateRow[11]; 
+    newRow[12] = templateRow[12]; 
+    newRow[13] = templateRow[13]; // ปลายทาง (ที่พึ่งออโต้เติมมา)
+    newRow[14] = templateRow[14]; 
+    newRow[56] = templateRow[56]; 
+    newRow[57] = templateRow[57]; 
+    
+    // สำรอง: เติมใส่ index 78, 79 ด้วยเผื่อจำเป็น
+    newRow[78] = templateRow[78] || ''; 
+    newRow[79] = templateRow[79] || '';
 
     rawShipmentList.unshift(newRow); 
     applyFilters(); 
@@ -357,7 +386,7 @@ window.addNewContainerRow = function() {
     editedRowIndices.add(0);
     updateSaveStatusBadge();
     
-    hotGridInstance.selectCell(0, 11); // เลื่อนโฟกัสไปที่ช่องเบอร์ตู้ 1 ทันที
+    hotGridInstance.selectCell(0, 11); 
     alert(`✅ สร้างแถวตู้ใหม่ให้ Booking: ${filterBooking} เรียบร้อยแล้วครับ!`);
 };
 

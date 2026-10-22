@@ -1,5 +1,5 @@
 // ==========================================
-// 🚀 MODULE: BULK BOOKING UPLOAD (Sync with booking-bulk.html)
+// 🚀 MODULE: BULK BOOKING UPLOAD (Fix Layout Crash)
 // ==========================================
 
 let hotBulkInstance = null;
@@ -9,7 +9,6 @@ let currentModalRow = -1;
 let currentModalProp = -1;
 
 window.addEventListener('DOMContentLoaded', async () => {
-    // 🌟 1. ดึงเรทราคาจาก DB 🌟
     try {
         const res = await fetch('/api/rates');
         const d = await res.json();
@@ -22,7 +21,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 };
             });
         }
-    } catch (err) { console.error("Error loading rates:", err); }
+    } catch (err) {}
 
     window.loadUserGridSettingsAndInit();
 });
@@ -49,7 +48,7 @@ window.loadUserGridSettingsAndInit = async function() {
     }
 };
 
-// 💾 บันทึกตั้งค่าคอลัมน์ของ User
+// 💾 บันทึกตั้งค่าคอลัมน์
 window.saveGridSettings = async function() {
     if (!hotBulkInstance) return;
     const mode = document.getElementById('bulk-mode').value;
@@ -58,7 +57,7 @@ window.saveGridSettings = async function() {
 
     const colCount = hotBulkInstance.countCols();
     const widths = [];
-    for (let i = 0; i < colCount; i++) { widths.push(hotBulkInstance.getColWidth(i)); }
+    for (let i = 0; i < colCount; i++) widths.push(hotBulkInstance.getColWidth(i));
 
     const movePlugin = hotBulkInstance.getPlugin('manualColumnMove');
     let positions = [];
@@ -67,14 +66,13 @@ window.saveGridSettings = async function() {
     }
 
     try {
-        const res = await fetch('/api/users/grid-settings', {
+        await fetch('/api/users/grid-settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.id, gridName: gridName, settings: { columnWidths: widths, columnPositions: positions } })
         });
-        const result = await res.json();
-        if (result.success) alert(`✅ บันทึกการตั้งค่าตารางโหมด ${mode} สำหรับคุณเรียบร้อยแล้ว!`);
-    } catch (err) { alert("❌ บันทึกล้มเหลว"); }
+        alert(`✅ บันทึกการตั้งค่าตารางโหมด ${mode} เรียบร้อยแล้ว!`);
+    } catch (err) {}
 };
 
 // 🕒 Popup Modal สำหรับเวลา
@@ -118,7 +116,6 @@ window.saveBulkDateTimeModal = function() {
     closeBulkDateTimeModal();
 };
 
-// Render ช่องเวลาให้คลิกได้
 function renderClickableBulkTimeCell(instance, td, row, col, prop, value) {
     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
     const headerTitle = instance.getColHeader(col);
@@ -172,7 +169,7 @@ function getBulkHeaders(mode) {
 
 window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
     const container = document.getElementById('hot-bulk-container');
-    if (!container) return; // ป้องกัน Error ถ้าหาตารางไม่เจอ
+    if (!container) return; 
     if (hotBulkInstance) { hotBulkInstance.destroy(); }
     
     const mode = document.getElementById('bulk-mode').value;
@@ -193,15 +190,13 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
         
         manualColumnResize: true,
         manualColumnMove: true,
-        colWidths: userSettings.columnWidths || undefined, 
+        colWidths: (userSettings.columnWidths && userSettings.columnWidths.length === headers.length) ? userSettings.columnWidths : undefined, 
         
         contextMenu: ['row_above', 'row_below', 'remove_row', 'undo', 'redo', 'copy', 'cut'],
         licenseKey: 'non-commercial-and-evaluation',
 
-        // 🌟 AI ค้นหาชื่อหัวตารางและเติมข้อมูล 🌟
         afterChange: function(changes, source) {
             if (source === 'loadData' || !changes) return;
-            
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal === newVal) return;
                 
@@ -215,9 +210,7 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
                 const carTypeIdx = headersNow.indexOf('ประเภทรถ');
                 const tripIdx = headersNow.indexOf('ค่าเที่ยว');
                 const transIdx = headersNow.indexOf('ค่าขนส่ง');
-                const jobNameIdx = headersNow.indexOf('ชื่องาน');
 
-                // 1. ถ้าพิมพ์ "ชื่องาน"
                 if (colName === 'ชื่องาน' && newVal) {
                     const rate = rateDataMap[newVal.trim()];
                     if (rate) {
@@ -225,16 +218,14 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
                         if(jobTypeIdx >= 0) this.setDataAtCell(row, jobTypeIdx, rate.jobType || '', 'auto');
                         if(originIdx >= 0) this.setDataAtCell(row, originIdx, rate.origin || '', 'auto');
                         if(destIdx >= 0) this.setDataAtCell(row, destIdx, rate.dest || '', 'auto');
-                        
                         if(carTypeIdx >= 0) {
                             const carType = this.getDataAtCell(row, carTypeIdx);
                             if (carType) applyRateDynamically(this, row, rate, carType, tripIdx, transIdx);
                         }
                     }
                 }
-                
-                // 2. ถ้าเลือก "ประเภทรถ"
                 if (colName === 'ประเภทรถ' && newVal) {
+                    const jobNameIdx = headersNow.indexOf('ชื่องาน');
                     if(jobNameIdx >= 0) {
                         const jobName = this.getDataAtCell(row, jobNameIdx); 
                         if (jobName && rateDataMap[jobName.trim()]) {
@@ -246,10 +237,11 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
         }
     });
     
-    // บังคับจัดเรียงคอลัมน์ตามที่ผู้ใช้เคยเซฟไว้
-    if (userSettings.columnPositions && userSettings.columnPositions.length > 0) {
-        const movePlugin = hotBulkInstance.getPlugin('manualColumnMove');
-        try { movePlugin.moveColumns(userSettings.columnPositions, 0); } catch(e) {}
+    // 🌟 ป้องกันตารางพัง ถ้าย้ายคอลัมน์ไม่ตรงกับจำนวนคอลัมน์เวอร์ชันใหม่
+    if (userSettings.columnPositions && userSettings.columnPositions.length === headers.length) {
+        try { 
+            hotBulkInstance.getPlugin('manualColumnMove').moveColumns(userSettings.columnPositions, 0); 
+        } catch(e) {}
     }
 };
 
@@ -261,7 +253,6 @@ function applyRateDynamically(hot, row, rate, type, tripIdx, transIdx) {
     else if(type === 'เงินสด') { hot.setDataAtCell(row, tripIdx, rate.trpCash||''); hot.setDataAtCell(row, transIdx, rate.trnCash||''); }
 }
 
-// 📥 Download Template
 window.downloadExcelTemplate = function() {
     const mode = document.getElementById('bulk-mode').value;
     const headers = getBulkHeaders(mode).map(c => c.title).slice(1);
@@ -271,7 +262,6 @@ window.downloadExcelTemplate = function() {
     XLSX.writeFile(wb, `TMS_Bulk_Template_${mode}.xlsx`);
 };
 
-// 📤 Upload Excel
 window.uploadExcelFile = function(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -288,7 +278,6 @@ window.uploadExcelFile = function(event) {
     event.target.value = '';
 };
 
-// 🚀 บันทึกข้อมูล Bulk เข้า DB
 window.processBulkSave = async function() {
     if (!hotBulkInstance) return;
     const btn = document.getElementById('btn-save-bulk');

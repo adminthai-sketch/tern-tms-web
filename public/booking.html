@@ -33,7 +33,7 @@
                 <i class="fa-solid fa-arrow-left"></i> กลับหน้าแรก
             </a>
             <div class="text-right hidden sm:block">
-                <div id="user-fullname" class="text-sm font-bold text-slate-700">กำลังโหลด...</div>
+                <div id="user-fullname" class="text-sm font-bold text-slate-700"></div>
             </div>
             <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-power-off text-lg"></i></button>
         </div>
@@ -42,7 +42,7 @@
     <div class="flex-1 flex overflow-hidden justify-center relative">
         <main class="w-full max-w-7xl p-6 overflow-y-auto flex flex-col relative bg-bglight gap-4">
             
-            <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน (เมนูหลัก) 🌟 -->
+            <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน 🌟 -->
             <div class="flex flex-wrap gap-3 shrink-0">
                 <a href="/booking.html" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-sm border border-primary shadow-md flex items-center gap-2 transition-colors">
                     <i class="fa-solid fa-pen-to-square"></i> 1. สร้างบุคกิ้งใหม่
@@ -55,7 +55,7 @@
                 </a>
             </div>
 
-            <!-- ฟอร์มสร้างบุคกิ้ง (เหมือนเดิม) -->
+            <!-- ฟอร์มสร้างบุคกิ้ง -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex-none">
                 <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-5">
                     <h2 class="text-xl font-bold text-primary flex items-center gap-2">
@@ -113,7 +113,7 @@
                                         <div class="font-bold text-amber-800 mb-2">📦 PICK UP</div>
                                         <div class="space-y-2">
                                             <div><label class="block text-slate-600 mb-1 text-xs">CY DATE & TIME</label><input type="datetime-local" id="pCyExp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></div>
-                                            <div><label class="block text-red-600 font-bold mb-1 text-xs">VGM CUTOFF (Time)</label><input type="datetime-local" id="pVgmExp" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
+                                            <div><label class="block text-red-600 font-bold mb-1 text-xs">VGM CUTOFF</label><input type="datetime-local" id="pVgmExp" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
                                             <div><label class="block text-red-600 font-bold mb-1 text-xs">CUTOFF TIME</label><input type="datetime-local" id="pCutoffExp" onchange="syncCutoff()" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
                                         </div>
                                     </div>
@@ -203,8 +203,8 @@
                         <div class="flex gap-3">
                             <button onclick="cancelEdit()" id="btn-cancel-edit" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-lg transition-colors border border-slate-300 shadow-sm">✖ ยกเลิกการแก้ไข</button>
                             <button onclick="submitBookingForm(this)" id="btn-submit-form" class="bg-primary hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5">
-    <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลรับงาน (Save)
-</button>
+                                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลรับงาน (Save)
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -213,17 +213,273 @@
         </main>
     </div>
 
-    <script src="js/modules/booking/form.js"></script>
+    <!-- 🌟 ฝัง JavaScript ทั้งหมดไว้ในไฟล์นี้โดยตรงเพื่อป้องกันปัญหาโหลดไฟล์แยก 🌟 -->
     <script>
-        window.addEventListener('DOMContentLoaded', () => {
+        let rateDataMap = {};
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            // เช็คผู้ใช้ล็อกอิน
             const savedUser = localStorage.getItem('tms_user');
             if (!savedUser) { window.location.href = '/login.html'; return; }
-            document.getElementById('user-fullname').innerText = JSON.parse(savedUser).fullName;
+            try {
+                const userObj = JSON.parse(savedUser);
+                document.getElementById('user-fullname').innerText = userObj.fullName || 'User';
+            } catch(e) { window.location.href = '/login.html'; return; }
+
+            // โหลดเรทราคา
+            try {
+                const res = await fetch('/api/rates');
+                const d = await res.json();
+                if (d.success && d.data) {
+                    const datalist = document.getElementById('jobList');
+                    datalist.innerHTML = '';
+                    d.data.forEach(r => {
+                        rateDataMap[r[0]] = {
+                            customer: r[1], origin: r[2], dest: r[3], jobType: r[6],
+                            trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10],
+                            trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14]
+                        };
+                        const opt = document.createElement('option');
+                        opt.value = r[0];
+                        datalist.appendChild(opt);
+                    });
+                }
+            } catch (err) {}
+
+            // ตรวจสอบพารามิเตอร์ว่าเป็นการเข้าโหมดแก้ไขหรือไม่
+            const urlParams = new URLSearchParams(window.location.search);
+            const editBookingNo = urlParams.get('edit');
+            if (editBookingNo) await loadBookingForEdit(editBookingNo);
         });
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
-       
+        async function loadBookingForEdit(bookingNo) {
+            try {
+                const res = await fetch(`/api/bookings/search?search=${bookingNo}`);
+                const result = await res.json();
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    const item = result.data.find(i => i.booking_no === bookingNo) || result.data[0];
+                    
+                    document.getElementById('form-title').innerText = `แก้ไขรายการรับงาน (Booking: ${bookingNo})`;
+                    document.getElementById('editing-badge').classList.remove('hidden');
+                    document.getElementById('btn-cancel-edit').classList.remove('hidden');
+                    
+                    document.getElementById('pMode').value = item.mode || '';
+                    toggleModeUI();
+                    
+                    document.getElementById('runDate').value = item.run_date ? item.run_date.split('T')[0] : '';
+                    document.getElementById('rowCount').value = item.container_count || 1;
+                    document.getElementById('jobNameInput').value = item.job_name || '';
+                    document.getElementById('pCustomer').value = item.customer_name || '';
+                    document.getElementById('pOrigin').value = item.origin || '';
+                    document.getElementById('pDest').value = item.destination || '';
+                    
+                    if (document.getElementById('pJobType')) document.getElementById('pJobType').value = item.job_type || '';
+                    if (document.getElementById('pPriceType')) document.getElementById('pPriceType').value = item.price_type || '';
+                    if (document.getElementById('pTripFee')) document.getElementById('pTripFee').value = item.trip_fee || '';
+                    if (document.getElementById('pTransFee')) document.getElementById('pTransFee').value = item.trans_fee || '';
+
+                    const setDateTime = (idBase, dtStr) => {
+                        if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return;
+                        let cleanStr = String(dtStr).trim().replace(' ', 'T'); 
+                        if (cleanStr.length > 16) cleanStr = cleanStr.substring(0, 16);
+                        const input = document.getElementById(idBase);
+                        if (input) input.value = cleanStr;
+                    };
+
+                    if (item.mode === 'EXPORT') {
+                        document.getElementById('pBookingExp').value = item.booking_no || '';
+                        document.getElementById('pAgentExp').value = item.agent || '';
+                        document.getElementById('pDepotExp').value = item.origin || '';
+                        document.getElementById('pReturnExp').value = item.destination || '';
+                        setDateTime('pCyExp', item.cy_date); setDateTime('pVgmExp', item.vgm_cutoff);
+                        setDateTime('pCutoffExp', item.cutoff_time); setDateTime('pLoadExp', item.load_date);
+                        setDateTime('pOpenGateExp', item.open_gate);
+                    } else if (item.mode === 'IMPORT') {
+                        document.getElementById('pBookingImp').value = item.booking_no || '';
+                        document.getElementById('pAgentImp').value = item.agent || '';
+                        document.getElementById('pPortImp').value = item.origin || '';
+                        document.getElementById('pDepotImp').value = item.destination || '';
+                        setDateTime('pCyImp', item.cy_date); setDateTime('pRentImp', item.rent_cutoff);
+                        setDateTime('pDemImp', item.demurrage); setDateTime('pUnloadImp', item.unload_date);
+                        setDateTime('pReturnImp', item.return_date);
+                    }
+                }
+            } catch (err) {}
+        }
+
+        function cancelEdit() { window.location.href = '/booking-list.html'; }
+
+        function toggleModeUI() {
+            const mode = document.getElementById('pMode').value;
+            document.getElementById('export-zone').classList.add('hidden');
+            document.getElementById('import-zone').classList.add('hidden');
+            document.getElementById('transfer-zone').classList.add('hidden');
+            document.getElementById('jobPreviewBox').classList.remove('hidden');
+            
+            if(mode === 'EXPORT') document.getElementById('export-zone').classList.remove('hidden');
+            else if(mode === 'IMPORT') document.getElementById('import-zone').classList.remove('hidden');
+            else if(mode === 'TRANSFER') document.getElementById('transfer-zone').classList.remove('hidden');
+            else document.getElementById('jobPreviewBox').classList.add('hidden');
+        }
+
+        function syncCutoff() { 
+            const exp = document.getElementById('pCutoffExp');
+            const auto = document.getElementById('pCutoffReturnExp');
+            if(exp && auto) auto.value = exp.value; 
+        }
+
+        function previewJobData() {
+            const val = document.getElementById('jobNameInput').value;
+            if(!val || !rateDataMap[val]) return;
+            const rate = rateDataMap[val];
+            
+            document.getElementById('pCustomer').value = rate.customer || ''; 
+            document.getElementById('pOrigin').value = rate.origin || ''; 
+            document.getElementById('pDest').value = rate.dest || ''; 
+            if(document.getElementById('pJobType')) document.getElementById('pJobType').value = rate.jobType || '';
+            
+            if (document.getElementById('pMode').value === 'EXPORT') {
+                document.getElementById('pDepotExp').value = rate.origin || ''; 
+                document.getElementById('pReturnExp').value = rate.dest || ''; 
+            } else {
+                document.getElementById('pPortImp').value = rate.origin || '';
+                document.getElementById('pDepotImp').value = rate.dest || '';
+            }
+            updateFeeDropdowns(); 
+        }
+
+        function updateFeeDropdowns() {
+            const val = document.getElementById('jobNameInput').value; 
+            const type = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
+            const trpInp = document.getElementById('pTripFee'); 
+            const trnInp = document.getElementById('pTransFee');
+            if(trpInp) trpInp.value = ''; 
+            if(trnInp) trnInp.value = '';
+            
+            if(!val || !rateDataMap[val] || !type) return;
+            const rate = rateDataMap[val];
+            if(type === '6W') { if(trpInp) trpInp.value = rate.trp6 || ''; if(trnInp) trnInp.value = rate.trn6 || ''; }
+            if(type === '10W') { if(trpInp) trpInp.value = rate.trp10 || ''; if(trnInp) trnInp.value = rate.trn10 || ''; }
+            if(type === '12W*2') { if(trpInp) trpInp.value = rate.trp12 || ''; if(trnInp) trnInp.value = rate.trn12 || ''; }
+            if(type === 'เงินสด') { if(trpInp) trpInp.value = rate.trpCash || ''; if(trnInp) trnInp.value = rate.trnCash || ''; }
+        }
+
+        function getCombinedDateTime(idBase) {
+            const input = document.getElementById(idBase);
+            if (input && input.value) return input.value.replace('T', ' ');
+            return "";
+        }
+
+        async function submitBookingForm(btn) {
+            const mode = document.getElementById('pMode').value;
+            const runDate = document.getElementById('runDate').value;
+            const customer = document.getElementById('pCustomer').value;
+            const containerCount = document.getElementById('rowCount').value || 1;
+
+            if(!mode || !runDate || !customer) {
+                alert('⚠️ กรุณากรอก Mode, วันที่วิ่งงาน และชื่อลูกค้าให้ครบถ้วน'); 
+                return; 
+            }
+
+            let cyDate="", vgmCutoff="", cutoffTime="", loadDate="", openGate="", rentCutoff="", demurrage="", unloadDate="", returnDate="";
+            if (mode === 'EXPORT') {
+                cyDate = getCombinedDateTime('pCyExp'); vgmCutoff = getCombinedDateTime('pVgmExp');
+                cutoffTime = getCombinedDateTime('pCutoffExp'); loadDate = getCombinedDateTime('pLoadExp');
+                openGate = getCombinedDateTime('pOpenGateExp');
+            } else if (mode === 'IMPORT') {
+                cyDate = getCombinedDateTime('pCyImp'); rentCutoff = getCombinedDateTime('pRentImp');
+                demurrage = getCombinedDateTime('pDemImp'); unloadDate = getCombinedDateTime('pUnloadImp');
+                returnDate = getCombinedDateTime('pReturnImp');
+            }
+
+            const jobName = document.getElementById('jobNameInput').value.trim();
+            const jobTypeVal = document.getElementById('pJobType') ? document.getElementById('pJobType').value : '';
+            const priceTypeVal = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
+            
+            const formatNum = (v) => v ? parseFloat(String(v).replace(/,/g, '')) : 0;
+            const tripFeeVal = document.getElementById('pTripFee') ? formatNum(document.getElementById('pTripFee').value) : 0;
+            const transFeeVal = document.getElementById('pTransFee') ? formatNum(document.getElementById('pTransFee').value) : 0;
+
+            if (jobName) {
+                let isNewRate = !rateDataMap[jobName];
+                let priceChanged = false;
+                
+                if (!isNewRate && priceTypeVal) {
+                    const rate = rateDataMap[jobName];
+                    if (priceTypeVal === '6W' && (Number(rate.trp6||0) !== tripFeeVal || Number(rate.trn6||0) !== transFeeVal)) priceChanged = true;
+                    else if (priceTypeVal === '10W' && (Number(rate.trp10||0) !== tripFeeVal || Number(rate.trn10||0) !== transFeeVal)) priceChanged = true;
+                    else if (priceTypeVal === '12W*2' && (Number(rate.trp12||0) !== tripFeeVal || Number(rate.trn12||0) !== transFeeVal)) priceChanged = true;
+                    else if (priceTypeVal === 'เงินสด' && (Number(rate.trpCash||0) !== tripFeeVal || Number(rate.trnCash||0) !== transFeeVal)) priceChanged = true;
+                }
+
+                if (isNewRate || priceChanged) {
+                    const msg = isNewRate 
+                        ? `🚨 ระบบตรวจพบชื่องานใหม่: "${jobName}" ต้องการบันทึกข้อมูลและราคาชุดนี้ลงใน Master Rates ด้วยหรือไม่?`
+                        : `🔄 คุณมีการแก้ไขราคาของงาน "${jobName}" ต้องการอัปเดตราคาใหม่ลงตาราง Master Rates ด้วยหรือไม่?`;
+                        
+                    if (confirm(msg)) {
+                        const singleRateData = {
+                            job_name: jobName, customer_name: customer,
+                            origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
+                            job_type: jobTypeVal,
+                            trip_fee_6w: priceTypeVal === '6W' ? tripFeeVal : null,
+                            trip_fee_10w: priceTypeVal === '10W' ? tripFeeVal : null,
+                            trip_fee_12w: priceTypeVal === '12W*2' ? tripFeeVal : null,
+                            trip_fee_cash: priceTypeVal === 'เงินสด' ? tripFeeVal : null,
+                            trans_fee_6w: priceTypeVal === '6W' ? transFeeVal : null,
+                            trans_fee_10w: priceTypeVal === '10W' ? transFeeVal : null,
+                            trans_fee_12w: priceTypeVal === '12W*2' ? transFeeVal : null,
+                            trans_fee_cash: priceTypeVal === 'เงินสด' ? transFeeVal : null,
+                        };
+                        try {
+                            await fetch('/api/rates/single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(singleRateData) });
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            let b_no = "";
+            if (mode === 'EXPORT') b_no = document.getElementById('pBookingExp').value;
+            else if (mode === 'IMPORT') b_no = document.getElementById('pBookingImp').value;
+            else if (mode === 'TRANSFER') {
+                const trRef = document.getElementById('pRefTrans');
+                if(trRef) b_no = trRef.value;
+            }
+
+            const dataToSave = {
+                mode: mode, run_date: runDate, customer_name: customer, job_name: jobName, job_type: jobTypeVal,
+                origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
+                container_count: containerCount,
+                booking_no: b_no,
+                price_type: priceTypeVal, trip_fee: tripFeeVal, trans_fee: transFeeVal,
+                cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
+                rent_cutoff: rentCutoff, demurrage: demurrage, unload_date: unloadDate, return_date: returnDate
+            };
+
+            const orgText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/bookings/header', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSave) });
+                const result = await res.json();
+                if (result.success) {
+                    alert('✅ บันทึก Booking เรียบร้อย!');
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if(urlParams.get('edit')) {
+                        window.location.href = '/booking-list.html';
+                    } else {
+                        window.location.reload(); 
+                    }
+                } else {
+                    alert('❌ เกิดข้อผิดพลาด: ' + result.message);
+                }
+            } catch (err) { alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้'); } 
+            finally { btn.innerHTML = orgText; btn.disabled = false; }
+        }
     </script>
 </body>
 </html>

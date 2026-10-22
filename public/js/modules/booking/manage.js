@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: CONTAINER MANAGE (Auto-Sync Origin & Destination from Bookings)
+// 📦 MODULE: CONTAINER MANAGE (Auto-Sync Origin/Dest + Unsaved Color Alert)
 // ==========================================
 
 let hotGridInstance = null;
@@ -25,6 +25,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     loadContainerGridData();
 });
 
+// 🌟 ปรับปรุงการเล่นสี: แถวที่ยังไม่เซฟจะเด่นชัดมาก 🌟
 function applyZebraStripingCSS() {
     if (!document.getElementById('tms-zebra-css')) {
         const style = document.createElement('style');
@@ -32,7 +33,21 @@ function applyZebraStripingCSS() {
         style.innerHTML = `
             .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
             .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
-            .handsontable tbody tr td.ht-edited-row { background-color: #fef9c3 !important; }
+            
+            /* 🔴 แถวที่แก้ไขแล้วแต่ยังไม่เซฟ (พื้นเหลือง ตัวอักษรส้ม) */
+            .handsontable tbody tr td.ht-edited-row { 
+                background-color: #fef08a !important; 
+                color: #b45309 !important; 
+                transition: background-color 0.2s ease; 
+            }
+            
+            /* 🔴 เน้นช่อง Order ID ให้เป็นสีแดงจัดๆ กรณีที่ยังไม่เซฟ */
+            .handsontable tbody tr td.ht-edited-row.unsaved-id-cell { 
+                color: #dc2626 !important; 
+                font-weight: 800 !important; 
+                background-color: #fde047 !important;
+            }
+            
             .handsontable tbody tr:hover td { background-color: #e2e8f0 !important; transition: all 0.2s; }
             .invalid-container { background-color: #fee2e2 !important; color: #b91c1c !important; font-weight: bold; }
         `;
@@ -45,7 +60,6 @@ async function loadContainerGridData() {
     if (!monthVal) return;
     const [year, month] = monthVal.split('-');
     
-    // คำนวณวันหัวท้าย เพื่อเอาไปดึงข้อมูลหัวบิล
     const startDate = `${year}-${month}-01`;
     const lastDay = new Date(year, month, 0).getDate();
     const endDate = `${year}-${month}-${lastDay}`;
@@ -53,7 +67,6 @@ async function loadContainerGridData() {
     document.getElementById('loading-overlay').classList.remove('hidden');
 
     try {
-        // 🌟 ดึงข้อมูลตู้ (Shipments) และ ข้อมูลหัวบิล (Bookings) มาพร้อมๆ กัน
         const [resShipments, resBookings] = await Promise.all([
             fetch(`/api/shipments?year=${year}&month=${month}`),
             fetch(`/api/bookings/search?start_date=${startDate}&end_date=${endDate}`)
@@ -62,7 +75,6 @@ async function loadContainerGridData() {
         const result = await resShipments.json();
         const bResult = await resBookings.json();
 
-        // 🌟 สร้างดิกชันนารีเก็บ ต้นทาง/ปลายทาง จากหัวบิล
         const bookingsMap = {};
         if (bResult.success && bResult.data) {
             bResult.data.forEach(b => {
@@ -71,14 +83,12 @@ async function loadContainerGridData() {
         }
 
         if (result.success && result.data) {
-            // 🌟 ตรวจสอบและประกอบร่างข้อมูล: เอาต้นทาง/ปลายทาง จากหัวบิลมาหยอดใส่ตารางตู้ย่อย
             rawShipmentList = result.data.map(row => {
                 const fullRow = Array.isArray(row) ? [...row] : [];
-                while (fullRow.length < 80) fullRow.push(''); // ขยายให้ครบ 80 ช่องกันเหนียว
+                while (fullRow.length < 80) fullRow.push(''); 
 
-                const bNo = fullRow[7] ? String(fullRow[7]).trim() : ''; // ช่องที่ 7 คือ เลข Booking
+                const bNo = fullRow[7] ? String(fullRow[7]).trim() : ''; 
                 
-                // ถ้าในฐานข้อมูลตู้ยังไม่มี ต้นทาง/ปลายทาง ให้ดึงจากหัวบิลมาเติมให้อัตโนมัติ!
                 if (bookingsMap[bNo]) {
                     if (!fullRow[78]) fullRow[78] = bookingsMap[bNo].origin || '';
                     if (!fullRow[79]) fullRow[79] = bookingsMap[bNo].destination || '';
@@ -241,7 +251,7 @@ function containerValidator(value, callback) {
 }
 
 // ==========================================
-// 📊 จัดการตาราง Handsontable
+// 📊 จัดการตาราง Handsontable 
 // ==========================================
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -297,7 +307,10 @@ function initContainerHandsontable(data) {
         afterChange: function(changes, source) {
             if (source === 'loadData' || !changes) return;
             changes.forEach(([row, prop, oldVal, newVal]) => {
-                if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
+                // เมื่อมีการพิมพ์/แก้ไขข้อมูลที่ไม่ใช่ Checkbox
+                if (oldVal !== newVal && prop !== 0) {
+                    editedRowIndices.add(row);
+                }
                 
                 if ((prop === 8 || prop === 9) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
@@ -309,9 +322,17 @@ function initContainerHandsontable(data) {
             updateSaveStatusBadge();
             this.render(); 
         },
+        
+        // 🌟 ใส่สีแจ้งเตือนสำหรับแถวที่รอเซฟ 🌟
         cells: function(row, col) {
             const cp = {};
-            if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
+            if (editedRowIndices.has(row)) {
+                cp.className = (cp.className || '') + ' ht-edited-row';
+                // ถ้าเป็นคอลัมน์แรก (Order ID) ให้เล่นสีแดงจัดๆ
+                if (col === 1) {
+                    cp.className += ' unsaved-id-cell';
+                }
+            }
             return cp;
         }
     });
@@ -368,15 +389,14 @@ window.addNewContainerRow = function() {
     newRow[5] = templateRow[5]; 
     newRow[6] = templateRow[6]; 
     newRow[7] = filterBooking;  
-    newRow[10] = templateRow[10]; // ต้นทาง (ที่พึ่งออโต้เติมมา)
+    newRow[10] = templateRow[10]; 
     newRow[11] = templateRow[11]; 
     newRow[12] = templateRow[12]; 
-    newRow[13] = templateRow[13]; // ปลายทาง (ที่พึ่งออโต้เติมมา)
+    newRow[13] = templateRow[13]; 
     newRow[14] = templateRow[14]; 
     newRow[56] = templateRow[56]; 
     newRow[57] = templateRow[57]; 
     
-    // สำรอง: เติมใส่ index 78, 79 ด้วยเผื่อจำเป็น
     newRow[78] = templateRow[78] || ''; 
     newRow[79] = templateRow[79] || '';
 

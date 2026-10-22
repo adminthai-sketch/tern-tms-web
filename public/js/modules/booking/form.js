@@ -1,5 +1,5 @@
 // ==========================================
-// 📝 MODULE: BOOKING FORM (Fix Fees, Auto-Cutoff, and Save Master Rate)
+// 📝 MODULE: BOOKING FORM (Fix UI and Logic)
 // ==========================================
 
 let rateDataMap = {};
@@ -183,7 +183,7 @@ window.submitBookingForm = async function(btn) {
     const tripFeeVal = document.getElementById('pTripFee') ? formatNum(document.getElementById('pTripFee').value) : 0;
     const transFeeVal = document.getElementById('pTransFee') ? formatNum(document.getElementById('pTransFee').value) : 0;
 
-    // 🌟 3. ระบบ AI ตรวจจับราคางานใหม่ 🌟
+    // 🌟 3. ระบบ AI ตรวจจับราคางานใหม่ (แก้ไข syntax string ให้ถูกต้อง) 🌟
     if (jobName) {
         let isNewRate = !rateDataMap[jobName];
         let priceChanged = false;
@@ -222,11 +222,19 @@ window.submitBookingForm = async function(btn) {
         }
     }
 
+    let b_no = "";
+    if (mode === 'EXPORT') b_no = document.getElementById('pBookingExp').value;
+    else if (mode === 'IMPORT') b_no = document.getElementById('pBookingImp').value;
+    else if (mode === 'TRANSFER') {
+        const trRef = document.getElementById('pRefTrans');
+        if(trRef) b_no = trRef.value;
+    }
+
     const dataToSave = {
         mode: mode, run_date: runDate, customer_name: customer, job_name: jobName, job_type: jobTypeVal,
         origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
         container_count: containerCount,
-        booking_no: mode === 'EXPORT' ? document.getElementById('pBookingExp').value : mode === 'IMPORT' ? document.getElementById('pBookingImp').value : document.getElementById('pRefTrans').value,
+        booking_no: b_no,
         price_type: priceTypeVal, trip_fee: tripFeeVal, trans_fee: transFeeVal,
         cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
         rent_cutoff: rentCutoff, demurrage: demurrage, unload_date: unloadDate, return_date: returnDate
@@ -241,7 +249,12 @@ window.submitBookingForm = async function(btn) {
         const result = await res.json();
         if (result.success) {
             alert('✅ บันทึก Booking เรียบร้อย!');
-            window.location.reload(); 
+            const urlParams = new URLSearchParams(window.location.search);
+            if(urlParams.get('edit')) {
+                window.location.href = '/booking-list.html';
+            } else {
+                window.location.reload(); 
+            }
         } else {
             alert('❌ เกิดข้อผิดพลาด: ' + result.message);
         }

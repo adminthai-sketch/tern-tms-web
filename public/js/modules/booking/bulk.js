@@ -27,29 +27,29 @@ window.addEventListener('DOMContentLoaded', async () => {
 // กำหนดคอลัมน์ให้ตรงตามโหมด (แยก Date กับ Time ออกจากกันอย่างชัดเจน)
 function getColumnsConfig(mode) {
     const commonCols = [
-        { title: 'สถานะ', readOnly: true, className: 'htCenter htMiddle font-bold text-lg' },
-        { title: 'วันที่วิ่งงาน (YYYY-MM-DD)', type: 'date', dateFormat: 'YYYY-MM-DD' },
-        { title: 'จำนวนตู้', type: 'numeric' },
-        { title: 'ชื่องาน', type: 'text' },
-        { title: 'ลูกค้า', type: 'text' },
-        { title: 'Booking/BL No.', type: 'text' },
-        { title: 'ประเภทรถ', type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] },
-        { title: 'ค่าเที่ยว', type: 'numeric', numericFormat: { pattern: '0,0' } },
-        { title: 'ค่าขนส่ง', type: 'numeric', numericFormat: { pattern: '0,0' } },
-        { title: 'ประเภทงาน', type: 'dropdown', source: ['Domestic', 'CONTAINER'] },
-        { title: 'ต้นทาง (Origin)', type: 'text' },
-        { title: 'ปลายทาง (Dest)', type: 'text' },
-        { title: 'Agent', type: 'text' }
-    ]; // 13 คอลัมน์แรก (Index 0-12)
+        { title: 'สถานะ', readOnly: true, className: 'htCenter htMiddle font-bold text-lg' }, // Index 0
+        { title: 'วันที่วิ่งงาน (YYYY-MM-DD)', type: 'date', dateFormat: 'YYYY-MM-DD' }, // Index 1
+        { title: 'ชื่องาน', type: 'text' }, // Index 2 (ย้ายมาต่อจากวันที่)
+        { title: 'จำนวนตู้', type: 'numeric' }, // Index 3 (ย้ายมาหลังชื่องาน)
+        { title: 'ลูกค้า', type: 'text' }, // Index 4
+        { title: 'Booking/BL No.', type: 'text' }, // Index 5
+        { title: 'ประเภทรถ', type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, // Index 6
+        { title: 'ค่าเที่ยว', type: 'numeric', numericFormat: { pattern: '0,0' } }, // Index 7
+        { title: 'ค่าขนส่ง', type: 'numeric', numericFormat: { pattern: '0,0' } }, // Index 8
+        { title: 'ประเภทงาน', type: 'dropdown', source: ['Domestic', 'CONTAINER'] }, // Index 9
+        { title: 'ต้นทาง (Origin)', type: 'text' }, // Index 10
+        { title: 'ปลายทาง (Dest)', type: 'text' }, // Index 11
+        { title: 'Agent', type: 'text' } // Index 12
+    ];
 
     let timeCols = [];
     if (mode === 'EXPORT') {
         timeCols = [
-            { title: 'CY Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'CY Time (HH:mm)', type: 'text' },
-            { title: 'VGM Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'VGM Time (HH:mm)', type: 'text' },
-            { title: 'Cutoff Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'Cutoff Time (HH:mm)', type: 'text' },
-            { title: 'Load Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'Load Time (HH:mm)', type: 'text' },
-            { title: 'Gate Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'Gate Time (HH:mm)', type: 'text' }
+            { title: 'CY Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'CY Time (HH:mm)', type: 'text' }, // 13, 14
+            { title: 'VGM Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'VGM Time (HH:mm)', type: 'text' }, // 15, 16
+            { title: 'Cutoff Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'Cutoff Time (HH:mm)', type: 'text' }, // 17, 18
+            { title: 'Load Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'Load Time (HH:mm)', type: 'text' }, // 19, 20
+            { title: 'Gate Date', type: 'date', dateFormat: 'YYYY-MM-DD' }, { title: 'Gate Time (HH:mm)', type: 'text' } // 21, 22
         ];
     } else {
         timeCols = [
@@ -96,15 +96,16 @@ window.initBulkGrid = function(dataRows = null) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal === newVal) return;
                 
-                // 1. ถ้าพิมพ์ชื่องาน (Index 3) -> เติมลูกค้า, ต้นทาง, ปลายทาง
-                if (prop === 3 && newVal) {
+                // 1. ถ้าพิมพ์ "ชื่องาน" (Index เปลี่ยนเป็น 2 แล้ว) -> ให้เติมลูกค้า, ต้นทาง, ปลายทาง อัตโนมัติ
+                if (prop === 2 && newVal) {
                     const rate = rateDataMap[newVal.trim()];
                     if (rate) {
-                        this.setDataAtCell(row, 4, rate.customer || '', 'auto');
-                        this.setDataAtCell(row, 9, rate.jobType || '', 'auto');
-                        this.setDataAtCell(row, 10, rate.origin || '', 'auto');
-                        this.setDataAtCell(row, 11, rate.dest || '', 'auto');
-                        // ดึงราคาต่อเลยถ้ารถเลือกไว้แล้ว
+                        this.setDataAtCell(row, 4, rate.customer || '', 'auto'); // ช่องลูกค้า (Index 4)
+                        this.setDataAtCell(row, 9, rate.jobType || '', 'auto'); // ประเภทงาน
+                        this.setDataAtCell(row, 10, rate.origin || '', 'auto'); // ต้นทาง
+                        this.setDataAtCell(row, 11, rate.dest || '', 'auto'); // ปลายทาง
+                        
+                        // ดึงราคาต่อเลยถ้ารถถูกเลือกไว้ก่อนหน้าแล้ว
                         const carType = this.getDataAtCell(row, 6);
                         if (carType) applyRateToGrid(this, row, rate, carType);
                     }
@@ -112,7 +113,7 @@ window.initBulkGrid = function(dataRows = null) {
                 
                 // 2. ถ้าเลือกรถ (Index 6) -> เติมราคา
                 if (prop === 6 && newVal) {
-                    const jobName = this.getDataAtCell(row, 3);
+                    const jobName = this.getDataAtCell(row, 2); // ชื่องานอยู่ช่อง 2
                     if (jobName && rateDataMap[jobName.trim()]) {
                         applyRateToGrid(this, row, rateDataMap[jobName.trim()], newVal);
                     }
@@ -145,18 +146,18 @@ window.saveBulkData = async function() {
 
     for (let r = 0; r < data.length; r++) {
         const row = data[r];
-        // ตรวจสอบว่าแถวนี้มีข้อมูล "วันที่วิ่งงาน" และ "ลูกค้า" ถึงจะยอมบันทึก
+        // ตรวจสอบว่าแถวนี้มีข้อมูล "วันที่วิ่งงาน" (Index 1) และ "ลูกค้า" (Index 4) ถึงจะยอมบันทึก
         if (!row[1] || !row[4]) continue;
 
-        // จัดการรวบ Date และ Time เข้าด้วยกัน
+        // จัดการรวบ Date และ Time เข้าด้วยกันเพื่อยิงเข้า DB
         const combineDT = (d, t) => (d && String(d).trim() !== '') ? `${d} ${t || '00:00'}` : null;
 
         let bData = {
             mode: mode,
             run_date: row[1],
-            container_count: row[2] || 1,
-            job_name: row[3] || '',
-            customer_name: row[4] || '',
+            job_name: row[2] || '', // ชื่องาน
+            container_count: row[3] || 1, // จำนวนตู้
+            customer_name: row[4] || '', // ลูกค้า
             booking_no: row[5] || `BK-BULK-${Date.now().toString().slice(-5)}${r}`,
             price_type: row[6] || '',
             trip_fee: row[7] || 0,

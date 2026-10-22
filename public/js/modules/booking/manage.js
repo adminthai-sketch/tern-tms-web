@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: CONTAINER MANAGE (Complete Column List & Autocomplete)
+// 📦 MODULE: CONTAINER MANAGE (Complete Columns with Separate Origin, Dest & POD)
 // ==========================================
 
 let hotGridInstance = null;
@@ -88,14 +88,15 @@ function updateDropdownOptions() {
     rawShipmentList.forEach(i => {
         const iD = i[4] ? String(i[4]).trim() : ''; 
         const iC = i[6] ? String(i[6]).trim() : ''; 
+        const iJ = i[5] ? String(i[5]).trim() : ''; 
         const iB = i[7] ? String(i[7]).trim() : ''; 
 
-        const matchC = !cVal || iC === cVal;
+        const matchC = !cVal || iC === cVal || iJ === cVal;
         const matchB = !bVal || iB === bVal;
         const matchD = !dVal || iD === dVal;
 
         if (matchC && matchB && iD) dates.add(iD);
-        if (matchD && matchB && iC) custs.add(iC);
+        if (matchD && matchB) { if (iC) custs.add(iC); if (iJ) custs.add(iJ); }
         if (matchD && matchC && iB) books.add(iB);
     });
 
@@ -125,11 +126,12 @@ window.applyFilters = function() {
     filteredList = rawShipmentList.filter(item => {
         const iD = item[4] ? String(item[4]).trim() : ''; 
         const iC = item[6] ? String(item[6]).trim() : ''; 
+        const iJ = item[5] ? String(item[5]).trim() : ''; 
         const iB = item[7] ? String(item[7]).trim() : ''; 
         const containerNo = item[8] ? String(item[8]).trim() : ''; 
         
         const matchD = !d || iD === d;
-        const matchC = !c || iC === c;
+        const matchC = !c || iC === c || iJ === c;
         const matchB = !b || iB === b;
         const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
 
@@ -206,7 +208,7 @@ function containerValidator(value, callback) {
 }
 
 // ==========================================
-// 📊 จัดการตาราง Handsontable (เรียงคอลัมน์ใหม่ครบถ้วน)
+// 📊 จัดการตาราง Handsontable (แยก ต้นทาง, ปลายทาง, POD ชัดเจน)
 // ==========================================
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -215,7 +217,8 @@ function initContainerHandsontable(data) {
 
     const colHeaders = [
         '✔', 'Order ID', 'MODE', 'วันที่วิ่งงาน', 'ชื่องาน', 'ลูกค้า', 'BOOKING NO.', 
-        'ประเภทงาน', 'เบอร์ตู้ (ตู้ 1)', 'เบอร์ตู้ (ตู้ 2)', 'ขนาดตู้', 'POD(ปลายทาง)', 
+        'ประเภทงาน', 'ต้นทาง', 'ปลายทาง', 'POD',
+        'เบอร์ตู้ (ตู้ 1)', 'เบอร์ตู้ (ตู้ 2)', 'ขนาดตู้', 
         'Seal No.', 'Tare', 'Max Gross', 'ค่าเที่ยว', 'ค่าขนส่ง'
     ];
 
@@ -228,7 +231,7 @@ function initContainerHandsontable(data) {
         columns: [
             { data: 0, type: 'checkbox', className: 'htCenter htMiddle' }, 
             
-            // ข้อมูลอ้างอิง (ล็อคแก้ไขไม่ได้)
+            // ข้อมูลอ้างอิงของงาน
             { data: 1, type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter' }, // 1: Order ID
             { data: 2, type: 'text', readOnly: true, className: 'htCenter font-bold text-slate-500' }, // 2: MODE
             { data: 4, type: 'date', dateFormat: 'YYYY-MM-DD', readOnly: true, className: 'htCenter text-slate-600' }, // 4: วันที่วิ่งงาน
@@ -236,21 +239,31 @@ function initContainerHandsontable(data) {
             { data: 6, type: 'text', readOnly: true, className: 'text-slate-600' }, // 6: ลูกค้า
             { data: 7, type: 'text', readOnly: true, className: 'font-bold text-emerald-700 htCenter bg-emerald-50/20' }, // 7: BOOKING NO.
             
-            // ข้อมูลที่ให้แอดมินลานตู้กรอก
-            { data: 12, type: 'autocomplete', source: ['ตู้บรรจุ 1*40', 'ทอยตู้เปล่า 1*40', 'ทอยตู้เปล่า 2*20'], strict: false }, // 12: ประเภทงาน (พิมพ์อิสระได้)
+            // ประเภทงาน (Autocomplete พิมพ์คำใหม่ได้)
+            { data: 12, type: 'autocomplete', source: ['ตู้บรรจุ 1*40', 'ทอยตู้เปล่า 1*40', 'ทอยตู้เปล่า 2*20'], strict: false }, // 12: ประเภทงาน
+            
+            // 🌟 ต้นทาง, ปลายทาง, POD แยกคอลัมน์ชัดเจน 🌟
+            { data: 10, type: 'text', className: 'font-medium text-slate-700' }, // 10: ต้นทาง (Origin)
+            { data: 13, type: 'text', className: 'font-medium text-slate-700' }, // 13: ปลายทาง (Destination)
+            { data: 14, type: 'text', className: 'font-bold text-blue-600 htCenter bg-blue-50/20' }, // 14: POD (แยกเดี่ยว)
+            
+            // ข้อมูลตู้
             { data: 8, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, // 8: เบอร์ตู้ 1
             { data: 9, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, // 9: เบอร์ตู้ 2
             { data: 11, type: 'dropdown', source: ['20', '40', '40HC', '45HC'] }, // 11: ขนาดตู้
-            { data: 14, type: 'text' }, // 14: POD
+            
+            // ข้อมูลซีลและน้ำหนัก
             { data: 15, type: 'text' }, // 15: Seal No.
             { data: 16, type: 'numeric', numericFormat: { pattern: '0,0' } }, // 16: Tare
             { data: 17, type: 'numeric', numericFormat: { pattern: '0,0' } }, // 17: Max Gross
+            
+            // ค่าเที่ยว / ค่าขนส่ง
             { data: 56, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold bg-green-50/30 htRight' }, // 56: ค่าเที่ยว
             { data: 57, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50/30 htRight' }  // 57: ค่าขนส่ง
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
-        colWidths: userGridSettings.columnWidths || [40, 110, 80, 90, 150, 130, 130, 130, 120, 120, 70, 100, 100, 80, 80, 90, 90],
+        colWidths: userGridSettings.columnWidths || [40, 110, 75, 90, 140, 120, 120, 130, 100, 100, 90, 120, 120, 70, 95, 80, 80, 85, 85],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
 
@@ -259,7 +272,7 @@ function initContainerHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
                 
-                // แปลงอักษรเบอร์ตู้เป็นตัวพิมพ์ใหญ่
+                // แปลงเบอร์ตู้เป็นตัวพิมพ์ใหญ่อัตโนมัติ
                 if ((prop === 8 || prop === 9) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
                     if (cleanVal !== newVal) {
@@ -329,8 +342,10 @@ window.addNewContainerRow = function() {
     newRow[5] = templateRow[5]; // ชื่องาน
     newRow[6] = templateRow[6]; // ลูกค้า
     newRow[7] = filterBooking;  // Booking
+    newRow[10] = templateRow[10]; // ต้นทาง
     newRow[11] = templateRow[11]; // ขนาดตู้
     newRow[12] = templateRow[12]; // ประเภทงาน
+    newRow[13] = templateRow[13]; // ปลายทาง
     newRow[14] = templateRow[14]; // POD
     newRow[56] = templateRow[56]; // ค่าเที่ยว
     newRow[57] = templateRow[57]; // ค่าขนส่ง
@@ -341,7 +356,7 @@ window.addNewContainerRow = function() {
     editedRowIndices.add(0);
     updateSaveStatusBadge();
     
-    hotGridInstance.selectCell(0, 8); // โฟกัสไปที่ช่องเบอร์ตู้
+    hotGridInstance.selectCell(0, 11); // เลื่อนโฟกัสไปที่ช่องเบอร์ตู้ 1 ทันที
     alert(`✅ สร้างแถวตู้ใหม่ให้ Booking: ${filterBooking} เรียบร้อยแล้วครับ!`);
 };
 
@@ -410,7 +425,7 @@ window.saveGridChanges = async function() {
             body: JSON.stringify({ data: dataToSave }) 
         });
         
-        alert('✅ บันทึกเบอร์ตู้สำเร็จ!');
+        alert('✅ บันทึกข้อมูลเบอร์ตู้สำเร็จ!');
         editedRowIndices.clear();
         loadContainerGridData(); 
     } catch (err) {

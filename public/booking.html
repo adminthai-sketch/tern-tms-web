@@ -297,6 +297,7 @@
                         setDateTime('pCyExp', item.cy_date); setDateTime('pVgmExp', item.vgm_cutoff);
                         setDateTime('pCutoffExp', item.cutoff_time); setDateTime('pLoadExp', item.load_date);
                         setDateTime('pOpenGateExp', item.open_gate);
+                        setDateTime('pCutoffReturnExp', item.cutoff_time);
                     } else if (item.mode === 'IMPORT') {
                         document.getElementById('pBookingImp').value = item.booking_no || '';
                         document.getElementById('pAgentImp').value = item.agent || '';

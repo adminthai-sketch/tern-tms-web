@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: CONTAINER MANAGE (Complete Columns with Separate Origin, Dest & POD)
+// 📦 MODULE: CONTAINER MANAGE (Fixed Origin, Destination, POD Mapping)
 // ==========================================
 
 let hotGridInstance = null;
@@ -208,7 +208,7 @@ function containerValidator(value, callback) {
 }
 
 // ==========================================
-// 📊 จัดการตาราง Handsontable (แยก ต้นทาง, ปลายทาง, POD ชัดเจน)
+// 📊 จัดการตาราง Handsontable (แก้ไขคอลัมน์ Origin, Dest, POD ให้ถูกต้องเป๊ะ!)
 // ==========================================
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -222,6 +222,7 @@ function initContainerHandsontable(data) {
         'Seal No.', 'Tare', 'Max Gross', 'ค่าเที่ยว', 'ค่าขนส่ง'
     ];
 
+    // ขยายความจุเป็น 80 ช่อง เผื่อรองรับข้อมูล ต้นทาง(78) ปลายทาง(79)
     const emptyArray = new Array(80).fill("");
     const gridData = data.length > 0 ? data : Array.from({ length: 10 }, () => [...emptyArray]);
 
@@ -242,10 +243,10 @@ function initContainerHandsontable(data) {
             // ประเภทงาน (Autocomplete พิมพ์คำใหม่ได้)
             { data: 12, type: 'autocomplete', source: ['ตู้บรรจุ 1*40', 'ทอยตู้เปล่า 1*40', 'ทอยตู้เปล่า 2*20'], strict: false }, // 12: ประเภทงาน
             
-            // 🌟 ต้นทาง, ปลายทาง, POD แยกคอลัมน์ชัดเจน 🌟
-            { data: 10, type: 'text', className: 'font-medium text-slate-700' }, // 10: ต้นทาง (Origin)
-            { data: 13, type: 'text', className: 'font-medium text-slate-700' }, // 13: ปลายทาง (Destination)
-            { data: 14, type: 'text', className: 'font-bold text-blue-600 htCenter bg-blue-50/20' }, // 14: POD (แยกเดี่ยว)
+            // 🌟 แก้ไข: ต้นทาง, ปลายทาง, POD แยกคอลัมน์ชัดเจน 🌟
+            { data: 78, type: 'text', className: 'font-medium text-amber-700 bg-amber-50/30' }, // 78: ต้นทาง (Origin - ใช้ช่องใหม่ 78)
+            { data: 79, type: 'text', className: 'font-medium text-amber-700 bg-amber-50/30' }, // 79: ปลายทาง (Destination - ใช้ช่องใหม่ 79)
+            { data: 14, type: 'text', className: 'font-bold text-blue-600 htCenter bg-blue-50/20' }, // 14: POD (แยกเดี่ยวตามตำแหน่งเดิมเป๊ะ)
             
             // ข้อมูลตู้
             { data: 8, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, // 8: เบอร์ตู้ 1
@@ -342,11 +343,11 @@ window.addNewContainerRow = function() {
     newRow[5] = templateRow[5]; // ชื่องาน
     newRow[6] = templateRow[6]; // ลูกค้า
     newRow[7] = filterBooking;  // Booking
-    newRow[10] = templateRow[10]; // ต้นทาง
     newRow[11] = templateRow[11]; // ขนาดตู้
     newRow[12] = templateRow[12]; // ประเภทงาน
-    newRow[13] = templateRow[13]; // ปลายทาง
     newRow[14] = templateRow[14]; // POD
+    newRow[78] = templateRow[78] || ''; // ต้นทาง
+    newRow[79] = templateRow[79] || ''; // ปลายทาง
     newRow[56] = templateRow[56]; // ค่าเที่ยว
     newRow[57] = templateRow[57]; // ค่าขนส่ง
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERN TMS - ลงเบอร์ตู้ (Manage Containers)</title>
+    <title>TERN TMS - ลงเบอร์ตู้ (Container Manage)</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,62 +12,116 @@
         tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
     </script>
 
-    <!-- Handsontable (Excel Grid) -->
+    <!-- Handsontable -->
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
 
     <style>
-        .handsontable th { font-weight: 600 !important; font-size: 11px !important; background: #f1f5f9; color: #334155; }
+        .handsontable th { font-weight: 600 !important; font-size: 11px !important; background: #f8fafc; color: #334155; border-color: #cbd5e1 !important; }
         .handsontable td { font-size: 12px !important; vertical-align: middle; }
         .ht-edited-row { background-color: #fef9c3 !important; }
+        .invalid-container { background-color: #fee2e2 !important; color: #b91c1c !important; font-weight: bold; }
     </style>
 </head>
-<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
+<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col relative">
 
     <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-4 shrink-0 z-20 shadow-sm">
         <div class="flex items-center gap-4">
-            <span class="font-bold text-lg text-primary tracking-wide hidden sm:flex items-center gap-2">
-                <i class="fa-solid fa-boxes-stacked"></i> ลงเบอร์ตู้ (Containers)
+            <span class="font-bold text-lg text-emerald-700 tracking-wide hidden sm:flex items-center gap-2">
+                <i class="fa-solid fa-boxes-stacked"></i> ลงเบอร์ตู้
             </span>
             <div class="flex gap-1 ml-0 sm:ml-2 sm:border-l sm:border-slate-200 sm:pl-3">
-                <a href="/booking.html" class="text-slate-500 hover:text-primary hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors"><i class="fa-solid fa-pen-to-square mr-1"></i> สร้างรับงาน</a>
-                <a href="/booking-list.html" class="text-slate-500 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors"><i class="fa-solid fa-table-list mr-1"></i> รายการบุคกิ้ง</a>
-                <a href="/booking-manage.html" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-sm"><i class="fa-solid fa-boxes-stacked mr-1"></i> ลงเบอร์ตู้</a>
+                <a href="/index.html" class="text-slate-500 hover:text-primary hover:bg-slate-100 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors">
+                    <i class="fa-solid fa-house mr-1"></i> หน้าแรก
+                </a>
+                <a href="/booking.html" class="text-slate-500 hover:text-primary hover:bg-slate-100 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i> สร้างรับงาน
+                </a>
+                <a href="/booking-list.html" class="text-slate-500 hover:text-primary hover:bg-slate-100 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors">
+                    <i class="fa-solid fa-table-list mr-1"></i> รายการบุคกิ้ง
+                </a>
+                <a href="/booking-manage.html" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-sm">
+                    <i class="fa-solid fa-boxes-stacked mr-1"></i> จัดการตู้
+                </a>
             </div>
         </div>
         <div class="flex items-center gap-3">
+            <div id="user-fullname" class="text-xs font-bold text-slate-700 hidden md:block">กำลังโหลด...</div>
             <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-1"><i class="fa-solid fa-power-off"></i></button>
         </div>
     </header>
 
-    <main class="flex-1 p-3 overflow-hidden flex flex-col gap-2">
-        <!-- 🎛️ Toolbar กรองข้อมูล -->
-        <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-2 shrink-0 z-10">
-            <div class="flex flex-wrap items-center gap-2">
-                <div class="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 h-8">
-                    <label class="text-xs font-bold text-emerald-700 flex items-center gap-1"><i class="fa-regular fa-calendar-check"></i> เดือน:</label>
-                    <input type="month" id="filter-month" onchange="loadContainerGridData()" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-emerald-700 outline-none cursor-pointer">
+    <main class="flex-1 p-3 overflow-hidden flex flex-col gap-2 relative">
+        <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2 shrink-0 z-10">
+            <!-- แถวบน: ตัวกรองหลักแบบ Cross-Filtering -->
+            <div class="flex flex-wrap justify-between items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 h-8">
+                        <label class="text-xs font-bold text-emerald-700 flex items-center gap-1"><i class="fa-regular fa-calendar-check"></i> เดือน:</label>
+                        <input type="month" id="filter-month" onchange="loadContainerGridData()" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-emerald-700 outline-none cursor-pointer">
+                    </div>
+                    <div class="w-px h-5 bg-slate-200 hidden md:block mx-1"></div>
+                    
+                    <input type="text" id="filter-run-date" list="dl-run-date" onchange="handleCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
+                    <datalist id="dl-run-date"></datalist>
+
+                    <input type="text" id="filter-customer" list="dl-customer" onchange="handleCrossFilter()" placeholder="🏢 ชื่องาน/ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-emerald-500">
+                    <datalist id="dl-customer"></datalist>
+
+                    <input type="text" id="filter-booking-no" list="dl-booking-no" onchange="handleCrossFilter()" placeholder="📝 เลข Booking/BL..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-40 focus:bg-white focus:border-emerald-500">
+                    <datalist id="dl-booking-no"></datalist>
+
+                    <div class="w-px h-5 bg-slate-200 hidden md:block mx-1"></div>
+                    
+                    <!-- Global Fuzzy Search -->
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
+                        <input type="text" id="global-search" onkeyup="applyFilters()" placeholder="ค้นหาเบอร์ตู้, คนขับ..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-white h-8 w-48 focus:border-emerald-500 shadow-sm">
+                    </div>
+                    
+                    <button onclick="clearAllFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors" title="ล้างค่าตัวกรองทั้งหมด"><i class="fa-solid fa-eraser text-sm"></i></button>
                 </div>
-                <div class="w-px h-5 bg-slate-200 hidden md:block mx-1"></div>
-                
-                <select id="filter-run-date" onchange="onCascadeChange()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-32"><option value="">-- วันที่วิ่งงาน --</option></select>
-                <select id="filter-customer" onchange="onCascadeChange()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-40"><option value="">-- ลูกค้า (Customer) --</option></select>
-                <select id="filter-booking-no" onchange="applyFilters()" class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 cursor-pointer h-8 md:w-44"><option value="">-- ทุก Booking / BL --</option></select>
-                <button onclick="clearQuickFilters()" class="text-slate-400 hover:text-slate-700 px-2 h-8"><i class="fa-solid fa-eraser text-xs"></i></button>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="saveGridSettings()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-amber-300 h-8 shadow-sm">
+                        <i class="fa-solid fa-table-columns"></i> จำมุมมอง
+                    </button>
+                    <!-- ปุ่มเพิ่มตู้ใหม่ กรณีงอกหน้างาน -->
+                    <button onclick="addNewContainerRow()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-blue-200 h-8 shadow-sm">
+                        <i class="fa-solid fa-plus"></i> เพิ่มตู้เข้า Booking
+                    </button>
+                    <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm">
+                        <i class="fa-solid fa-floppy-disk"></i> บันทึกเบอร์ตู้
+                    </button>
+                </div>
             </div>
-            <button onclick="unhideAllColumns()" class="bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 px-2 h-8 rounded text-xs font-bold transition-colors ml-2" title="แสดงคอลัมน์ที่ถูกซ่อนทั้งหมด">
-    <i class="fa-solid fa-eye"></i> โชว์ตารางทั้งหมด
-</button>
-            <div class="flex items-center gap-2">
-                <span id="save-status-badge" class="text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1"><i class="fa-solid fa-check text-emerald-500"></i> พร้อมใช้งาน</span>
-                <span id="total-count" class="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">0 รายการ</span>
-                <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded shadow-sm flex items-center gap-1 text-xs transition-transform h-8"><i class="fa-solid fa-floppy-disk"></i> บันทึกตาราง</button>
+            
+            <!-- แถวล่าง: Quick Filters สำหรับคนตามตู้ -->
+            <div class="flex items-center gap-2 text-xs border-t border-slate-100 pt-2">
+                <span class="font-bold text-slate-500"><i class="fa-solid fa-bolt text-amber-500"></i> ตัวกรองด่วน:</span>
+                <button id="qf-missing" onclick="setQuickFilter('missing')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-red-50 hover:text-red-600 font-medium text-slate-600 transition-colors shadow-sm">รอลงเบอร์ตู้</button>
+                <button id="qf-completed" onclick="setQuickFilter('completed')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-emerald-50 hover:text-emerald-600 font-medium text-slate-600 transition-colors shadow-sm">ลงเบอร์ตู้แล้ว</button>
+                
+                <span id="save-status-badge" class="ml-auto font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1"><i class="fa-solid fa-check text-emerald-500"></i> อัปเดตล่าสุดแล้ว</span>
             </div>
         </div>
 
-        <!-- 📋 ตาราง (Handsontable) -->
         <div class="bg-white rounded-lg shadow-sm border border-slate-200 flex-1 relative overflow-hidden">
-            <div id="container-grid" class="absolute inset-0 z-0"></div>
+            <div id="loading-overlay" class="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center hidden">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-emerald-600 mb-3"></i>
+                <p class="font-bold text-slate-600">กำลังโหลดรายการตู้...</p>
+            </div>
+            <div id="container-grid-container" class="absolute inset-0 z-0"></div>
+        </div>
+        
+        <!-- แถบสรุปยอดด้านล่างสุด (Summary Footer) -->
+        <div class="bg-slate-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center justify-between shrink-0 text-xs font-bold">
+            <div><i class="fa-solid fa-chart-pie mr-1 text-emerald-400"></i> สรุปข้อมูลตู้ (ที่กำลังแสดง):</div>
+            <div class="flex gap-6">
+                <div><span class="text-slate-400 font-medium">รวมทั้งหมด:</span> <span id="sum-total" class="text-white text-sm">0</span> <span class="text-slate-400 font-normal">ตู้</span></div>
+                <div><span class="text-slate-400 font-medium">ลงเบอร์แล้ว:</span> <span id="sum-filled" class="text-emerald-400 text-sm">0</span> <span class="text-slate-400 font-normal">ตู้</span></div>
+                <div><span class="text-slate-400 font-medium">รอลงเบอร์:</span> <span id="sum-missing" class="text-red-400 text-sm">0</span> <span class="text-slate-400 font-normal">ตู้</span></div>
+            </div>
         </div>
     </main>
 

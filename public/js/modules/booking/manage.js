@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: CONTAINER MANAGE (Auto-Sync Origin/Dest + Unsaved Color Alert)
+// 📦 MODULE: CONTAINER MANAGE (Fixed Delete API & Auto-Sync Fees)
 // ==========================================
 
 let hotGridInstance = null;
@@ -25,7 +25,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     loadContainerGridData();
 });
 
-// 🌟 ปรับปรุงการเล่นสี: แถวที่ยังไม่เซฟจะเด่นชัดมาก 🌟
 function applyZebraStripingCSS() {
     if (!document.getElementById('tms-zebra-css')) {
         const style = document.createElement('style');
@@ -33,21 +32,8 @@ function applyZebraStripingCSS() {
         style.innerHTML = `
             .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
             .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
-            
-            /* 🔴 แถวที่แก้ไขแล้วแต่ยังไม่เซฟ (พื้นเหลือง ตัวอักษรส้ม) */
-            .handsontable tbody tr td.ht-edited-row { 
-                background-color: #fef08a !important; 
-                color: #b45309 !important; 
-                transition: background-color 0.2s ease; 
-            }
-            
-            /* 🔴 เน้นช่อง Order ID ให้เป็นสีแดงจัดๆ กรณีที่ยังไม่เซฟ */
-            .handsontable tbody tr td.ht-edited-row.unsaved-id-cell { 
-                color: #dc2626 !important; 
-                font-weight: 800 !important; 
-                background-color: #fde047 !important;
-            }
-            
+            .handsontable tbody tr td.ht-edited-row { background-color: #fef08a !important; color: #b45309 !important; transition: background-color 0.2s ease; }
+            .handsontable tbody tr td.ht-edited-row.unsaved-id-cell { color: #dc2626 !important; font-weight: 800 !important; background-color: #fde047 !important; }
             .handsontable tbody tr:hover td { background-color: #e2e8f0 !important; transition: all 0.2s; }
             .invalid-container { background-color: #fee2e2 !important; color: #b91c1c !important; font-weight: bold; }
         `;
@@ -75,10 +61,16 @@ async function loadContainerGridData() {
         const result = await resShipments.json();
         const bResult = await resBookings.json();
 
+        // 🌟 ดึงข้อมูลต้นทาง, ปลายทาง, ค่าเที่ยว, ค่าขนส่ง จากหัวบิลมาเก็บเป็นดิกชันนารี
         const bookingsMap = {};
         if (bResult.success && bResult.data) {
             bResult.data.forEach(b => {
-                bookingsMap[b.booking_no] = { origin: b.origin, destination: b.destination };
+                bookingsMap[b.booking_no] = { 
+                    origin: b.origin, 
+                    destination: b.destination,
+                    trip_fee: b.trip_fee,
+                    trans_fee: b.trans_fee
+                };
             });
         }
 
@@ -89,9 +81,14 @@ async function loadContainerGridData() {
 
                 const bNo = fullRow[7] ? String(fullRow[7]).trim() : ''; 
                 
+                // 🌟 หยอดข้อมูลจากหัวบิลลงตู้ย่อยแบบอัตโนมัติ 🌟
                 if (bookingsMap[bNo]) {
                     if (!fullRow[78]) fullRow[78] = bookingsMap[bNo].origin || '';
                     if (!fullRow[79]) fullRow[79] = bookingsMap[bNo].destination || '';
+                    
+                    // ถ้าตู้ย่อยยังไม่มีค่าเที่ยว/ค่าขนส่ง หรือเป็น 0 ให้ดึงจากหัวบิลมาใช้ทันที
+                    if (!fullRow[56] || parseFloat(fullRow[56]) === 0) fullRow[56] = bookingsMap[bNo].trip_fee || 0;
+                    if (!fullRow[57] || parseFloat(fullRow[57]) === 0) fullRow[57] = bookingsMap[bNo].trans_fee || 0;
                 }
                 return fullRow;
             });
@@ -307,7 +304,6 @@ function initContainerHandsontable(data) {
         afterChange: function(changes, source) {
             if (source === 'loadData' || !changes) return;
             changes.forEach(([row, prop, oldVal, newVal]) => {
-                // เมื่อมีการพิมพ์/แก้ไขข้อมูลที่ไม่ใช่ Checkbox
                 if (oldVal !== newVal && prop !== 0) {
                     editedRowIndices.add(row);
                 }
@@ -323,12 +319,10 @@ function initContainerHandsontable(data) {
             this.render(); 
         },
         
-        // 🌟 ใส่สีแจ้งเตือนสำหรับแถวที่รอเซฟ 🌟
         cells: function(row, col) {
             const cp = {};
             if (editedRowIndices.has(row)) {
                 cp.className = (cp.className || '') + ' ht-edited-row';
-                // ถ้าเป็นคอลัมน์แรก (Order ID) ให้เล่นสีแดงจัดๆ
                 if (col === 1) {
                     cp.className += ' unsaved-id-cell';
                 }
@@ -396,7 +390,6 @@ window.addNewContainerRow = function() {
     newRow[14] = templateRow[14]; 
     newRow[56] = templateRow[56]; 
     newRow[57] = templateRow[57]; 
-    
     newRow[78] = templateRow[78] || ''; 
     newRow[79] = templateRow[79] || '';
 
@@ -410,6 +403,7 @@ window.addNewContainerRow = function() {
     alert(`✅ สร้างแถวตู้ใหม่ให้ Booking: ${filterBooking} เรียบร้อยแล้วครับ!`);
 };
 
+// 🌟 แก้ไขฟังก์ชันการลบตู้ ให้ยิง API แบบ Array (ตรงกับ Backend) 🌟
 window.deleteContainerRows = async function() {
     if (!hotGridInstance) return;
     const data = hotGridInstance.getData();
@@ -433,11 +427,21 @@ window.deleteContainerRows = async function() {
 
     if (!confirm(`⚠️ ยืนยันการลบตู้จำนวน ${rowsToDelete.length} รายการทิ้งถาวร?`)) return;
 
+    // จำลองลบออกจาก UI ทันที
     hotGridInstance.alter('remove_row', rowsToDelete[0], rowsToDelete.length);
     
+    // ส่งคำสั่งลบไปยัง Backend ในรูปแบบ JSON Array
     if (idsToDelete.length > 0) {
-        for (let id of idsToDelete) {
-            try { await fetch(`/api/shipments/${id}`, { method: 'DELETE' }); } catch (e) {}
+        try { 
+            const res = await fetch('/api/shipments', { 
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_ids: idsToDelete }) // ส่งเป็น Array ตรงตามที่ Backend รับ
+            }); 
+            const result = await res.json();
+            if(!result.success) alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message);
+        } catch (e) {
+            alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
         }
     }
     

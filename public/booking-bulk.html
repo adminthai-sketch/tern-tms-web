@@ -229,17 +229,11 @@
 
             const modal = document.getElementById('bulk-datetime-modal');
             modal.classList.remove('hidden'); modal.classList.add('flex');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                document.getElementById('bulk-datetime-modal-content').classList.remove('scale-95');
-            }, 10);
         }
 
         function closeBulkDateTimeModal() {
             const modal = document.getElementById('bulk-datetime-modal');
-            modal.classList.add('opacity-0');
-            document.getElementById('bulk-datetime-modal-content').classList.add('scale-95');
-            setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
+            modal.classList.add('hidden'); modal.classList.remove('flex');
         }
 
         function saveBulkDateTimeModal() {
@@ -250,15 +244,14 @@
             closeBulkDateTimeModal();
         }
 
-        // 🌟 ยอมให้ก๊อปวาง และมีปุ่มนาฬิกาให้กดป๊อปอัพได้ด้วย 🌟
+        // 🌟 แสดงรูปแบบ YYYY-MM-DD HH:mm เพื่อบอกวิธีพิมพ์/ก๊อปปี้วาง 🌟
         function renderClickableBulkTimeCell(instance, td, row, col, prop, value) {
             Handsontable.renderers.TextRenderer.apply(this, arguments);
             const headerTitle = instance.getColHeader(col);
-            const displayVal = value ? value : '';
             
             td.innerHTML = `
                 <div class="flex items-center justify-between w-full h-full group pl-1">
-                    <span class="truncate ${value ? 'font-bold text-blue-700' : 'text-slate-300 italic'}">${value ? value : '-- พิมพ์หรือก๊อปวาง --'}</span>
+                    <span class="truncate ${value ? 'font-bold text-blue-700' : 'text-slate-400 italic text-xs'}">${value ? value : '-- YYYY-MM-DD HH:mm --'}</span>
                     <button onclick="openBulkDateTimeModal(${row}, ${col}, '${headerTitle}')" class="hidden group-hover:flex bg-blue-100 text-blue-600 hover:bg-blue-200 rounded p-1 shadow-sm h-[22px] w-[22px] items-center justify-center cursor-pointer transition-colors" title="คลิกเพื่อเลือกวัน/เวลาจากปฏิทิน">
                         <i class="fa-solid fa-clock text-[10px]"></i>
                     </button>
@@ -286,22 +279,21 @@
             ];
 
             let timeCols = [];
-            // 🌟 เอา readOnly: true ออก เพื่อให้แอดมินสามารถก๊อปปี้วางจาก Excel ลงไปตรงๆ ได้เลย 🌟
             if (mode === 'EXPORT') {
                 timeCols = [
-                    { title: 'CY Date & Time', renderer: renderClickableBulkTimeCell },
-                    { title: 'VGM Cutoff (Time)', renderer: renderClickableBulkTimeCell },
-                    { title: 'Cutoff Time', renderer: renderClickableBulkTimeCell },
-                    { title: 'Load Date & Time', renderer: renderClickableBulkTimeCell },
-                    { title: 'Open Gate Date & Time', renderer: renderClickableBulkTimeCell }
+                    { title: 'CY Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'VGM Cutoff (Time)\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'Cutoff Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'Load Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'Open Gate Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell }
                 ];
             } else if (mode === 'IMPORT') {
                 timeCols = [
-                    { title: 'CY Date & Time', renderer: renderClickableBulkTimeCell },
-                    { title: 'Rent Cutoff (Time)', renderer: renderClickableBulkTimeCell },
-                    { title: 'Demurrage (Time)', renderer: renderClickableBulkTimeCell },
-                    { title: 'Unload Date & Time', renderer: renderClickableBulkTimeCell },
-                    { title: 'Return Date & Time', renderer: renderClickableBulkTimeCell }
+                    { title: 'CY Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'Rent Cutoff (Time)\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'Demurrage (Time)\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'Return Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell }
                 ];
             }
             return [...commonCols, ...timeCols];
@@ -393,15 +385,12 @@
             else if(type === 'เงินสด') { hot.setDataAtCell(row, tripIdx, rate.trpCash||''); hot.setDataAtCell(row, transIdx, rate.trnCash||''); }
         }
 
-        // 🌟 สร้างข้อมูลตัวอย่าง (Sample Data) ในแม่แบบ Excel ให้ลูกค้ารู้ว่าต้องพิมพ์แบบไหน 🌟
-        window.downloadExcelTemplate = function() {
+        // 🌟 ใส่รูปแบบตัวอย่างข้อมูลลงในไฟล์ Excel 🌟
+        function downloadExcelTemplate() {
             const mode = document.getElementById('bulk-mode').value;
-            const headers = getBulkHeaders(mode).map(c => c.title).slice(1);
+            const headers = getBulkHeaders(mode).map(c => c.title.replace('\n', ' ')).slice(1);
             
-            // สร้างข้อมูลตัวอย่าง 2 บรรทัดให้ดูเป็นแนวทาง
             let sampleRow1 = new Array(headers.length).fill('');
-            let sampleRow2 = new Array(headers.length).fill('');
-            
             const setVal = (rowArr, name, val) => { 
                 const idx = headers.findIndex(h => h.includes(name));
                 if(idx >= 0) rowArr[idx] = val; 
@@ -409,29 +398,28 @@
 
             const today = new Date().toISOString().slice(0, 10);
             
-            // แถวที่ 1
             setVal(sampleRow1, 'วันที่วิ่งงาน', today);
             setVal(sampleRow1, 'ชื่องาน', 'ตัวอย่างงานที่ 1');
             setVal(sampleRow1, 'จำนวนตู้', 1);
-            setVal(sampleRow1, 'ลูกค้า', 'พิมพ์แค่ชื่องาน เดี๋ยวระบบจะเติมลูกค้าให้เอง');
+            setVal(sampleRow1, 'ลูกค้า', 'ระบบเติมอัตโนมัติ');
             setVal(sampleRow1, 'ประเภทรถ', '10W');
             
             if (mode === 'EXPORT') {
-                setVal(sampleRow1, 'CY Date & Time', `${today} 08:00`);
+                setVal(sampleRow1, 'CY Date & Time', `${today} 08:30`);
                 setVal(sampleRow1, 'VGM Cutoff', `${today} 12:00`);
                 setVal(sampleRow1, 'Cutoff Time', `${today} 17:00`);
             } else {
-                setVal(sampleRow1, 'CY Date & Time', `${today} 08:00`);
+                setVal(sampleRow1, 'CY Date & Time', `${today} 08:30`);
                 setVal(sampleRow1, 'Rent Cutoff', `${today} 12:00`);
             }
 
-            const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow1, sampleRow2]);
+            const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow1]);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, `Template_${mode}`);
             XLSX.writeFile(wb, `TMS_Bulk_Template_${mode}.xlsx`);
-        };
+        }
 
-        window.uploadExcelFile = function(event) {
+        function uploadExcelFile(event) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -447,7 +435,7 @@
             event.target.value = '';
         }
 
-        window.processBulkSave = async function() {
+        async function processBulkSave() {
             if (!hotBulkInstance) return;
             const btn = document.getElementById('btn-save-bulk');
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';

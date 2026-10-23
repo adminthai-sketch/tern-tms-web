@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: CONTAINER MANAGE (Fixed Delete API & Auto-Sync Fees)
+// 📦 MODULE: CONTAINER MANAGE (Fixed Delete Logic & Fee Sync)
 // ==========================================
 
 let hotGridInstance = null;
@@ -61,15 +61,14 @@ async function loadContainerGridData() {
         const result = await resShipments.json();
         const bResult = await resBookings.json();
 
-        // 🌟 ดึงข้อมูลต้นทาง, ปลายทาง, ค่าเที่ยว, ค่าขนส่ง จากหัวบิลมาเก็บเป็นดิกชันนารี
         const bookingsMap = {};
         if (bResult.success && bResult.data) {
             bResult.data.forEach(b => {
                 bookingsMap[b.booking_no] = { 
                     origin: b.origin, 
                     destination: b.destination,
-                    trip_fee: b.trip_fee,
-                    trans_fee: b.trans_fee
+                    trip_fee: parseFloat(b.trip_fee) || 0,
+                    trans_fee: parseFloat(b.trans_fee) || 0
                 };
             });
         }
@@ -81,14 +80,17 @@ async function loadContainerGridData() {
 
                 const bNo = fullRow[7] ? String(fullRow[7]).trim() : ''; 
                 
-                // 🌟 หยอดข้อมูลจากหัวบิลลงตู้ย่อยแบบอัตโนมัติ 🌟
+                // 🌟 ดึงข้อมูลและค่าเงินจากหัวบิล มาใส่ตู้ย่อย 🌟
                 if (bookingsMap[bNo]) {
                     if (!fullRow[78]) fullRow[78] = bookingsMap[bNo].origin || '';
                     if (!fullRow[79]) fullRow[79] = bookingsMap[bNo].destination || '';
                     
-                    // ถ้าตู้ย่อยยังไม่มีค่าเที่ยว/ค่าขนส่ง หรือเป็น 0 ให้ดึงจากหัวบิลมาใช้ทันที
-                    if (!fullRow[56] || parseFloat(fullRow[56]) === 0) fullRow[56] = bookingsMap[bNo].trip_fee || 0;
-                    if (!fullRow[57] || parseFloat(fullRow[57]) === 0) fullRow[57] = bookingsMap[bNo].trans_fee || 0;
+                    // บังคับแปลงค่าเงินเป็นตัวเลข เพื่อเช็คว่าถ้าไม่มีหรือเป็น 0 ให้ดึงจากหัวบิลมาเติมเสมอ
+                    const currentTrip = parseFloat(String(fullRow[56]).replace(/,/g, '')) || 0;
+                    const currentTrans = parseFloat(String(fullRow[57]).replace(/,/g, '')) || 0;
+                    
+                    if (currentTrip === 0) fullRow[56] = bookingsMap[bNo].trip_fee;
+                    if (currentTrans === 0) fullRow[57] = bookingsMap[bNo].trans_fee;
                 }
                 return fullRow;
             });
@@ -248,7 +250,7 @@ function containerValidator(value, callback) {
 }
 
 // ==========================================
-// 📊 จัดการตาราง Handsontable 
+// 📊 จัดการตาราง Handsontable
 // ==========================================
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -403,17 +405,20 @@ window.addNewContainerRow = function() {
     alert(`✅ สร้างแถวตู้ใหม่ให้ Booking: ${filterBooking} เรียบร้อยแล้วครับ!`);
 };
 
-// 🌟 แก้ไขฟังก์ชันการลบตู้ ให้ยิง API แบบ Array (ตรงกับ Backend) 🌟
+// 🌟 แก้ไขระบบลบตู้ ให้ยิง API ได้แม่นยำขึ้น 🌟
 window.deleteContainerRows = async function() {
     if (!hotGridInstance) return;
+    
     const data = hotGridInstance.getData();
     const rowsToDelete = [];
     const idsToDelete = [];
 
+    // วนเช็คว่าแถวไหนโดนติ๊ก Checkbox (ค่าจะเป็น true)
     data.forEach((row, index) => {
         const src = hotGridInstance.getSourceDataAtRow(index);
-        if (src[0] === true) { 
+        if (src[0] === true || src[0] === 'true' || src[0] === 1) { 
             rowsToDelete.push(index);
+            // เอาเฉพาะที่มี Order ID จริงๆ ส่งไปลบในฐานข้อมูล
             if (src[1] && !src[1].includes('ORD-ADD')) { 
                 idsToDelete.push(src[1]); 
             }
@@ -421,31 +426,34 @@ window.deleteContainerRows = async function() {
     });
 
     if (rowsToDelete.length === 0) {
-        alert('🖱️ กรุณาติ๊กถูกด้านหน้าแถวที่ต้องการจะลบตู้ก่อนครับ');
+        alert('🖱️ กรุณาติ๊กถูกที่กล่องสี่เหลี่ยมด้านหน้าสุดของแถวที่ต้องการจะลบตู้ก่อนครับ');
         return;
     }
 
     if (!confirm(`⚠️ ยืนยันการลบตู้จำนวน ${rowsToDelete.length} รายการทิ้งถาวร?`)) return;
 
-    // จำลองลบออกจาก UI ทันที
-    hotGridInstance.alter('remove_row', rowsToDelete[0], rowsToDelete.length);
-    
-    // ส่งคำสั่งลบไปยัง Backend ในรูปแบบ JSON Array
+    // ถ้ามีออเดอร์ในฐานข้อมูล ให้ยิง API ไปลบก่อน
     if (idsToDelete.length > 0) {
         try { 
             const res = await fetch('/api/shipments', { 
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_ids: idsToDelete }) // ส่งเป็น Array ตรงตามที่ Backend รับ
+                body: JSON.stringify({ order_ids: idsToDelete }) 
             }); 
+            
             const result = await res.json();
-            if(!result.success) alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message);
+            if(!result.success) {
+                alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message);
+                return; // ถ้ายิง API ไม่ผ่าน ไม่ต้องลบตารางหน้าเว็บ
+            }
         } catch (e) {
             alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+            return;
         }
     }
     
     alert(`✅ ลบตู้เสร็จสิ้น!`);
+    loadContainerGridData(); // 🌟 โหลดตารางใหม่จากหลังบ้านเพื่อรีเฟรชข้อมูลให้ชัวร์ที่สุด
 };
 
 function updateSaveStatusBadge() {

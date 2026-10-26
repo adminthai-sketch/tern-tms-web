@@ -12,7 +12,7 @@ let globalTruckList = [];
 let globalDriverList = [];
 let fleetAssignments = {}; 
 let globalContainerSizes = ['20', '40', '40HC', '45HC'];
-let isDropYardsHidden = true; // สถานะเริ่มต้น ซ่อนลานฝาก
+let isDropYardsHidden = true; 
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
@@ -83,11 +83,10 @@ function applyZebraStripingCSS() {
     }
 }
 
-// 🌟 ฟังก์ชันจัดรูปแบบวันที่ให้สั้นลง
 function formatShortDate(dt) {
-    if (!dt || String(dt).trim() === 'NaN' || String(dt).trim() === 'null') return '-';
+    if (!dt || String(dt).trim() === 'NaN' || String(dt).trim() === 'null') return '';
     const s = String(dt).replace('T', ' ').substring(5, 16); 
-    return s || '-';
+    return s || '';
 }
 
 async function loadContainerGridData() {
@@ -115,10 +114,9 @@ async function loadContainerGridData() {
                 bookingsMap[b.booking_no] = { 
                     customer: b.customer_name, origin: b.origin, destination: b.destination,
                     trip_fee: parseFloat(b.trip_fee) || 0, trans_fee: parseFloat(b.trans_fee) || 0,
-                    // 🌟 ดึงข้อมูลเวลาจากหน้าสร้างบุคกิ้งมาเก็บไว้
-                    time_pickup: b.cy_date || b.vgm_cutoff || '-',
-                    time_delivery: b.load_date || b.unload_date || '-',
-                    time_return: b.return_date || b.open_gate || '-'
+                    time_pickup: b.cy_date || b.vgm_cutoff || '',
+                    time_delivery: b.load_date || b.unload_date || '',
+                    time_return: b.return_date || b.open_gate || ''
                 };
             });
         }
@@ -134,10 +132,9 @@ async function loadContainerGridData() {
                     fullRow[10] = bookingsMap[bNo].origin; 
                     fullRow[11] = bookingsMap[bNo].destination; 
                     
-                    // 🌟 โหลดเวลาจาก Booking ใส่ลงไปในช่องที่ว่างเอาไว้
-                    fullRow[29] = formatShortDate(bookingsMap[bNo].time_pickup); // เก็บไว้ช่อง 29
-                    fullRow[40] = formatShortDate(bookingsMap[bNo].time_delivery); // เก็บไว้ช่อง 40
-                    fullRow[50] = formatShortDate(bookingsMap[bNo].time_return); // เก็บไว้ช่อง 50
+                    fullRow[29] = formatShortDate(bookingsMap[bNo].time_pickup); 
+                    fullRow[40] = formatShortDate(bookingsMap[bNo].time_delivery); 
+                    fullRow[50] = formatShortDate(bookingsMap[bNo].time_return); 
 
                     const currentTrip = parseFloat(String(fullRow[56]).replace(/,/g, '')) || 0;
                     const currentTrans = parseFloat(String(fullRow[57]).replace(/,/g, '')) || 0;
@@ -209,6 +206,22 @@ window.clearAllFilters = function() {
     applyFilters(); 
 };
 
+window.setQuickFilter = function(type) {
+    const btnPending = document.getElementById('qf-pending');
+    const btnFilled = document.getElementById('qf-filled');
+    btnPending.classList.remove('bg-blue-50', 'text-blue-600');
+    btnFilled.classList.remove('bg-blue-50', 'text-blue-600');
+
+    if (type === 'pending') {
+        btnPending.classList.add('bg-blue-50', 'text-blue-600');
+        filteredList = rawShipmentList.filter(item => !item[8] || item[8].trim() === '' || item[8] === 'ยังไม่ระบุ');
+    } else {
+        btnFilled.classList.add('bg-blue-50', 'text-blue-600');
+        filteredList = rawShipmentList.filter(item => item[8] && item[8].trim() !== '' && item[8] !== 'ยังไม่ระบุ');
+    }
+    initContainerHandsontable(filteredList);
+};
+
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
     if (!container) return;
@@ -223,21 +236,21 @@ function initContainerHandsontable(data) {
             [
                 { label: '📋 ข้อมูลงาน', colspan: 6 },
                 { label: '📦 ข้อมูลตู้ (พิมพ์ข้อมูลตอนหน้างานแจ้งมา)', colspan: 7 },
-                { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, // 🌟 ขยายเพื่อรองรับคอลัมน์เวลา 🌟
+                { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
-                { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ)', colspan: 4 }, // 🌟 ขยาย 🌟
+                { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ)', colspan: 4 }, 
                 { label: '🅿️ ขาฝาก 2 (DROP 2)', colspan: 4 }, 
-                { label: '🚢 ขา 3: RETURN (คืนตู้)', colspan: 4 }, // 🌟 ขยาย 🌟
+                { label: '🚢 ขา 3: RETURN (คืนตู้)', colspan: 4 }, 
                 { label: '💵 การเงิน', colspan: 2 }
             ],
             [
                 '✔', 'Order ID', 'Booking', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
                 'ขนาดตู้', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
-                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', // เพิ่ม 📅 เวลานัด
+                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅',
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', 
-                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', '✅', // เพิ่ม 📅 เวลานัด
+                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', '✅', 
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅',
-                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', '✅', // เพิ่ม 📅 เวลานัด
+                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', '✅', 
                 'ค่าเที่ยว', 'ค่าขนส่ง'
             ]
         ],
@@ -262,9 +275,9 @@ function initContainerHandsontable(data) {
             // 🚚 ขา 1: PICK UP
             { data: 28, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
             { data: 27, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
-            { data: 29, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, // 🌟 แสดงเวลานัดหมาย ขา 1 🌟
+            { data: 29, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' },
             { 
-                data: 36, // ปุ่ม Drop Yard
+                data: 36, 
                 readOnly: true, className: 'htCenter htMiddle bg-purple-50/20',
                 renderer: function(instance, td, row, col, prop, value) {
                     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
@@ -285,7 +298,7 @@ function initContainerHandsontable(data) {
             // 🏭 ขา 2: DELIVERY
             { data: 39, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
             { data: 38, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
-            { data: 40, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, // 🌟 แสดงเวลานัดหมาย ขา 2 🌟
+            { data: 40, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 42, type: 'checkbox', className: 'htCenter htMiddle zone-leg2' },
 
             // 🅿️ ขาฝาก 2 (DROP 2)
@@ -297,7 +310,7 @@ function initContainerHandsontable(data) {
             // 🚢 ขา 3: RETURN
             { data: 49, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
             { data: 48, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
-            { data: 50, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, // 🌟 แสดงเวลานัดหมาย ขา 3 🌟
+            { data: 50, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 52, type: 'checkbox', className: 'htCenter htMiddle zone-leg3' },
 
             // 💵 การเงิน
@@ -307,18 +320,18 @@ function initContainerHandsontable(data) {
         colWidths: [
             30, 110, 100, 100, 80, 80, // Info 
             60, 100, 100, 90, 80, 70, 80, // Container 
-            90, 110, 75, 110, 40, // Leg 1 (เพิ่ม 75)
+            90, 110, 75, 110, 40, // Leg 1 
             90, 110, 110, 40, // Drop 1 
-            90, 110, 75, 40, // Leg 2 (เพิ่ม 75)
+            90, 110, 75, 40, // Leg 2 
             90, 110, 110, 40, // Drop 2 
-            90, 110, 75, 40, // Leg 3 (เพิ่ม 75)
+            90, 110, 75, 40, // Leg 3 
             70, 70 // Finance 
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
         
         hiddenColumns: {
-            columns: isDropYardsHidden ? [18, 19, 20, 21, 26, 27, 28, 29] : [], // ซ่อน Drop 1 และ Drop 2
+            columns: isDropYardsHidden ? [18, 19, 20, 21, 26, 27, 28, 29] : [], 
             indicators: true
         },
         contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'copy'],
@@ -329,13 +342,11 @@ function initContainerHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
                 
-                // แปลงตัวอักษรใหญ่
                 if ([8, 9, 78, 79].includes(prop) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
                     if (cleanVal !== newVal) this.setDataAtCell(row, this.propToCol(prop), cleanVal, 'auto');
                 }
 
-                // ดึงชื่อคนขับอัตโนมัติ
                 if ([28, 34, 39, 44, 49].includes(prop) && newVal) {
                     if (fleetAssignments[newVal]) {
                         const colIdx = this.propToCol(prop);
@@ -367,7 +378,6 @@ window.toggleDropRow = function(row) {
     editedRowIndices.add(row);
     updateSaveStatusBadge();
     
-    // ถ้าผู้ใช้กดแวะลานพัก แต่คอลัมน์ฝากตู้ยังซ่อนอยู่ ให้เปิดคอลัมน์ให้อัตโนมัติ
     if (!isDrop && isDropYardsHidden) {
         toggleDropYards();
     }
@@ -442,7 +452,6 @@ window.addNewContainerRow = function() {
     newRow[2] = templateRow[2]; newRow[6] = templateRow[6]; newRow[10] = templateRow[10]; newRow[11] = templateRow[11]; 
     newRow[12] = templateRow[12]; 
     
-    // ก๊อปปี้เวลามาให้ตู้ที่เพิ่มใหม่ด้วย
     newRow[29] = templateRow[29]; 
     newRow[40] = templateRow[40]; 
     newRow[50] = templateRow[50]; 

@@ -330,48 +330,65 @@ function formatDateTime(dtStr) {
 let currentModalRow = -1; let currentModalProp = -1;
 
 window.openDateTimeModal = function(row, prop) {
-    currentModalRow = row; currentModalProp = prop;
+    currentModalRow = row; 
+    currentModalProp = prop;
+    
+    // ดึงรหัส Booking จากแถวที่คลิก (Index 3 คือเลข Booking ตามตารางล่าสุด)
     const rData = hotGridInstance.getSourceDataAtRow(row);
     const bookingNo = rData[3]; 
-    const mode = rData[4];      
+    
+    // ดึงข้อมูลต้นฉบับจากตัวแปร List
     const item = filteredList.find(i => i.booking_no === bookingNo);
     if (!item) return;
 
+    // 🌟 ดึง Mode จาก Item ตรงๆ และบังคับตัดช่องว่าง/ตัวใหญ่เสมอ ป้องกันบั๊ก 🌟
+    const mode = item.mode ? String(item.mode).trim().toUpperCase() : 'EXPORT';
+
     let html = '', title = '';
     
-    // แยกช่องกรอก Modal ตาม EXPORT / IMPORT
+    // 🛃 แยกช่องกรอก Modal ตามโหมด EXPORT / IMPORT 100%
     if (prop === 17) { 
-        title = 'เวลา PICK UP (รับตู้/ลาน)';
+        title = `เวลา PICK UP (${mode})`;
         html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
+        
         if (mode === 'EXPORT') {
             html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
             html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
         } else if (mode === 'IMPORT') {
-            html += createDatetimeInput('rent_cutoff', 'Rent Cutoff', item.rent_cutoff);
+            // 🌟 นำเข้า (IMPORT) โชว์แค่ Rent Cutoff 🌟
+            html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (คืนตู้ฟรีถึง)', item.rent_cutoff);
         }
+        
     } else if (prop === 18) { 
-        title = 'เวลา DELIVERY (โหลด/ลงของ)';
+        title = `เวลา DELIVERY (${mode})`;
         if (mode === 'EXPORT') {
-            html += createDatetimeInput('load_date', 'Load Date & Time', item.load_date);
-        } else {
-            html += createDatetimeInput('unload_date', 'Unload Date & Time', item.unload_date);
+            html += createDatetimeInput('load_date', 'Load Date & Time (โหลดของ)', item.load_date);
+        } else if (mode === 'IMPORT') {
+            html += createDatetimeInput('unload_date', 'Unload Date & Time (ลงของ)', item.unload_date);
         }
+        
     } else if (prop === 19) { 
-        title = 'เวลา RETURN (คืนตู้)';
+        title = `เวลา RETURN (${mode})`;
         if (mode === 'EXPORT') {
             html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
-            html += createDatetimeInput('cutoff_time', 'Cutoff Time (แก้ไขที่นี่ได้)', item.cutoff_time);
-        } else {
-            html += createDatetimeInput('return_date', 'Return Date & Time', item.return_date);
+            html += createDatetimeInput('cutoff_time', 'Cutoff Time (แก้ไขที่นี่ได้ด้วย)', item.cutoff_time);
+        } else if (mode === 'IMPORT') {
+            html += createDatetimeInput('return_date', 'Return Date & Time (เวลาที่คืนตู้จริง)', item.return_date);
         }
+        
     } else { return; }
 
-    document.getElementById('modal-title').innerText = title; document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('modal-title').innerText = title; 
+    document.getElementById('modal-body').innerHTML = html;
+    
     const modal = document.getElementById('datetime-modal');
-    modal.classList.remove('hidden'); modal.classList.add('flex');
-    setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('datetime-modal-content').classList.remove('scale-95'); }, 10);
+    modal.classList.remove('hidden'); 
+    modal.classList.add('flex');
+    setTimeout(() => { 
+        modal.classList.remove('opacity-0'); 
+        document.getElementById('datetime-modal-content').classList.remove('scale-95'); 
+    }, 10);
 };
-
 function createDatetimeInput(field, label, val) {
     let formattedVal = '';
     if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') formattedVal = String(val).replace(' ', 'T').substring(0, 16);

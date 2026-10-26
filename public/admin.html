@@ -218,13 +218,30 @@
                     { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' } 
                 ]
             },
-            trucks: {
+          trucks: {
                 title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck', endpoint: '/api/trucks',
-                headers: ['ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ'],
+                headers: [
+                    'ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ', 
+                    'ยี่ห้อรถ', 'รุ่น (Model)', 'เลขตัวถัง', 'เลขเครื่องยนต์', 'เชื้อเพลิง', 
+                    'หมดอายุภาษี', 'หมดอายุประกัน', 'หมดอายุ พ.ร.บ.', 
+                    'เลขไมล์ปัจจุบัน', 'ไมล์เข้าศูนย์รอบหน้า', 'วันที่ซ่อมล่าสุด'
+                ],
                 columns: [
-                    { readOnly: true }, { type: 'text' }, 
-                    { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] }, 
-                    { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'] }
+                    { readOnly: true, className: 'bg-slate-50 htCenter' }, 
+                    { type: 'text', className: 'font-bold text-primary' }, 
+                    { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'], className: 'htCenter' }, 
+                    { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'], className: 'htCenter font-bold' },
+                    // หมวดข้อมูลรถ
+                    { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
+                    { type: 'dropdown', source: ['ดีเซล', 'NGV', 'B20', 'อื่นๆ'] },
+                    // หมวดวันที่เอกสาร
+                    { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'text-red-600 htCenter' },
+                    { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'text-red-600 htCenter' },
+                    { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'text-red-600 htCenter' },
+                    // หมวดไมล์และซ่อมบำรุง
+                    { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'htCenter bg-slate-50 font-bold' },
+                    { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'htCenter text-amber-600 font-bold' },
+                    { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'text-emerald-600 htCenter' }
                 ]
             },
             driver_info: {

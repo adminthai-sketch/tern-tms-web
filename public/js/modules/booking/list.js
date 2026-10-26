@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Vertical Actions & Mode-Specific Times)
+// 📋 MODULE: BOOKING LIST (Ultimate Edition: Left Actions, Vertical Times, Hide Columns)
 // ==========================================
 
 let hotGridInstance = null;
@@ -227,7 +227,7 @@ function initBookingHandsontable(data) {
         columns: [
             { type: 'checkbox', className: 'htCenter htMiddle' }, 
             
-            // 🌟 1. คอลัมน์ปุ่มจัดการ (วางซ้อนบน-ล่าง) 🌟
+            // 🌟 คอลัมน์ปุ่มจัดการ (วางซ้อนบน-ล่าง) 🌟
             { 
                 readOnly: true, 
                 renderer: function(instance, td, row, col, prop, value) {
@@ -267,8 +267,13 @@ function initBookingHandsontable(data) {
             { type: 'text', renderer: renderClickableTimeCell, readOnly: true }
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
-        manualColumnResize: true, manualColumnMove: true,
-        // 🌟 ปรับความกว้างให้ "จัดการ" เล็กลง (50px) 🌟
+        
+        // 🌟 ตั้งค่าให้ซ่อนคอลัมน์ได้เมื่อคลิกขวา (Context Menu) 🌟
+        manualColumnResize: true, 
+        manualColumnMove: true,
+        hiddenColumns: { indicators: true },
+        contextMenu: ['hidden_columns_hide', 'hidden_columns_show', '---------', 'alignment', 'copy'],
+
         colWidths: userGridSettings.columnWidths || [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 130, 120, 130],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
@@ -355,7 +360,6 @@ window.openDateTimeModal = function(row, prop) {
             html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
             html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
         } else if (mode === 'IMPORT') {
-            // 🌟 นำเข้า (IMPORT) โชว์แค่ Rent Cutoff 🌟
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (คืนตู้ฟรีถึง)', item.rent_cutoff);
         }
         
@@ -378,17 +382,12 @@ window.openDateTimeModal = function(row, prop) {
         
     } else { return; }
 
-    document.getElementById('modal-title').innerText = title; 
-    document.getElementById('modal-body').innerHTML = html;
-    
+    document.getElementById('modal-title').innerText = title; document.getElementById('modal-body').innerHTML = html;
     const modal = document.getElementById('datetime-modal');
-    modal.classList.remove('hidden'); 
-    modal.classList.add('flex');
-    setTimeout(() => { 
-        modal.classList.remove('opacity-0'); 
-        document.getElementById('datetime-modal-content').classList.remove('scale-95'); 
-    }, 10);
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('datetime-modal-content').classList.remove('scale-95'); }, 10);
 };
+
 function createDatetimeInput(field, label, val) {
     let formattedVal = '';
     if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') formattedVal = String(val).replace(' ', 'T').substring(0, 16);
@@ -417,7 +416,6 @@ window.saveDateTimeModal = function() {
 
     editedRowIndices.add(currentModalRow);
     
-    // ดึง HTML อัปเดตใหม่
     const pickup = createTimeListHtml(item.mode, 'PICKUP', item);
     const delivery = createTimeListHtml(item.mode, 'DELIVERY', item);
     const ret = createTimeListHtml(item.mode, 'RETURN', item);
@@ -472,14 +470,3 @@ window.deleteSelectedRows = async function() {
     for (let id of idsArray) { try { const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' }); if(res.ok) successCount++; } catch (err) {} }
     if (successCount > 0) { alert(`✅ ลบรายการสำเร็จ ${successCount} บุคกิ้ง`); editedRowIndices.clear(); updateSaveStatusBadge(); loadBookingGridData(); } else { alert(`❌ ไม่สามารถลบข้อมูลได้ หรือเชื่อมต่อเซิร์ฟเวอร์ไม่ได้`); }
 };
-
-manualColumnResize: true, 
-        manualColumnMove: true,
-
-        // 🌟 1. เพิ่ม 2 บรรทัดนี้ เพื่อเปิดระบบคลิกขวาซ่อนคอลัมน์ 🌟
-        hiddenColumns: { indicators: true },
-        contextMenu: ['hidden_columns_hide', 'hidden_columns_show', '---------', 'alignment', 'copy'],
-
-        colWidths: userGridSettings.columnWidths || [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 130, 120, 130],
-        filters: true, 
-        dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],

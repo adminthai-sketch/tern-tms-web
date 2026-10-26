@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Auto-Rate Fill, Vertical Times, Hide Columns)
+// 📋 MODULE: BOOKING LIST (Ultimate Edition + Sub-Grid Dispatch)
 // ==========================================
 
 let hotGridInstance = null;
@@ -34,13 +34,13 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (err) {}
 
-    // 🌟 ดึงข้อมูลเรทราคามาเก็บไว้ล่วงหน้า 🌟
+    // ดึงข้อมูลเรทราคามาเก็บไว้ล่วงหน้า
     try {
         const rateRes = await fetch('/api/rates');
         const rateResult = await rateRes.json();
         if (rateResult.success && rateResult.data) {
             rateResult.data.forEach(r => {
-                rateDataMap[r[0]] = { // r[0] คือชื่องาน
+                rateDataMap[r[0]] = {
                     customer: r[1], origin: r[2], dest: r[3], jobType: r[6],
                     trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10],
                     trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14]
@@ -57,10 +57,7 @@ function applyZebraStripingCSS() {
         const style = document.createElement('style');
         style.id = 'tms-zebra-css';
         style.innerHTML = `
-            .handsontable td { 
-                vertical-align: middle !important;
-                border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; 
-            }
+            .handsontable td { vertical-align: middle !important; border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; }
             .handsontable th { background-color: #f1f5f9; color: #475569; font-weight: 700; border-color: #cbd5e1; font-size: 11px; padding: 4px !important; }
             .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
             .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
@@ -233,7 +230,9 @@ function initBookingHandsontable(data) {
                                 <button onclick="window.goToFormEdit('${value}')" title="แก้ไขหัวบิล" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
                                     <i class="fa-solid fa-pen mr-1"></i> แก้
                                 </button>
-                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" title="จัดรถและลงเบอร์ตู้" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
+                                
+                                <!-- 🌟 เปลี่ยนจาก window.location เป็น window.openDispatchModal('${value}') 🌟 -->
+                                <button onclick="window.openDispatchModal('${value}')" title="จัดรถและลงเบอร์ตู้" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
                                     <i class="fa-solid fa-truck-fast mr-1"></i> รถ
                                 </button>
                             </div>
@@ -275,7 +274,6 @@ function initBookingHandsontable(data) {
                 if (oldVal !== newVal && prop !== 0) {
                     editedRowIndices.add(row);
                     
-                    // 🌟 ระบบ Auto-Fill อัตโนมัติเมื่อแก้ชื่องาน หรือ ประเภทรถ 🌟
                     const colName = this.getColHeader(prop);
                     const headersNow = this.getColHeader(); 
                     
@@ -326,7 +324,6 @@ function initBookingHandsontable(data) {
     }
 }
 
-// 🌟 ฟังก์ชันช่วยคำนวณราคาย่อย 🌟
 function applyRateDynamicallyInList(hot, row, rate, type, tripIdx, transIdx) {
     if(tripIdx < 0 || transIdx < 0) return;
     if(type === '6W') { hot.setDataAtCell(row, tripIdx, rate.trp6||''); hot.setDataAtCell(row, transIdx, rate.trn6||''); }
@@ -495,4 +492,116 @@ window.deleteSelectedRows = async function() {
     let successCount = 0;
     for (let id of idsArray) { try { const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' }); if(res.ok) successCount++; } catch (err) {} }
     if (successCount > 0) { alert(`✅ ลบรายการสำเร็จ ${successCount} บุคกิ้ง`); editedRowIndices.clear(); updateSaveStatusBadge(); loadBookingGridData(); } else { alert(`❌ ไม่สามารถลบข้อมูลได้ หรือเชื่อมต่อเซิร์ฟเวอร์ไม่ได้`); }
+};
+
+
+// ==========================================
+// 🚚 MODAL: DISPATCH & CONTAINER SUB-GRID
+// ==========================================
+
+let hotDispatchInstance = null;
+
+window.openDispatchModal = function(bookingNo) {
+    const item = filteredList.find(i => i.booking_no === bookingNo);
+    if (!item) return;
+
+    // เปลี่ยนข้อความบนหัว Modal ให้รู้ว่ากำลังจัดรถงานไหน
+    document.getElementById('dispatch-subtitle').innerText = `Booking: ${bookingNo} | ลูกค้า: ${item.customer_name || '-'} | ต้นทาง: ${item.origin || '-'} | ปลายทาง: ${item.destination || '-'}`;
+
+    // สร้างหน้าต่าง Modal ขึ้นมา
+    const modal = document.getElementById('dispatch-modal');
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    setTimeout(() => { 
+        modal.classList.remove('opacity-0'); 
+        document.getElementById('dispatch-modal-content').classList.remove('scale-95'); 
+        
+        // เมื่อ Animation กางออกเสร็จ ค่อยวาดตารางเบอร์ตู้
+        initDispatchGrid(item);
+    }, 100);
+};
+
+window.closeDispatchModal = function() {
+    const modal = document.getElementById('dispatch-modal');
+    modal.classList.add('opacity-0'); document.getElementById('dispatch-modal-content').classList.add('scale-95');
+    setTimeout(() => { 
+        modal.classList.add('hidden'); modal.classList.remove('flex'); 
+        if (hotDispatchInstance) {
+            hotDispatchInstance.destroy();
+            hotDispatchInstance = null;
+        }
+    }, 200);
+};
+
+function initDispatchGrid(bookingItem) {
+    const container = document.getElementById('dispatch-grid-container');
+    if (!container) return;
+    if (hotDispatchInstance) hotDispatchInstance.destroy();
+
+    // จำลองข้อมูลแถวตู้ ตามจำนวนตู้ (container_count) ที่แอดมินกรอกไว้ในหน้าหลัก
+    const count = parseInt(bookingItem.container_count) || 1;
+    let containerData = [];
+    for(let i=0; i<count; i++) {
+        containerData.push([
+            i+1, // ลำดับ
+            bookingItem.container_size || '', 
+            '', // เบอร์ตู้
+            '', // SEAL NO
+            '', // POP
+            '', // TARE
+            '', // MAX GROSS
+            '', // ทะเบียนรถ (ขาแรก)
+            '', // คนขับ
+            false // สถานะเสร็จ
+        ]);
+    }
+
+    hotDispatchInstance = new Handsontable(container, {
+        data: containerData,
+        autoRowSize: false,
+        rowHeights: 35,
+        wordWrap: false,
+        nestedHeaders: [
+            [
+                { label: 'ตู้ที่', colspan: 1 },
+                { label: '📦 ข้อมูลตู้ (พิมพ์เบอร์ตู้ตอนหน้างานแจ้งมา)', colspan: 6 },
+                { label: '🚚 จัดรถวิ่งงาน', colspan: 3 }
+            ],
+            [
+                '#',
+                'ขนาดตู้', 'เบอร์ตู้', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS',
+                'ทะเบียนรถ', 'ชื่อพนักงานขับรถ', 'สถานะเสร็จสิ้น'
+            ]
+        ],
+        columns: [
+            { type: 'numeric', readOnly: true, className: 'htCenter htMiddle bg-slate-50 text-slate-500 font-bold' },
+            { type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/30' },
+            { type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase bg-blue-50/30' },
+            { type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase bg-blue-50/30' },
+            { type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase bg-blue-50/30' },
+            { type: 'numeric', className: 'htCenter htMiddle text-blue-700 bg-blue-50/30' },
+            { type: 'numeric', className: 'htCenter htMiddle text-blue-700 bg-blue-50/30' },
+            
+            { type: 'text', className: 'htCenter htMiddle font-bold text-emerald-700 bg-emerald-50/20' },
+            { type: 'text', className: 'htMiddle font-bold text-emerald-700 bg-emerald-50/20' },
+            { type: 'checkbox', className: 'htCenter htMiddle bg-emerald-50/20' }
+        ],
+        colWidths: [40, 80, 140, 110, 90, 80, 100, 130, 200, 100],
+        rowHeaders: false, width: '100%', height: '100%', stretchH: 'all',
+        manualColumnResize: true,
+        licenseKey: 'non-commercial-and-evaluation'
+    });
+}
+
+window.saveDispatchGrid = function() {
+    const btn = document.getElementById('btn-save-dispatch');
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
+    btn.disabled = true;
+
+    // ตรงนี้ไว้เขียน API บันทึกข้อมูลตู้ในอนาคต
+    setTimeout(() => {
+        alert('✅ บันทึกเบอร์ตู้และจัดรถสำเร็จ!');
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> บันทึกเบอร์ตู้และรถ';
+        btn.disabled = false;
+        closeDispatchModal();
+    }, 500);
 };

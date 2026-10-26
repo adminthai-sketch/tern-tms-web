@@ -43,15 +43,25 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {}
 
     try {
-        const rateRes = await fetch('/api/rates');
-        const rateResult = await rateRes.json();
-        if (rateResult.success && rateResult.data) {
-            rateResult.data.forEach(r => {
-                rateDataMap[r[0]] = {
-                    customer: r[1], origin: r[2], dest: r[3], jobType: r[6],
-                    trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10],
-                    trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14]
+        const res = await fetch('/api/rates');
+        const d = await res.json();
+        if (d.success && d.data) {
+            const datalist = document.getElementById('jobList');
+            if (datalist) datalist.innerHTML = '';
+            
+            d.data.forEach(r => {
+                // 🌟 ปรับ Index ใหม่: r[2] = job_name, r[1] = short_name
+                rateDataMap[r[2]] = {
+                    customer: r[1], origin: r[3], dest: r[4], jobType: r[7],
+                    trp6: r[8], trp10: r[9], trp12: r[10], trpCash: r[11],
+                    trn6: r[12], trn10: r[13], trn12: r[14], trnCash: r[15]
                 };
+                
+                if (datalist) {
+                    const opt = document.createElement('option');
+                    opt.value = r[2]; // ใช้ชื่องานเป็น Value
+                    datalist.appendChild(opt);
+                }
             });
         }
     } catch (err) {}

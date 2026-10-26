@@ -455,3 +455,14 @@ window.deleteSelectedRows = async function() {
     for (let id of idsArray) { try { const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' }); if(res.ok) successCount++; } catch (err) {} }
     if (successCount > 0) { alert(`✅ ลบรายการสำเร็จ ${successCount} บุคกิ้ง`); editedRowIndices.clear(); updateSaveStatusBadge(); loadBookingGridData(); } else { alert(`❌ ไม่สามารถลบข้อมูลได้ หรือเชื่อมต่อเซิร์ฟเวอร์ไม่ได้`); }
 };
+
+manualColumnResize: true, 
+        manualColumnMove: true,
+
+        // 🌟 1. เพิ่ม 2 บรรทัดนี้ เพื่อเปิดระบบคลิกขวาซ่อนคอลัมน์ 🌟
+        hiddenColumns: { indicators: true },
+        contextMenu: ['hidden_columns_hide', 'hidden_columns_show', '---------', 'alignment', 'copy'],
+
+        colWidths: userGridSettings.columnWidths || [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 130, 120, 130],
+        filters: true, 
+        dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],

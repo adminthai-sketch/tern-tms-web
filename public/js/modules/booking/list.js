@@ -1,566 +1,515 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERN TMS - สร้างบุคกิ้งเดี่ยว</title>
+// ==========================================
+// 📋 MODULE: BOOKING LIST (Auto-Rate Fill, Vertical Times, Hide Columns)
+// ==========================================
+
+let hotGridInstance = null;
+let rawBookingList = []; 
+let filteredList = [];   
+let editedRowIndices = new Set(); 
+let userGridSettings = {}; 
+let globalContainerSizes = ['20', '40', '40HC', '45HC']; 
+
+// 🌟 ตัวแปรเก็บข้อมูลตารางราคา (เรท) สำหรับ Auto-Fill
+let rateDataMap = {}; 
+
+window.addEventListener('DOMContentLoaded', async () => {
+    applyZebraStripingCSS(); 
+    const today = new Date();
+    document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
-    </script>
-    <style>
-        .export-theme { background: #fffdf5; border: 1px solid #ffeeba; }
-        .import-theme { background: #f2f7ff; border: 1px solid #cce5ff; }
-        .transfer-theme { background: #fdf5f5; border: 1px solid #ffccbc; }
-    </style>
-</head>
-<body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
-
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center text-sm"><i class="fa-solid fa-truck-fast"></i></div>
-            <span class="font-bold text-xl text-primary tracking-wide">TERN TMS <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold ml-1">DATA ENTRY</span></span>
-        </div>
-        <div class="flex items-center gap-4">
-            <a href="/booking-manage.html" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-sm flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border border-emerald-200 shadow-sm">
-                <i class="fa-solid fa-desktop"></i> ไปหน้าจัดการตู้/จัดรถ
-            </a>
-            <a href="/index.html" class="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors border border-slate-200">
-                <i class="fa-solid fa-arrow-left"></i> กลับหน้าแรก
-            </a>
-            <div class="text-right hidden sm:block">
-                <div id="user-fullname" class="text-sm font-bold text-slate-700"></div>
-            </div>
-            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-power-off text-lg"></i></button>
-        </div>
-    </header>
-
-    <div class="flex-1 flex overflow-hidden justify-center relative">
-        <main class="w-full max-w-7xl p-6 overflow-y-auto flex flex-col relative bg-bglight gap-4">
-            
-           <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน 🌟 -->
-            <div class="flex flex-wrap gap-3 shrink-0">
-                <a href="/booking.html" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-sm border border-primary shadow-md flex items-center gap-2 transition-colors">
-                    <i class="fa-solid fa-pen-to-square"></i> 1. สร้างบุคกิ้งใหม่
-                </a>
-                <a href="/booking-bulk.html" class="bg-white text-slate-500 hover:bg-slate-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
-                    <i class="fa-solid fa-file-excel"></i> 2. อัปโหลดหลาย Job พร้อมกัน (Bulk Excel)
-                </a>
-                <a href="/booking-list.html" class="bg-white text-slate-600 hover:text-primary hover:bg-blue-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
-                    <i class="fa-solid fa-table-list"></i> 3. ดูรายการบุคกิ้งทั้งหมด (Booking List)
-                </a>
-            </div>
-
-            <!-- ฟอร์มสร้างบุคกิ้ง -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex-none">
-                <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-5">
-                    <h2 class="text-xl font-bold text-primary flex items-center gap-2">
-                        <i class="fa-solid fa-folder-plus"></i> <span id="form-title">สร้างรายการรับงานใหม่ (New Booking)</span>
-                    </h2>
-                    <span id="editing-badge" class="hidden bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-300">
-                        <i class="fa-solid fa-pen"></i> โหมดแก้ไข (Editing) <span id="editing-order-text"></span>
-                    </span>
-                </div>
-                
-                <input type="hidden" id="editingOrderId" value="">
-
-                <!-- STEP 1: ข้อมูลตั้งต้น -->
-                <div class="bg-blue-50/50 p-5 rounded-xl border border-blue-100 mb-5">
-                    <div class="flex flex-wrap gap-5 items-end">
-                        <div class="w-64">
-                            <label class="block text-sm font-bold text-primary mb-1">🌐 เลือกลักษณะงาน (MODE)</label>
-                            <select id="pMode" onchange="toggleModeUI()" class="w-full px-3 py-2 border border-blue-300 rounded-lg text-primary font-bold shadow-sm bg-white text-sm">
-                                <option value="">-- เลือก Mode --</option>
-                                <option value="EXPORT">🚢 EXPORT (ขาออก)</option>
-                                <option value="IMPORT">🛬 IMPORT (ขาเข้า)</option>
-                                <option value="TRANSFER">🚚 TRANSFER (ขนถ่าย)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">📅 วันที่วิ่งงาน</label>
-                            <input type="date" id="runDate" class="w-40 px-3 py-2 border border-slate-300 rounded-lg text-sm shadow-sm">
-                        </div>
-                        <div id="box-row-count">
-                            <label class="block text-sm font-bold text-primary mb-1">จำนวนตู้</label>
-                            <input type="number" id="rowCount" value="1" min="1" class="w-24 px-3 py-2 border border-blue-400 rounded-lg text-sm font-bold text-center bg-blue-50 text-primary">
-                        </div>
-                        
-                        <!-- ช่อง ขนาดตู้ -->
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-xs font-bold text-slate-700">ขนาดตู้ <span class="text-red-500">*</span></label>
-                            <input type="text" id="containerSize" list="dl-container-sizes" onchange="checkNewContainerSize(this)" placeholder="เลือกหรือพิมพ์ขนาดตู้..." class="w-40 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:border-primary outline-none transition-colors shadow-sm uppercase">
-                            <datalist id="dl-container-sizes"></datalist>
-                        </div>
-
-                        <div class="flex-1 min-w-[250px]">
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">🔍 ค้นหาชื่องาน (ดึงราคา/ต้นทาง/ปลายทางอัตโนมัติ)</label>
-                            <input type="text" id="jobNameInput" list="jobList" oninput="previewJobData()" onchange="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูล..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white shadow-sm">
-                            <datalist id="jobList"></datalist>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- STEP 2: ข้อมูลเฉพาะทาง และ ค่าเที่ยว -->
-                <div id="jobPreviewBox" class="hidden animate-[fadeIn_0.3s_ease-out]">
-                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-5 relative">
-                        <!-- โซน EXPORT -->
-                        <div id="export-zone" class="export-theme p-4 rounded-xl mb-4 hidden">
-                            <div class="font-bold text-amber-700 mb-3"><i class="fa-solid fa-ship mr-2"></i>ข้อมูลสำหรับงาน EXPORT</div>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div><label class="block text-slate-600 mb-1">BOOKING NO.</label><input type="text" id="pBookingExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
-                                <div><label class="block text-slate-600 mb-1">AGENT</label><input type="text" id="pAgentExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
-                                <div><label class="block text-slate-600 mb-1 font-semibold text-amber-800">DEPOT (ต้นทาง)</label><input type="text" id="pDepotExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-amber-50/50"></div>
-                                <div><label class="block text-slate-600 mb-1 font-semibold text-amber-800">RETURN PORT (ปลายทาง)</label><input type="text" id="pReturnExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-amber-50/50"></div>
-                                
-                                <div class="col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                    <div class="bg-amber-50/40 p-3 rounded-lg border border-amber-100">
-                                        <div class="font-bold text-amber-800 mb-2">📦 PICK UP</div>
-                                        <div class="space-y-2">
-                                            <div><label class="block text-slate-600 mb-1 text-xs">CY DATE & TIME</label><input type="datetime-local" id="pCyExp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></div>
-                                            <div><label class="block text-red-600 font-bold mb-1 text-xs">VGM CUTOFF</label><input type="datetime-local" id="pVgmExp" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
-                                            <div><label class="block text-red-600 font-bold mb-1 text-xs">CUTOFF TIME</label><input type="datetime-local" id="pCutoffExp" onchange="syncCutoff()" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
-                                        </div>
-                                    </div>
-                                    <div class="bg-amber-50/40 p-3 rounded-lg border border-amber-100">
-                                        <div class="font-bold text-amber-800 mb-2">🚚 DELIVERY</div>
-                                        <div><label class="block text-slate-600 mb-1 text-xs">LOAD DATE & TIME</label><input type="datetime-local" id="pLoadExp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></div>
-                                    </div>
-                                    <div class="bg-amber-50/40 p-3 rounded-lg border border-amber-100">
-                                        <div class="font-bold text-amber-800 mb-2">🔄 RETURN</div>
-                                        <div class="space-y-2">
-                                            <div><label class="block text-slate-600 mb-1 text-xs">OPEN GATE & TIME</label><input type="datetime-local" id="pOpenGateExp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></div>
-                                            <div><label class="block text-slate-600 mb-1 text-xs">CUTOFF TIME (Auto)</label><input type="datetime-local" id="pCutoffReturnExp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-slate-100" readonly></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- โซน IMPORT -->
-                        <div id="import-zone" class="import-theme p-4 rounded-xl mb-4 hidden">
-                            <div class="font-bold text-blue-700 mb-3"><i class="fa-solid fa-plane-arrival mr-2"></i>ข้อมูลสำหรับงาน IMPORT</div>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div><label class="block text-slate-600 mb-1">BL NO.</label><input type="text" id="pBookingImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
-                                <div><label class="block text-slate-600 mb-1">AGENT</label><input type="text" id="pAgentImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
-                                <div><label class="block text-slate-600 mb-1 font-semibold text-blue-800">PORT รับตู้ (ต้นทาง)</label><input type="text" id="pPortImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-blue-50/50"></div>
-                                <div><label class="block text-slate-600 mb-1 font-semibold text-blue-800">DEPOT คืนตู้ (ปลายทาง)</label><input type="text" id="pDepotImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-blue-50/50"></div>
-                                
-                                <div class="col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                    <div class="bg-blue-50/40 p-3 rounded-lg border border-blue-100">
-                                        <div class="font-bold text-blue-800 mb-2">📦 PICK UP</div>
-                                        <div class="space-y-2">
-                                            <div><label class="block text-slate-600 mb-1 text-xs">CY DATE & TIME</label><input type="datetime-local" id="pCyImp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></div>
-                                            <div><label class="block text-red-600 font-bold mb-1 text-xs">RENT CUTOFF (Time)</label><input type="datetime-local" id="pRentImp" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
-                                            <div><label class="block text-red-600 font-bold mb-1 text-xs">DEMURRAGE (Time)</label><input type="datetime-local" id="pDemImp" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
-                                        </div>
-                                    </div>
-                                    <div class="bg-blue-50/40 p-3 rounded-lg border border-blue-100">
-                                        <div class="font-bold text-blue-800 mb-2">🚚 DELIVERY</div>
-                                        <div><label class="block text-slate-600 mb-1 text-xs">UNLOAD DATE & TIME</label><input type="datetime-local" id="pUnloadImp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></div>
-                                    </div>
-                                    <div class="bg-blue-50/40 p-3 rounded-lg border border-blue-100">
-                                        <div class="font-bold text-blue-800 mb-2">🔄 RETURN</div>
-                                        <div><label class="block text-slate-600 mb-1 text-xs">RETURN DATE & TIME</label><input type="datetime-local" id="pReturnImp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- โซน TRANSFER -->
-                        <div id="transfer-zone" class="transfer-theme p-4 rounded-xl mb-4 hidden">
-                            <div class="font-bold text-orange-700 mb-3"><i class="fa-solid fa-truck-arrow-right mr-2"></i>ข้อมูลสำหรับงาน TRANSFER</div>
-                            <div><label class="block text-slate-600 mb-1">REF NO. (เลขอ้างอิง)</label><input type="text" id="pRefTrans" class="w-64 px-3 py-1.5 border border-slate-300 rounded-lg text-sm"></div>
-                        </div>
-
-                        <!-- โซนราคา และประเภทรถ -->
-                        <div class="grid grid-cols-2 md:grid-cols-7 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
-                            <div><label class="block text-slate-600 mb-1">ลูกค้า (ระบบดึงให้)</label><input type="text" id="pCustomer" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-bold" readonly></div>
-                            <div><label class="block text-slate-600 mb-1">ต้นทาง (Origin)</label><input type="text" id="pOrigin" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
-                            <div><label class="block text-slate-600 mb-1">ปลายทาง (Dest)</label><input type="text" id="pDest" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
-                            
-                            <div>
-                                <label class="block text-slate-600 mb-1">ประเภทงาน</label>
-                                <select id="pJobType" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white shadow-sm">
-                                    <option value="">-- เลือก --</option>
-                                    <option value="Domestic">Domestic</option>
-                                    <option value="CONTAINER">CONTAINER</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-slate-600 mb-1 font-bold text-primary">ประเภทรถ</label>
-                                <select id="pPriceType" onchange="updateFeeDropdowns()" class="w-full px-3 py-1.5 border border-blue-300 rounded-lg bg-white shadow-sm font-semibold">
-                                    <option value="">-- เลือก --</option>
-                                    <option value="6W">6W</option>
-                                    <option value="10W">10W</option>
-                                    <option value="12W*2">12W*2</option>
-                                    <option value="เงินสด">เงินสด</option>
-                                </select>
-                            </div>
-                            <div><label class="block text-slate-600 mb-1">ค่าเที่ยว (คนขับ)</label><input type="text" id="pTripFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-green-700 bg-green-50"></div>
-                            <div><label class="block text-slate-600 mb-1">ค่าขนส่ง (ลูกค้า)</label><input type="text" id="pTransFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-blue-700 bg-blue-50"></div>
-                        </div>
-                    </div>
-
-                    <!-- ปุ่มบันทึก -->
-                    <div class="mt-5 flex items-center justify-between border-t border-slate-200 pt-5">
-                        <p class="text-sm text-slate-500 font-medium"><i class="fa-solid fa-circle-info text-blue-500 mr-1"></i> กดบันทึกเพื่อยิงข้อมูล 1 Job นี้เข้าสู่ระบบฐานข้อมูล</p>
-                        <div class="flex gap-3">
-                            <button onclick="cancelEdit()" id="btn-cancel-edit" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 px-6 rounded-lg transition-colors border border-slate-300 shadow-sm">✖ ยกเลิกการแก้ไข</button>
-                            <button onclick="submitBookingForm(this)" id="btn-submit-form" class="bg-primary hover:bg-blue-900 text-white font-bold py-3 px-8 rounded-lg flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5">
-                                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลรับงาน (Save)
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <script>
-        let rateDataMap = {};
-        let containerSizeOptions = []; 
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            const savedUser = localStorage.getItem('tms_user');
-            if (!savedUser) { window.location.href = '/login.html'; return; }
-            try {
-                const userObj = JSON.parse(savedUser);
-                document.getElementById('user-fullname').innerText = userObj.fullName || 'User';
-            } catch(e) { window.location.href = '/login.html'; return; }
-
-            loadContainerSizes(); 
-
-            // โหลดเรทราคา
-            try {
-                const res = await fetch('/api/rates');
-                const d = await res.json();
-                if (d.success && d.data) {
-                    const datalist = document.getElementById('jobList');
-                    if (datalist) datalist.innerHTML = '';
-                    d.data.forEach(r => {
-                        rateDataMap[r[2]] = {
-                            customer: r[1], origin: r[3], dest: r[4], jobType: r[7],
-                            trp6: r[8], trp10: r[9], trp12: r[10], trpCash: r[11],
-                            trn6: r[12], trn10: r[13], trn12: r[14], trnCash: r[15]
-                        };
-                        if (datalist) {
-                            const opt = document.createElement('option');
-                            opt.value = r[2]; 
-                            datalist.appendChild(opt);
-                        }
-                    });
-                }
-            } catch (err) {}
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const editBookingNo = urlParams.get('edit');
-            if (editBookingNo) await loadBookingForEdit(editBookingNo);
-        });
-
-        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
-
-        async function loadContainerSizes() {
-            try {
-                const res = await fetch('/api/bookings/container-sizes');
-                const result = await res.json();
-                if (result.success && result.data) {
-                    containerSizeOptions = result.data.map(r => r.size_name);
-                    updateContainerSizeDatalist();
-                } else {
-                    containerSizeOptions = ['20', '40', '40HC', '45HC'];
-                    updateContainerSizeDatalist();
-                }
-            } catch (err) {
-                containerSizeOptions = ['20', '40', '40HC', '45HC'];
-                updateContainerSizeDatalist();
+    // 🌟 เช็คล็อกอินและแสดงชื่อ 🌟
+    const savedUser = localStorage.getItem('tms_user');
+    if (!savedUser) { window.location.href = '/login.html'; return; }
+    const user = JSON.parse(savedUser);
+    const userEl = document.getElementById('user-fullname');
+    if (userEl) userEl.innerText = user.fullName || user.username || 'ผู้ดูแลระบบ';
+    
+    if (user.id) {
+        try {
+            const res = await fetch(`/api/users/grid-settings?userId=${user.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                userGridSettings = data.settings?.['booking_list'] || {};
             }
+        } catch (err) {}
+    }
+    
+    try {
+        const szRes = await fetch('/api/bookings/container-sizes');
+        const szResult = await szRes.json();
+        if (szResult.success && szResult.data && szResult.data.length > 0) {
+            globalContainerSizes = szResult.data.map(r => r.size_name);
         }
+    } catch (err) {}
 
-        function updateContainerSizeDatalist() {
-            const dl = document.getElementById('dl-container-sizes');
-            if(!dl) return;
-            dl.innerHTML = '';
-            containerSizeOptions.forEach(sz => {
-                const opt = document.createElement('option');
-                opt.value = sz;
-                dl.appendChild(opt);
+    try {
+        const res = await fetch('/api/rates');
+        const d = await res.json();
+        if (d.success && d.data) {
+            const datalist = document.getElementById('jobList');
+            if (datalist) datalist.innerHTML = '';
+            
+            d.data.forEach(r => {
+                // 🌟 ปรับ Index ใหม่: r[2] = job_name, r[1] = short_name
+                rateDataMap[r[2]] = {
+                    customer: r[1], origin: r[3], dest: r[4], jobType: r[7],
+                    trp6: r[8], trp10: r[9], trp12: r[10], trpCash: r[11],
+                    trn6: r[12], trn10: r[13], trn12: r[14], trnCash: r[15]
+                };
+                
+                if (datalist) {
+                    const opt = document.createElement('option');
+                    opt.value = r[2]; // ใช้ชื่องานเป็น Value
+                    datalist.appendChild(opt);
+                }
             });
         }
+    } catch (err) {}
 
-        async function checkNewContainerSize(input) {
-            const val = input.value.trim().toUpperCase();
-            if (!val) return;
-            input.value = val;
+    await loadBookingGridData();
+});
 
-            if (!containerSizeOptions.includes(val)) {
-                if (confirm(`🚨 ไม่พบขนาดตู้ "${val}" ในระบบ\n\nคุณต้องการบันทึก "${val}" เป็นขนาดตู้มาตรฐาน เพื่อให้คลิกเลือกได้ในครั้งต่อไปหรือไม่?`)) {
-                    try {
-                        const res = await fetch('/api/bookings/container-sizes', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ size_name: val })
-                        });
-                        const result = await res.json();
-                        if (result.success || res.ok) {
-                            containerSizeOptions.push(val);
-                            updateContainerSizeDatalist();
+function applyZebraStripingCSS() {
+    if (!document.getElementById('tms-zebra-css')) {
+        const style = document.createElement('style');
+        style.id = 'tms-zebra-css';
+        style.innerHTML = `
+            .handsontable td { 
+                vertical-align: middle !important;
+                border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; 
+            }
+            .handsontable th { background-color: #f1f5f9; color: #475569; font-weight: 700; border-color: #cbd5e1; font-size: 11px; padding: 4px !important; }
+            .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
+            .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
+            .handsontable tbody tr td.ht-edited-row { background-color: #fef9c3 !important; }
+            .handsontable tbody tr:hover td { background-color: #f1f5f9 !important; }
+            
+            .time-row { display: flex; justify-content: space-between; align-items: center; background-color: #ffffff; border: 1px solid #f1f5f9; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+            .time-row:last-child { margin-bottom: 0; }
+            .time-label { font-size: 9px; font-weight: 700; color: #64748b; }
+            .time-val { font-size: 10px; font-weight: 700; }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+async function loadBookingGridData() {
+    const monthVal = document.getElementById('filter-month').value;
+    if (!monthVal) return;
+    const [year, month] = monthVal.split('-');
+    const startDate = `${year}-${month}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${month}-${lastDay}`;
+    
+    document.getElementById('loading-overlay').classList.remove('hidden');
+
+    try {
+        const res = await fetch(`/api/bookings/search?start_date=${startDate}&end_date=${endDate}`);
+        const result = await res.json();
+        if (result.success && result.data) {
+            rawBookingList = result.data;
+            filteredList = [...rawBookingList];
+            editedRowIndices.clear();
+            updateSaveStatusBadge(); updateDropdownOptions(); initBookingHandsontable(filteredList); updateSummaryFooter(filteredList);
+        } else {
+            rawBookingList = []; filteredList = []; initBookingHandsontable([]); updateSummaryFooter([]);
+        }
+    } catch (err) { 
+        initBookingHandsontable([]); 
+    } finally {
+        document.getElementById('loading-overlay').classList.add('hidden');
+    }
+}
+
+function updateDropdownOptions() {
+    const dVal = document.getElementById('filter-run-date').value;
+    const cVal = document.getElementById('filter-customer').value;
+    const bVal = document.getElementById('filter-booking-no').value;
+    const dates = new Set(), custs = new Set(), books = new Set();
+
+    rawBookingList.forEach(i => {
+        const iD = i.run_date ? String(i.run_date).split('T')[0] : '';
+        const iC = i.customer_name ? String(i.customer_name).trim() : '';
+        const iJ = i.job_name ? String(i.job_name).trim() : '';
+        const iB = i.booking_no ? String(i.booking_no).trim() : '';
+
+        if ((!cVal || iC === cVal || iJ === cVal) && (!bVal || iB === bVal) && iD) dates.add(iD);
+        if ((!dVal || iD === dVal) && (!bVal || iB === bVal)) { if (iC) custs.add(iC); if (iJ) custs.add(iJ); }
+        if ((!dVal || iD === dVal) && (!cVal || iC === cVal || iJ === cVal) && iB) books.add(iB);
+    });
+
+    const dlDate = document.getElementById('dl-run-date'); const dlCust = document.getElementById('dl-customer'); const dlBook = document.getElementById('dl-booking-no');
+    dlDate.innerHTML = ''; Array.from(dates).sort().forEach(v => dlDate.innerHTML += `<option value="${v}">`);
+    dlCust.innerHTML = ''; Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`);
+    dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`);
+}
+window.handleCrossFilter = function() { updateDropdownOptions(); applyFilters(); };
+window.applyFilters = function() {
+    const d = document.getElementById('filter-run-date').value, c = document.getElementById('filter-customer').value, b = document.getElementById('filter-booking-no').value;
+    const searchTxt = document.getElementById('global-search').value.toLowerCase().trim();
+    const isToday = document.getElementById('qf-today').classList.contains('bg-blue-50'), isTomorrow = document.getElementById('qf-tomorrow').classList.contains('bg-blue-50');
+    const todayStr = new Date().toISOString().split('T')[0]; const tomDate = new Date(); tomDate.setDate(tomDate.getDate() + 1); const tomorrowStr = tomDate.toISOString().split('T')[0];
+
+    filteredList = rawBookingList.filter(item => {
+        const iD = item.run_date ? String(item.run_date).split('T')[0] : '';
+        const iC = item.customer_name ? String(item.customer_name).trim() : '';
+        const iJ = item.job_name ? String(item.job_name).trim() : '';
+        const iB = item.booking_no ? String(item.booking_no).trim() : '';
+        
+        const matchD = !d || iD === d; const matchC = !c || iC === c || iJ === c; const matchB = !b || iB === b;
+        const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
+        let matchQF = true; if (isToday) matchQF = matchQF && (iD === todayStr); if (isTomorrow) matchQF = matchQF && (iD === tomorrowStr);
+        return matchD && matchC && matchB && matchGlobal && matchQF;
+    });
+    initBookingHandsontable(filteredList); updateSummaryFooter(filteredList);
+};
+window.clearAllFilters = function() {
+    document.getElementById('filter-run-date').value = ''; document.getElementById('filter-customer').value = ''; document.getElementById('filter-booking-no').value = ''; document.getElementById('global-search').value = '';
+    ['today', 'tomorrow'].forEach(id => { const btn = document.getElementById('qf-' + id); btn.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-300'); btn.classList.add('bg-white', 'text-slate-600'); });
+    updateDropdownOptions(); applyFilters();
+};
+window.setQuickFilter = function(type) {
+    const btn = document.getElementById('qf-' + type);
+    ['today', 'tomorrow'].forEach(id => { if (id !== type) { const b = document.getElementById('qf-' + id); b.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-300'); b.classList.add('bg-white', 'text-slate-600'); } });
+    btn.classList.toggle('bg-blue-50'); btn.classList.toggle('text-blue-600'); btn.classList.toggle('border-blue-300'); btn.classList.toggle('bg-white'); btn.classList.toggle('text-slate-600');
+    applyFilters();
+};
+function updateSummaryFooter(data) {
+    let sumContainers = 0, sumTrans = 0, sumTrip = 0;
+    data.forEach(item => {
+        let count = parseInt(item.container_count) || 0; sumContainers += count; sumTrans += (parseFloat(item.trans_fee) || 0) * count; sumTrip += (parseFloat(item.trip_fee) || 0) * count;
+    });
+    document.getElementById('sum-count').innerText = data.length.toLocaleString(); document.getElementById('sum-container').innerText = sumContainers.toLocaleString(); document.getElementById('sum-trans').innerText = sumTrans.toLocaleString(); document.getElementById('sum-trip').innerText = sumTrip.toLocaleString();
+}
+
+function createTimeListHtml(mode, type, item) {
+    let html = '<div class="flex flex-col w-full">';
+    let hasData = false;
+    const addRow = (label, val, colorCls) => {
+        if(val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') {
+            const fVal = formatDateTime(val);
+            if(fVal) {
+                html += `<div class="time-row"><span class="time-label whitespace-nowrap mr-2">${label}</span><span class="time-val ${colorCls} whitespace-nowrap">${fVal}</span></div>`;
+                hasData = true;
+            }
+        }
+    };
+    if (mode === 'EXPORT') {
+        if (type === 'PICKUP') { addRow('CY DATE', item.cy_date, 'text-blue-600'); addRow('VGM CUT', item.vgm_cutoff, 'text-red-500'); addRow('CUTOFF', item.cutoff_time, 'text-red-600'); } 
+        else if (type === 'DELIVERY') { addRow('LOAD', item.load_date, 'text-amber-600'); } 
+        else if (type === 'RETURN') { addRow('OPEN GATE', item.open_gate, 'text-emerald-600'); addRow('CUTOFF', item.cutoff_time, 'text-red-600'); }
+    } else if (mode === 'IMPORT') {
+        if (type === 'PICKUP') { addRow('CY DATE', item.cy_date, 'text-blue-600'); addRow('RENT CUT', item.rent_cutoff, 'text-red-500'); } 
+        else if (type === 'DELIVERY') { addRow('UNLOAD', item.unload_date, 'text-amber-600'); } 
+        else if (type === 'RETURN') { addRow('RETURN', item.return_date, 'text-slate-700'); }
+    }
+    html += '</div>';
+    return hasData ? html : '<span class="text-slate-300 italic text-[10px] w-full text-center block py-1">+ เพิ่มเวลา</span>';
+}
+
+function initBookingHandsontable(data) {
+    const container = document.getElementById('booking-grid-container');
+    if (!container) return;
+    if (hotGridInstance) { hotGridInstance.destroy(); }
+
+    const formattedTableData = data.map(item => {
+        const jobNameDisplay = (item.job_name && item.job_name !== 'NaN') ? item.job_name : (item.job_title || '-');
+        const pickup = createTimeListHtml(item.mode, 'PICKUP', item);
+        const delivery = createTimeListHtml(item.mode, 'DELIVERY', item);
+        const ret = createTimeListHtml(item.mode, 'RETURN', item);
+
+        return [
+            false, item.booking_no, item.id, item.booking_no || '', item.mode || 'EXPORT', 
+            item.run_date ? String(item.run_date).split('T')[0] : '', item.customer_name || '', 
+            item.agent || '', jobNameDisplay, item.job_type || '', item.origin || '', item.destination || '', 
+            item.container_count || 1, item.container_size || '', item.price_type || '', item.trip_fee || 0, item.trans_fee || 0, 
+            pickup, delivery, ret
+        ];
+    });
+
+    const colHeaders = [
+        '✔', '⚙️ จัดการ', 'ID', 'Booking / BL', 'MODE', '📅 วันที่', 'ลูกค้า', 'AGENT', 'ชื่องาน', 'ประเภท', 
+        'ต้นทาง', 'ปลายทาง', 'ตู้', 'ขนาดตู้', 'รถ', 'ค่าเที่ยว', 'ค่าขนส่ง', 
+        '📦 PICK UP', '🚚 DELIVERY', '🔄 RETURN'
+    ];
+
+    hotGridInstance = new Handsontable(container, {
+        data: formattedTableData,
+        colHeaders: colHeaders,
+        autoRowSize: true, 
+        wordWrap: false, 
+        columns: [
+            { type: 'checkbox', className: 'htCenter htMiddle' }, 
+            { 
+                readOnly: true, 
+                renderer: function(instance, td, row, col, prop, value) {
+                    Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+                    if (value) {
+                        td.innerHTML = `
+                            <div class="flex flex-col items-stretch justify-center gap-1 w-full p-0.5">
+                                <button onclick="window.goToFormEdit('${value}')" title="แก้ไขหัวบิล" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
+                                    <i class="fa-solid fa-pen mr-1"></i> แก้
+                                </button>
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" title="จัดรถและลงเบอร์ตู้" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
+                                    <i class="fa-solid fa-truck-fast mr-1"></i> รถ
+                                </button>
+                            </div>
+                        `;
+                    }
+                } 
+            },
+            { readOnly: true, className: 'htCenter htMiddle text-slate-400 font-bold bg-slate-50' }, 
+            { type: 'text', className: 'font-bold text-primary htMiddle' }, 
+            { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'], className: 'htCenter htMiddle font-bold text-slate-600' }, 
+            { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter htMiddle text-slate-700' }, 
+            { type: 'text', className: 'font-bold text-slate-800 htMiddle' }, 
+            { type: 'text', className: 'font-bold text-purple-700 htMiddle bg-purple-50/20' }, 
+            { type: 'text', className: 'font-medium text-slate-700 htMiddle' }, 
+            { type: 'dropdown', source: ['Domestic', 'CONTAINER'], className: 'htCenter htMiddle text-slate-600' }, 
+            { type: 'text', className: 'htMiddle text-slate-600' }, 
+            { type: 'text', className: 'htMiddle text-slate-600' }, 
+            { type: 'numeric', className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/40' }, 
+            { type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700' }, 
+            { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'], className: 'htCenter htMiddle text-slate-600' }, 
+            { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold htRight htMiddle' }, 
+            { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold htRight htMiddle' }, 
+            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
+            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
+            { type: 'text', renderer: renderClickableTimeCell, readOnly: true }
+        ],
+        rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
+        manualColumnResize: true, manualColumnMove: true,
+        hiddenColumns: { indicators: true },
+        contextMenu: ['hidden_columns_hide', 'hidden_columns_show', '---------', 'alignment', 'copy'],
+
+        colWidths: userGridSettings.columnWidths || [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 130, 120, 130],
+        filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+        licenseKey: 'non-commercial-and-evaluation',
+
+        afterChange: function(changes, source) {
+            if (source === 'loadData' || !changes) return;
+            changes.forEach(([row, prop, oldVal, newVal]) => {
+                if (oldVal !== newVal && prop !== 0) {
+                    editedRowIndices.add(row);
+                    
+                    // 🌟 ระบบ Auto-Fill อัตโนมัติเมื่อแก้ชื่องาน หรือ ประเภทรถ 🌟
+                    const colName = this.getColHeader(prop);
+                    const headersNow = this.getColHeader(); 
+                    
+                    const custIdx = headersNow.indexOf('ลูกค้า');
+                    const jobTypeIdx = headersNow.indexOf('ประเภท');
+                    const originIdx = headersNow.indexOf('ต้นทาง');
+                    const destIdx = headersNow.indexOf('ปลายทาง');
+                    const carTypeIdx = headersNow.indexOf('รถ');
+                    const tripIdx = headersNow.indexOf('ค่าเที่ยว');
+                    const transIdx = headersNow.indexOf('ค่าขนส่ง');
+                    const jobNameIdx = headersNow.indexOf('ชื่องาน');
+
+                    if (colName === 'ชื่องาน' && newVal) {
+                        const rate = rateDataMap[newVal.trim()];
+                        if (rate) {
+                            if(custIdx >= 0) this.setDataAtCell(row, custIdx, rate.customer || '', 'auto');
+                            if(jobTypeIdx >= 0) this.setDataAtCell(row, jobTypeIdx, rate.jobType || '', 'auto');
+                            if(originIdx >= 0) this.setDataAtCell(row, originIdx, rate.origin || '', 'auto');
+                            if(destIdx >= 0) this.setDataAtCell(row, destIdx, rate.dest || '', 'auto');
+                            if(carTypeIdx >= 0) {
+                                const carType = this.getDataAtCell(row, carTypeIdx);
+                                if (carType) applyRateDynamicallyInList(this, row, rate, carType, tripIdx, transIdx);
+                            }
                         }
-                    } catch (err) { alert('❌ เกิดข้อผิดพลาดในการบันทึกขนาดตู้'); }
-                }
-            }
-        }
-
-        async function loadBookingForEdit(bookingNo) {
-            try {
-                const res = await fetch(`/api/bookings/search?search=${bookingNo}`);
-                const result = await res.json();
-                
-                if (result.success && result.data && result.data.length > 0) {
-                    const item = result.data.find(i => i.booking_no === bookingNo) || result.data[0];
+                    }
                     
-                    document.getElementById('form-title').innerText = `แก้ไขรายการรับงาน (Booking: ${bookingNo})`;
-                    document.getElementById('editing-badge').classList.remove('hidden');
-                    document.getElementById('btn-cancel-edit').classList.remove('hidden');
-                    
-                    document.getElementById('pMode').value = item.mode || '';
-                    toggleModeUI();
-                    
-                    document.getElementById('runDate').value = item.run_date ? item.run_date.split('T')[0] : '';
-                    document.getElementById('rowCount').value = item.container_count || 1;
-                    
-                    if (document.getElementById('containerSize')) document.getElementById('containerSize').value = item.container_size || '';
-
-                    document.getElementById('jobNameInput').value = item.job_name || '';
-                    document.getElementById('pCustomer').value = item.customer_name || '';
-                    document.getElementById('pOrigin').value = item.origin || '';
-                    document.getElementById('pDest').value = item.destination || '';
-                    
-                    if (document.getElementById('pJobType')) document.getElementById('pJobType').value = item.job_type || '';
-                    if (document.getElementById('pPriceType')) document.getElementById('pPriceType').value = item.price_type || '';
-                    if (document.getElementById('pTripFee')) document.getElementById('pTripFee').value = item.trip_fee || '';
-                    if (document.getElementById('pTransFee')) document.getElementById('pTransFee').value = item.trans_fee || '';
-
-                    const setDateTime = (idBase, dtStr) => {
-                        if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return;
-                        let cleanStr = String(dtStr).trim().replace(' ', 'T'); 
-                        if (cleanStr.length > 16) cleanStr = cleanStr.substring(0, 16);
-                        const input = document.getElementById(idBase);
-                        if (input) input.value = cleanStr;
-                    };
-
-                    if (item.mode === 'EXPORT') {
-                        document.getElementById('pBookingExp').value = item.booking_no || '';
-                        document.getElementById('pAgentExp').value = item.agent || '';
-                        document.getElementById('pDepotExp').value = item.origin || '';
-                        document.getElementById('pReturnExp').value = item.destination || '';
-                        setDateTime('pCyExp', item.cy_date); setDateTime('pVgmExp', item.vgm_cutoff);
-                        setDateTime('pCutoffExp', item.cutoff_time); setDateTime('pLoadExp', item.load_date);
-                        setDateTime('pOpenGateExp', item.open_gate);
-                        setDateTime('pCutoffReturnExp', item.cutoff_time);
-                    } else if (item.mode === 'IMPORT') {
-                        document.getElementById('pBookingImp').value = item.booking_no || '';
-                        document.getElementById('pAgentImp').value = item.agent || '';
-                        document.getElementById('pPortImp').value = item.origin || '';
-                        document.getElementById('pDepotImp').value = item.destination || '';
-                        setDateTime('pCyImp', item.cy_date); setDateTime('pRentImp', item.rent_cutoff);
-                        setDateTime('pDemImp', item.demurrage); setDateTime('pUnloadImp', item.unload_date);
-                        setDateTime('pReturnImp', item.return_date);
-                    } else if (item.mode === 'TRANSFER') {
-                        // 🌟 ดึงข้อมูลเข้าฟอร์ม TRANSFER ตอนแก้ไข
-                        if (document.getElementById('pRefTrans')) {
-                            document.getElementById('pRefTrans').value = item.booking_no || '';
+                    if (colName === 'รถ' && newVal) {
+                        if(jobNameIdx >= 0) {
+                            const jobName = this.getDataAtCell(row, jobNameIdx); 
+                            if (jobName && rateDataMap[jobName.trim()]) {
+                                applyRateDynamicallyInList(this, row, rateDataMap[jobName.trim()], newVal, tripIdx, transIdx);
+                            }
                         }
                     }
                 }
-            } catch (err) {}
+            });
+            updateSaveStatusBadge(); this.render(); 
+        },
+        cells: function(row, col) {
+            const cp = {};
+            if (editedRowIndices.has(row)) cp.className = (cp.className || '') + ' ht-edited-row';
+            return cp;
         }
+    });
 
-        function cancelEdit() { window.location.href = '/booking-list.html'; }
+    if (userGridSettings.columnPositions && userGridSettings.columnPositions.length === colHeaders.length) {
+        try { hotGridInstance.getPlugin('manualColumnMove').moveColumns(userGridSettings.columnPositions, 0); } catch(e) {}
+    }
+}
 
-        function toggleModeUI() {
-            const mode = document.getElementById('pMode').value;
-            document.getElementById('export-zone').classList.add('hidden');
-            document.getElementById('import-zone').classList.add('hidden');
-            document.getElementById('transfer-zone').classList.add('hidden');
-            document.getElementById('jobPreviewBox').classList.remove('hidden');
-            
-            if(mode === 'EXPORT') document.getElementById('export-zone').classList.remove('hidden');
-            else if(mode === 'IMPORT') document.getElementById('import-zone').classList.remove('hidden');
-            else if(mode === 'TRANSFER') document.getElementById('transfer-zone').classList.remove('hidden');
-            else document.getElementById('jobPreviewBox').classList.add('hidden');
+// 🌟 ฟังก์ชันช่วยคำนวณราคาย่อย 🌟
+function applyRateDynamicallyInList(hot, row, rate, type, tripIdx, transIdx) {
+    if(tripIdx < 0 || transIdx < 0) return;
+    if(type === '6W') { hot.setDataAtCell(row, tripIdx, rate.trp6||''); hot.setDataAtCell(row, transIdx, rate.trn6||''); }
+    else if(type === '10W') { hot.setDataAtCell(row, tripIdx, rate.trp10||''); hot.setDataAtCell(row, transIdx, rate.trn10||''); }
+    else if(type === '12W*2') { hot.setDataAtCell(row, tripIdx, rate.trp12||''); hot.setDataAtCell(row, transIdx, rate.trn12||''); }
+    else if(type === 'เงินสด') { hot.setDataAtCell(row, tripIdx, rate.trpCash||''); hot.setDataAtCell(row, transIdx, rate.trnCash||''); }
+}
+
+window.saveGridSettings = async function() {
+    if (!hotGridInstance) return;
+    const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
+    const colCount = hotGridInstance.countCols();
+    const widths = []; for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
+    const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
+    let positions = []; if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') { positions = movePlugin.columnsMapper.getIndexesSequence(); }
+
+    try {
+        await fetch('/api/users/grid-settings', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, gridName: 'booking_list', settings: { columnWidths: widths, columnPositions: positions } })
+        });
+        alert('✅ บันทึกมุมมองตารางเรียบร้อยแล้ว!');
+    } catch (err) {}
+};
+
+window.goToFormEdit = function(bookingNo) { window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`; };
+
+window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
+    Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+    td.innerHTML = `
+        <div class="relative group cursor-pointer w-full p-0.5" onclick="openDateTimeModal(${row}, ${prop})">
+            ${value}
+            <div class="absolute top-1 right-1 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded px-1.5 py-0.5 shadow-md items-center justify-center transition-all z-10"><i class="fa-solid fa-pen text-[10px]"></i></div>
+        </div>
+    `;
+};
+
+function formatDateTime(dtStr) {
+    if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return '';
+    const cleanStr = String(dtStr).replace('T', ' '); 
+    return cleanStr.length >= 16 ? cleanStr.substring(5, 16) : cleanStr; 
+}
+
+let currentModalRow = -1; let currentModalProp = -1;
+
+window.openDateTimeModal = function(row, prop) {
+    currentModalRow = row; 
+    currentModalProp = prop;
+    const rData = hotGridInstance.getSourceDataAtRow(row);
+    const bookingNo = rData[3]; 
+    const item = filteredList.find(i => i.booking_no === bookingNo);
+    if (!item) return;
+    const mode = item.mode ? String(item.mode).trim().toUpperCase() : 'EXPORT';
+
+    let html = '', title = '';
+    if (prop === 17) { 
+        title = `เวลา PICK UP (${mode})`;
+        html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
+        if (mode === 'EXPORT') {
+            html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
+            html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
+        } else if (mode === 'IMPORT') {
+            html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (คืนตู้ฟรีถึง)', item.rent_cutoff);
         }
-
-        function syncCutoff() { 
-            const exp = document.getElementById('pCutoffExp');
-            const auto = document.getElementById('pCutoffReturnExp');
-            if(exp && auto) auto.value = exp.value; 
+    } else if (prop === 18) { 
+        title = `เวลา DELIVERY (${mode})`;
+        if (mode === 'EXPORT') {
+            html += createDatetimeInput('load_date', 'Load Date & Time (โหลดของ)', item.load_date);
+        } else if (mode === 'IMPORT') {
+            html += createDatetimeInput('unload_date', 'Unload Date & Time (ลงของ)', item.unload_date);
         }
-
-        function previewJobData() {
-            const val = document.getElementById('jobNameInput') ? document.getElementById('jobNameInput').value.trim() : '';
-            if(!val || !rateDataMap[val]) return;
-            const rate = rateDataMap[val];
-            
-            document.getElementById('pCustomer').value = rate.customer || ''; 
-            document.getElementById('pOrigin').value = rate.origin || ''; 
-            document.getElementById('pDest').value = rate.dest || ''; 
-            if(document.getElementById('pJobType')) document.getElementById('pJobType').value = rate.jobType || '';
-            
-            if (document.getElementById('pMode').value === 'EXPORT') {
-                document.getElementById('pDepotExp').value = rate.origin || ''; 
-                document.getElementById('pReturnExp').value = rate.dest || ''; 
-            } else {
-                document.getElementById('pPortImp').value = rate.origin || '';
-                document.getElementById('pDepotImp').value = rate.dest || '';
-            }
-            updateFeeDropdowns(); 
+    } else if (prop === 19) { 
+        title = `เวลา RETURN (${mode})`;
+        if (mode === 'EXPORT') {
+            html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
+            html += createDatetimeInput('cutoff_time', 'Cutoff Time (แก้ไขที่นี่ได้ด้วย)', item.cutoff_time);
+        } else if (mode === 'IMPORT') {
+            html += createDatetimeInput('return_date', 'Return Date & Time (เวลาที่คืนตู้จริง)', item.return_date);
         }
+    } else { return; }
 
-        function updateFeeDropdowns() {
-            const val = document.getElementById('jobNameInput') ? document.getElementById('jobNameInput').value.trim() : ''; 
-            const type = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
-            const trpInp = document.getElementById('pTripFee'); 
-            const trnInp = document.getElementById('pTransFee');
-            if(trpInp) trpInp.value = ''; 
-            if(trnInp) trnInp.value = '';
-            
-            if(!val || !rateDataMap[val] || !type) return;
-            const rate = rateDataMap[val];
-            if(type === '6W') { if(trpInp) trpInp.value = rate.trp6 || ''; if(trnInp) trnInp.value = rate.trn6 || ''; }
-            if(type === '10W') { if(trpInp) trpInp.value = rate.trp10 || ''; if(trnInp) trnInp.value = rate.trn10 || ''; }
-            if(type === '12W*2') { if(trpInp) trpInp.value = rate.trp12 || ''; if(trnInp) trnInp.value = rate.trn12 || ''; }
-            if(type === 'เงินสด') { if(trpInp) trpInp.value = rate.trpCash || ''; if(trnInp) trnInp.value = rate.trnCash || ''; }
-        }
+    document.getElementById('modal-title').innerText = title; document.getElementById('modal-body').innerHTML = html;
+    const modal = document.getElementById('datetime-modal');
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('datetime-modal-content').classList.remove('scale-95'); }, 10);
+};
 
-        function getCombinedDateTime(idBase) {
-            const input = document.getElementById(idBase);
-            if (input && input.value) return input.value.replace('T', ' ');
-            return "";
-        }
+function createDatetimeInput(field, label, val) {
+    let formattedVal = '';
+    if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') formattedVal = String(val).replace(' ', 'T').substring(0, 16);
+    return `
+        <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">${label}</label>
+            <input type="datetime-local" id="modal_input_${field}" value="${formattedVal}" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary shadow-sm bg-slate-50">
+        </div>
+    `;
+}
 
-        async function submitBookingForm(btn) {
-            const mode = document.getElementById('pMode').value;
-            const runDate = document.getElementById('runDate').value;
-            const customer = document.getElementById('pCustomer').value;
-            const containerCount = document.getElementById('rowCount').value || 1;
-            const containerSizeVal = document.getElementById('containerSize') ? document.getElementById('containerSize').value.toUpperCase() : '';
-            
-            if(!mode || !runDate || !customer) {
-                alert('⚠️ กรุณากรอก Mode, วันที่วิ่งงาน และชื่อลูกค้าให้ครบถ้วน'); 
-                return; 
-            }
+window.closeDateTimeModal = function() {
+    const modal = document.getElementById('datetime-modal');
+    modal.classList.add('opacity-0'); document.getElementById('datetime-modal-content').classList.add('scale-95');
+    setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
+};
 
-            let cyDate="", vgmCutoff="", cutoffTime="", loadDate="", openGate="", rentCutoff="", demurrage="", unloadDate="", returnDate="";
-            if (mode === 'EXPORT') {
-                cyDate = getCombinedDateTime('pCyExp'); vgmCutoff = getCombinedDateTime('pVgmExp');
-                cutoffTime = getCombinedDateTime('pCutoffExp'); loadDate = getCombinedDateTime('pLoadExp');
-                openGate = getCombinedDateTime('pOpenGateExp');
-            } else if (mode === 'IMPORT') {
-                cyDate = getCombinedDateTime('pCyImp'); rentCutoff = getCombinedDateTime('pRentImp');
-                demurrage = getCombinedDateTime('pDemImp'); unloadDate = getCombinedDateTime('pUnloadImp');
-                returnDate = getCombinedDateTime('pReturnImp');
-            }
+window.saveDateTimeModal = function() {
+    const rData = hotGridInstance.getSourceDataAtRow(currentModalRow);
+    const bookingNo = rData[3]; 
+    const item = filteredList.find(i => i.booking_no === bookingNo);
+    if(!item) return;
 
-            const jobName = document.getElementById('jobNameInput').value.trim();
-            const jobTypeVal = document.getElementById('pJobType') ? document.getElementById('pJobType').value : '';
-            const priceTypeVal = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
-            
-            const formatNum = (v) => v ? parseFloat(String(v).replace(/,/g, '')) : 0;
-            const tripFeeVal = document.getElementById('pTripFee') ? formatNum(document.getElementById('pTripFee').value) : 0;
-            const transFeeVal = document.getElementById('pTransFee') ? formatNum(document.getElementById('pTransFee').value) : 0;
+    const inputs = document.querySelectorAll('#modal-body input[type="datetime-local"]');
+    inputs.forEach(input => { const field = input.id.replace('modal_input_', ''); item[field] = input.value ? input.value.replace('T', ' ') : null; });
 
-            if (jobName) {
-                let isNewRate = !rateDataMap[jobName];
-                let priceChanged = false;
-                
-                if (!isNewRate && priceTypeVal) {
-                    const rate = rateDataMap[jobName];
-                    if (priceTypeVal === '6W' && (Number(rate.trp6||0) !== tripFeeVal || Number(rate.trn6||0) !== transFeeVal)) priceChanged = true;
-                    else if (priceTypeVal === '10W' && (Number(rate.trp10||0) !== tripFeeVal || Number(rate.trn10||0) !== transFeeVal)) priceChanged = true;
-                    else if (priceTypeVal === '12W*2' && (Number(rate.trp12||0) !== tripFeeVal || Number(rate.trn12||0) !== transFeeVal)) priceChanged = true;
-                    else if (priceTypeVal === 'เงินสด' && (Number(rate.trpCash||0) !== tripFeeVal || Number(rate.trnCash||0) !== transFeeVal)) priceChanged = true;
-                }
+    editedRowIndices.add(currentModalRow);
+    
+    const pickup = createTimeListHtml(item.mode, 'PICKUP', item);
+    const delivery = createTimeListHtml(item.mode, 'DELIVERY', item);
+    const ret = createTimeListHtml(item.mode, 'RETURN', item);
 
-                if (isNewRate || priceChanged) {
-                    const msg = isNewRate 
-                        ? `🚨 ระบบตรวจพบชื่องานใหม่: "${jobName}" ต้องการบันทึกข้อมูลและราคาชุดนี้ลงใน Master Rates ด้วยหรือไม่?`
-                        : `🔄 คุณมีการแก้ไขราคาของงาน "${jobName}" ต้องการอัปเดตราคาใหม่ลงตาราง Master Rates ด้วยหรือไม่?`;
-                        
-                    if (confirm(msg)) {
-                        const singleRateData = {
-                            job_name: jobName, customer_name: customer,
-                            origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
-                            job_type: jobTypeVal,
-                            trip_fee_6w: priceTypeVal === '6W' ? tripFeeVal : null,
-                            trip_fee_10w: priceTypeVal === '10W' ? tripFeeVal : null,
-                            trip_fee_12w: priceTypeVal === '12W*2' ? tripFeeVal : null,
-                            trip_fee_cash: priceTypeVal === 'เงินสด' ? tripFeeVal : null,
-                            trans_fee_6w: priceTypeVal === '6W' ? transFeeVal : null,
-                            trans_fee_10w: priceTypeVal === '10W' ? transFeeVal : null,
-                            trans_fee_12w: priceTypeVal === '12W*2' ? transFeeVal : null,
-                            trans_fee_cash: priceTypeVal === 'เงินสด' ? transFeeVal : null,
-                        };
-                        try {
-                            await fetch('/api/rates/single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(singleRateData) });
-                        } catch(e) {}
-                    }
-                }
-            }
+    if (currentModalProp === 17) hotGridInstance.setDataAtRowProp(currentModalRow, 17, pickup);
+    if (currentModalProp === 18) hotGridInstance.setDataAtRowProp(currentModalRow, 18, delivery);
+    if (currentModalProp === 19) hotGridInstance.setDataAtRowProp(currentModalRow, 19, ret);
 
-            let b_no = "";
-            if (mode === 'EXPORT') b_no = document.getElementById('pBookingExp').value;
-            else if (mode === 'IMPORT') b_no = document.getElementById('pBookingImp').value;
-            else if (mode === 'TRANSFER') {
-                const trRef = document.getElementById('pRefTrans');
-                if(trRef) b_no = trRef.value;
-            }
+    updateSaveStatusBadge(); closeDateTimeModal();
+};
 
-            const dataToSave = {
-                mode: mode, run_date: runDate, customer_name: customer, job_name: jobName, job_type: jobTypeVal,
-                origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
-                container_count: containerCount,
-                container_size: containerSizeVal,
-                booking_no: b_no,
-                price_type: priceTypeVal, trip_fee: tripFeeVal, trans_fee: transFeeVal,
-                cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
-                rent_cutoff: rentCutoff, demurrage: demurrage, unload_date: unloadDate, return_date: returnDate
-            };
+function updateSaveStatusBadge() {
+    const badge = document.getElementById('save-status-badge'); if(!badge) return; const count = editedRowIndices.size;
+    if (count > 0) {
+        badge.className = "ml-auto text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse";
+        badge.innerHTML = `<i class="fa-solid fa-pen"></i> ${count} รอเซฟ`;
+    } else {
+        badge.className = "ml-auto text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1";
+        badge.innerHTML = `<i class="fa-solid fa-check text-emerald-500"></i> บันทึกแล้ว`;
+    }
+}
 
-            const orgText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
-            btn.disabled = true;
+window.saveGridChanges = async function() {
+    if (!hotGridInstance || editedRowIndices.size === 0) return;
+    const btn = document.getElementById('btn-save-grid'); const orgText = btn.innerHTML; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
+    const data = hotGridInstance.getData(); let successCount = 0;
 
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const editBookingNo = urlParams.get('edit');
-                
-                let res;
-                if (editBookingNo && document.getElementById('editingOrderId').value) {
-                    const bookingId = document.getElementById('editingOrderId').value;
-                    res = await fetch(`/api/bookings/${bookingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSave) });
-                } else {
-                    res = await fetch('/api/bookings/header', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSave) });
-                }
+    for (let rowIndex of editedRowIndices) {
+        const row = data[rowIndex]; if (!row[3]) continue; const item = filteredList.find(i => i.booking_no === row[3]);
+        const updateData = {
+            booking_no: row[3], mode: row[4], run_date: row[5], customer_name: row[6], agent: row[7], job_name: row[8], job_type: row[9], origin: row[10], 
+            destination: row[11], container_count: row[12], container_size: row[13], price_type: row[14], trip_fee: row[15], trans_fee: row[16],
+            cy_date: item.cy_date, vgm_cutoff: item.vgm_cutoff, cutoff_time: item.cutoff_time, rent_cutoff: item.rent_cutoff, demurrage: item.demurrage,
+            load_date: item.load_date, unload_date: item.unload_date, open_gate: item.open_gate, return_date: item.return_date
+        };
+        try {
+            const res = await fetch(`/api/bookings/${row[2]}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
+            if (res.ok) successCount++;
+        } catch (err) {}
+    }
+    btn.innerHTML = orgText; btn.disabled = false;
+    if (successCount > 0) { alert(`✅ บันทึกข้อมูลสำเร็จ ${successCount} รายการ`); editedRowIndices.clear(); loadBookingGridData(); }
+};
 
-                const result = await res.json();
-                if (result.success) {
-                    alert('✅ บันทึก Booking เรียบร้อย!');
-                    if(editBookingNo) {
-                        window.location.href = '/booking-list.html';
-                    } else {
-                        window.location.reload(); 
-                    }
-                } else {
-                    alert('❌ เกิดข้อผิดพลาด: ' + result.message);
-                }
-            } catch (err) { alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้'); } 
-            finally { btn.innerHTML = orgText; btn.disabled = false; }
-        }
-    </script>
-</body>
-</html>
+window.deleteSelectedRows = async function() {
+    if (!hotGridInstance) return; const data = hotGridInstance.getData(); const idsToDelete = new Set();
+    data.forEach((row, index) => { if (row[0] === true) { const rowData = hotGridInstance.getSourceDataAtRow(index); if (rowData && rowData[2]) idsToDelete.add(rowData[2]); } });
+    const idsArray = Array.from(idsToDelete);
+    if (idsArray.length === 0) { alert('🖱️ กรุณาติ๊กถูกหน้าแถว ที่ต้องการจะลบก่อนครับ'); return; }
+    if (!confirm(`⚠️ ยืนยันการลบทิ้ง ${idsArray.length} บุคกิ้ง?\n\n(ตู้ทั้งหมดที่อยู่ในบุคกิ้งเหล่านี้จะถูกลบทิ้งไปด้วยอัตโนมัติ)`)) return;
+    let successCount = 0;
+    for (let id of idsArray) { try { const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' }); if(res.ok) successCount++; } catch (err) {} }
+    if (successCount > 0) { alert(`✅ ลบรายการสำเร็จ ${successCount} บุคกิ้ง`); editedRowIndices.clear(); updateSaveStatusBadge(); loadBookingGridData(); } else { alert(`❌ ไม่สามารถลบข้อมูลได้ หรือเชื่อมต่อเซิร์ฟเวอร์ไม่ได้`); }
+};

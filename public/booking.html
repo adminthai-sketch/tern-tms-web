@@ -88,6 +88,15 @@
                             <label class="block text-sm font-bold text-primary mb-1">จำนวนตู้</label>
                             <input type="number" id="rowCount" value="1" min="1" class="w-24 px-3 py-2 border border-blue-400 rounded-lg text-sm font-bold text-center bg-blue-50 text-primary">
                         </div>
+                        <div class="flex flex-col gap-1.5">
+    <label class="text-xs font-bold text-slate-700">ขนาดตู้ <span class="text-red-500">*</span></label>
+    <select id="containerSize" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:border-primary outline-none transition-colors shadow-sm cursor-pointer">
+        <option value="40HC">40HC (ไฮคิว)</option>
+        <option value="40">40' (ยาว)</option>
+        <option value="20">20' (สั้น)</option>
+        <option value="45HC">45HC</option>
+    </select>
+</div>
                         <div class="flex-1 min-w-[250px]">
                             <label class="block text-sm font-semibold text-slate-700 mb-1">🔍 ค้นหาชื่องาน (ดึงราคา/ต้นทาง/ปลายทางอัตโนมัติ)</label>
                             <input type="text" id="jobNameInput" list="jobList" onchange="previewJobData()" onkeyup="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูล..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white shadow-sm">
@@ -379,7 +388,7 @@
             const runDate = document.getElementById('runDate').value;
             const customer = document.getElementById('pCustomer').value;
             const containerCount = document.getElementById('rowCount').value || 1;
-
+const containerSizeVal = document.getElementById('containerSize') ? document.getElementById('containerSize').value : '40HC';
             if(!mode || !runDate || !customer) {
                 alert('⚠️ กรุณากรอก Mode, วันที่วิ่งงาน และชื่อลูกค้าให้ครบถ้วน'); 
                 return; 
@@ -454,6 +463,8 @@
                 mode: mode, run_date: runDate, customer_name: customer, job_name: jobName, job_type: jobTypeVal,
                 origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
                 container_count: containerCount,
+                container_size: containerSizeVal,
+
                 booking_no: b_no,
                 price_type: priceTypeVal, trip_fee: tripFeeVal, trans_fee: transFeeVal,
                 cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,

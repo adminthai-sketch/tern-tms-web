@@ -16,16 +16,16 @@ async function syncShipments(client, b) {
     const current_count = current_shipments.length;
     const target_count = parseInt(b.container_count || 1);
     
-    // 1. อัปเดตข้อมูลตู้ที่มีอยู่แล้ว ให้ตรงกับหัวบิลที่แก้ไข (เผื่อเปลี่ยนเวลาหรือลูกค้า)
     for (const ship of current_shipments) {
         let raw = [];
         try { raw = JSON.parse(ship.raw_data); } catch(e) {}
-        while (raw.length < 29) raw.push(''); // ขยายแถวให้ครบ 29 คอลัมน์ (เผื่อของเก่าสั้น)
+        while (raw.length < 29) raw.push(''); 
         
         raw[2] = b.mode || raw[2];
         raw[4] = b.run_date || raw[4];
         raw[5] = b.job_name || raw[5];
         raw[6] = b.customer_name || raw[6];
+        raw[11] = b.container_size || raw[11]; // 🌟 อัปเดตขนาดตู้ให้ตู้เดิมด้วย 🌟
         raw[12] = b.job_type || raw[12];
         raw[13] = b.agent || raw[13];
         raw[18] = b.cy_date || raw[18];
@@ -44,7 +44,6 @@ async function syncShipments(client, b) {
         [raw[4], raw[6], JSON.stringify(raw), ship.order_id]);
     }
 
-    // 2. ถ้าเพิ่มจำนวนตู้ -> สร้างออเดอร์ใหม่เพิ่ม
     if (current_count < target_count) {
         const to_create = target_count - current_count;
         const dateObj = new Date(b.run_date);
@@ -64,14 +63,14 @@ async function syncShipments(client, b) {
             const new_order_id = `${prefix}${String(start_num + i).padStart(3, '0')}`;
             const raw_data = [
                 false, new_order_id, b.mode || '', '', b.run_date || '', b.job_name || '', b.customer_name || '', b.booking_no,
-                '', '', 1, '', b.job_type || '', b.agent || '', '', '', '', '', b.cy_date || '', b.trip_fee || 0, b.trans_fee || 0,
+                '', '', 1, b.container_size || '', b.job_type || '', b.agent || '', '', '', // 🌟 หยอด b.container_size ลงช่องที่ 11
+                '', '', b.cy_date || '', b.trip_fee || 0, b.trans_fee || 0,
                 b.vgm_cutoff || '', b.cutoff_time || '', b.rent_cutoff || '', b.demurrage || '', b.load_date || '', b.unload_date || '', b.open_gate || '', b.return_date || ''
             ];
             await client.query(`INSERT INTO shipments (order_id, run_date, customer_name, booking_no, status, raw_data) VALUES ($1, $2, $3, $4, 'รอจัดรถ', $5)`, 
             [new_order_id, b.run_date, b.customer_name, b.booking_no, JSON.stringify(raw_data)]);
         }
     } 
-    // 3. ถ้าลดจำนวนตู้ -> ลบออเดอร์ส่วนเกินทิ้ง (ลบจากล่างขึ้นบน)
     else if (current_count > target_count) {
         const ids_to_delete = [];
         for (let i = current_count - 1; i >= target_count; i--) ids_to_delete.push(current_shipments[i].order_id);
@@ -91,15 +90,16 @@ router.post('/bookings/header', async (req, res) => {
     try {
         await client.query('BEGIN');
         b.booking_no = b.booking_no || `BK-${Date.now()}`;
+        // 🌟 แก้ไข SQL โครงสร้างตารางให้มี container_size และ $23
         const query = `
             INSERT INTO bookings (
-                booking_no, mode, booking_date, run_date, job_name, customer_name, container_count, origin, destination,
+                booking_no, mode, booking_date, run_date, job_name, customer_name, container_count, container_size, origin, destination,
                 agent, cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, rent_cutoff, demurrage, unload_date, return_date,
                 job_type, price_type, trip_fee, trans_fee
-            ) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+            ) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
             ON CONFLICT (booking_no) DO UPDATE 
             SET mode = EXCLUDED.mode, run_date = EXCLUDED.run_date, job_name = EXCLUDED.job_name, customer_name = EXCLUDED.customer_name, 
-                container_count = EXCLUDED.container_count, origin = EXCLUDED.origin, destination = EXCLUDED.destination,
+                container_count = EXCLUDED.container_count, container_size = EXCLUDED.container_size, origin = EXCLUDED.origin, destination = EXCLUDED.destination,
                 agent = EXCLUDED.agent, cy_date = EXCLUDED.cy_date, vgm_cutoff = EXCLUDED.vgm_cutoff, cutoff_time = EXCLUDED.cutoff_time,
                 load_date = EXCLUDED.load_date, open_gate = EXCLUDED.open_gate, rent_cutoff = EXCLUDED.rent_cutoff, demurrage = EXCLUDED.demurrage, 
                 unload_date = EXCLUDED.unload_date, return_date = EXCLUDED.return_date, job_type = EXCLUDED.job_type, price_type = EXCLUDED.price_type, 
@@ -107,15 +107,13 @@ router.post('/bookings/header', async (req, res) => {
             RETURNING id, booking_no;
         `;
         const values = [
-            b.booking_no, cleanVal(b.mode), b.run_date, b.job_name || '', b.customer_name || '', b.container_count || 1, b.origin || '', b.destination || '',
+            b.booking_no, cleanVal(b.mode), b.run_date, b.job_name || '', b.customer_name || '', b.container_count || 1, b.container_size || '', b.origin || '', b.destination || '',
             cleanVal(b.agent), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.load_date), cleanVal(b.open_gate),
             cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.unload_date), cleanVal(b.return_date),
             cleanVal(b.job_type), cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee)
         ];
         
         const result = await client.query(query, values);
-        
-        // ส่งออบเจกต์ b ไปให้ฟังก์ชันซิงค์จัดการต่อ
         await syncShipments(client, b);
         
         await client.query('COMMIT');
@@ -136,12 +134,12 @@ router.put('/bookings/:id', async (req, res) => {
         await client.query('BEGIN');
         await client.query(`
             UPDATE bookings SET 
-                mode=$1, run_date=$2, customer_name=$3, job_name=$4, job_type=$5, origin=$6, destination=$7, container_count=$8, 
-                price_type=$9, trip_fee=$10, trans_fee=$11, cy_date=$12, vgm_cutoff=$13, cutoff_time=$14, rent_cutoff=$15, 
-                demurrage=$16, load_date=$17, unload_date=$18, open_gate=$19, return_date=$20, updated_at=NOW()
-            WHERE id=$21
+                mode=$1, run_date=$2, customer_name=$3, job_name=$4, job_type=$5, origin=$6, destination=$7, container_count=$8, container_size=$9,
+                price_type=$10, trip_fee=$11, trans_fee=$12, cy_date=$13, vgm_cutoff=$14, cutoff_time=$15, rent_cutoff=$16, 
+                demurrage=$17, load_date=$18, unload_date=$19, open_gate=$20, return_date=$21, updated_at=NOW()
+            WHERE id=$22
         `, [
-            cleanVal(b.mode), b.run_date, b.customer_name || '', b.job_name || '', cleanVal(b.job_type), b.origin || '', b.destination || '', b.container_count || 1,
+            cleanVal(b.mode), b.run_date, b.customer_name || '', b.job_name || '', cleanVal(b.job_type), b.origin || '', b.destination || '', b.container_count || 1, b.container_size || '',
             cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.rent_cutoff),
             cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), cleanVal(b.open_gate), cleanVal(b.return_date), id
         ]);
@@ -156,7 +154,6 @@ router.put('/bookings/:id', async (req, res) => {
     } finally { client.release(); }
 });
 
-// GET /api/shipments
 router.get('/shipments', async (req, res) => {
     try {
         const { year, month } = req.query;
@@ -172,7 +169,6 @@ router.get('/shipments', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-// POST /api/shipments (บันทึกและรันออเดอร์ให้แถวใหม่)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลสำหรับบันทึก' });
@@ -187,7 +183,6 @@ router.post('/shipments', async (req, res) => {
             const booking_no = cleanVal(row[7]) || '';
             const status = row[row.length - 1] || 'รอจัดรถ';
 
-            // ถ้าไม่มี Order ID ให้ระบบรันเลขให้ใหม่
             if (!order_id) {
                 if (!run_date) continue; 
                 const dateObj = new Date(run_date);
@@ -203,7 +198,7 @@ router.post('/shipments', async (req, res) => {
                     if (parts.length === 3) start_num = parseInt(parts[2], 10) + 1;
                 }
                 order_id = `${prefix}${String(start_num).padStart(3, '0')}`;
-                row[1] = order_id; // เขียนทับใส่กลับไปใน raw_data
+                row[1] = order_id; 
             }
 
             await client.query(`
@@ -247,36 +242,25 @@ router.get('/bookings/search', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-// 🌟 DELETE /api/bookings/:id (ลบหัวบิลและตู้ทั้งหมดที่เกี่ยวข้อง) 🌟
 router.delete('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
-        // 1. ดึงเลข Booking No ออกมาก่อน
         const bRes = await client.query('SELECT booking_no FROM bookings WHERE id = $1', [id]);
         if (bRes.rows.length > 0) {
             const booking_no = bRes.rows[0].booking_no;
-            // 2. สั่งลบตู้ (shipments) ทั้งหมดที่ผูกกับ Booking นี้ทิ้งก่อน
             await client.query('DELETE FROM shipments WHERE booking_no = $1', [booking_no]);
         }
-        
-        // 3. เมื่อตู้หายไปหมดแล้ว ก็ลบหัวบิลทิ้งได้อย่างปลอดภัย
         await client.query('DELETE FROM bookings WHERE id = $1', [id]);
-        
         await client.query('COMMIT');
         res.json({ success: true, message: 'ลบรายการสำเร็จ' });
     } catch (err) { 
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message }); 
-    } finally {
-        client.release();
-    }
+    } finally { client.release(); }
 });
 
-
-// 🌟 POST /api/rates/single (เพิ่ม/อัปเดตเรทราคาแบบรายการเดียวตอนรับงาน) 🌟
 router.post('/rates/single', async (req, res) => {
     const r = req.body;
     if (!r.job_name) return res.status(400).json({ success: false });

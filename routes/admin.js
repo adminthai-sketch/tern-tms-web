@@ -111,18 +111,20 @@ router.post('/roles', async (req, res) => {
 });
 
 // ==========================================
-// 🚚 Fleet (รถ / คนขับ)
+// 🚚 Fleet (รถ / คนขับ) - โครงสร้างใหม่ 3 ตาราง
 // ==========================================
+
+// --- ตารางที่ 1: ข้อมูลรถ (Trucks) ---
 router.get('/trucks', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, default_plate_number, default_vehicle_type, status FROM drivers WHERE default_plate_number IS NOT NULL ORDER BY id ASC');
-        res.json({ success: true, data: result.rows.map(r => [r.id, r.default_plate_number, r.default_vehicle_type, r.status]) });
+        const result = await pool.query('SELECT id, plate_number, vehicle_type, status FROM trucks ORDER BY id ASC');
+        res.json({ success: true, data: result.rows.map(r => [r.id, r.plate_number, r.vehicle_type, r.status]) });
     } catch (err) { res.json({ success: true, data: [] }); }
 });
 
 router.post('/trucks', async (req, res) => {
     const { data } = req.body;
-    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
+    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false });
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -130,19 +132,20 @@ router.post('/trucks', async (req, res) => {
             const [id, plate_number, vehicle_type, status] = row;
             if (!plate_number) continue;
             if (id) {
-                await client.query(`UPDATE drivers SET default_plate_number = $1, default_vehicle_type = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`, [plate_number, vehicle_type, status || 'ACTIVE', id]);
+                await client.query(`UPDATE trucks SET plate_number = $1, vehicle_type = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`, [plate_number, vehicle_type, status || 'ACTIVE', id]);
             } else {
-                await client.query(`INSERT INTO drivers (default_plate_number, default_vehicle_type, status) VALUES ($1, $2, $3)`, [plate_number, vehicle_type, status || 'ACTIVE']);
+                await client.query(`INSERT INTO trucks (plate_number, vehicle_type, status) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [plate_number, vehicle_type, status || 'ACTIVE']);
             }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลรถเรียบร้อยแล้ว' });
+        res.json({ success: true, message: 'บันทึกข้อมูลรถเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
 
+// --- ตารางที่ 2: พนักงานขับรถ (Drivers) ---
 router.get('/driver_info', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, driver_name, nickname, phone_number, status FROM drivers ORDER BY id ASC');
@@ -152,7 +155,7 @@ router.get('/driver_info', async (req, res) => {
 
 router.post('/driver_info', async (req, res) => {
     const { data } = req.body;
-    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
+    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false });
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -166,22 +169,31 @@ router.post('/driver_info', async (req, res) => {
             }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลพนักงานขับรถเรียบร้อยแล้ว' });
+        res.json({ success: true, message: 'บันทึกข้อมูลคนขับเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
 
+// --- ตารางที่ 3: จับคู่รถและคนขับ (Truck Assignments) ---
 router.get('/truck_assignments', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, default_plate_number, default_vehicle_type, driver_name FROM drivers WHERE default_plate_number IS NOT NULL ORDER BY id ASC');
-        const trucks = await pool.query("SELECT default_plate_number FROM drivers WHERE status = 'ACTIVE' AND default_plate_number IS NOT NULL");
+        const query = `
+            SELECT ta.id, t.plate_number, t.vehicle_type, d.driver_name 
+            FROM truck_assignments ta
+            JOIN trucks t ON ta.truck_id = t.id
+            LEFT JOIN drivers d ON ta.driver_id = d.id
+            ORDER BY ta.id ASC
+        `;
+        const result = await pool.query(query);
+        const trucks = await pool.query("SELECT plate_number FROM trucks WHERE status = 'ACTIVE'");
         const drivers = await pool.query("SELECT driver_name FROM drivers WHERE status = 'ACTIVE'");
+        
         res.json({ 
             success: true, 
-            data: result.rows.map(r => [r.id, r.default_plate_number, r.default_vehicle_type || '', r.driver_name]),
-            truckList: trucks.rows.map(t => t.default_plate_number),
+            data: result.rows.map(r => [r.id, r.plate_number, r.vehicle_type || '', r.driver_name || '']),
+            truckList: trucks.rows.map(t => t.plate_number),
             driverList: drivers.rows.map(d => d.driver_name)
         });
     } catch (err) { res.json({ success: true, data: [], truckList: [], driverList: [] }); }
@@ -189,18 +201,32 @@ router.get('/truck_assignments', async (req, res) => {
     
 router.post('/truck_assignments', async (req, res) => {
     const { data } = req.body;
-    if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        await client.query('DELETE FROM truck_assignments'); // ล้างข้อมูลเก่าและเขียนใหม่ ป้องกันข้อมูลซ้ำซ้อน
+
         for (const row of data) {
             const [id, plate_number, dummy, driver_name] = row;
-            if (id) {
-                await client.query(`UPDATE drivers SET default_plate_number = $1, driver_name = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, [plate_number, driver_name, id]);
+            if (!plate_number) continue;
+
+            const tRes = await client.query('SELECT id FROM trucks WHERE plate_number = $1 LIMIT 1', [plate_number]);
+            if (tRes.rows.length === 0) continue; 
+            const truck_id = tRes.rows[0].id;
+
+            let driver_id = null;
+            if (driver_name) {
+                const dRes = await client.query('SELECT id FROM drivers WHERE driver_name = $1 LIMIT 1', [driver_name]);
+                if (dRes.rows.length > 0) driver_id = dRes.rows[0].id;
             }
+
+            await client.query(`
+                INSERT INTO truck_assignments (truck_id, driver_id) VALUES ($1, $2)
+                ON CONFLICT (truck_id) DO UPDATE SET driver_id = EXCLUDED.driver_id, updated_at = CURRENT_TIMESTAMP
+            `, [truck_id, driver_id]);
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกการจับคู่รถและคนขับเรียบร้อยแล้ว' });
+        res.json({ success: true, message: 'บันทึกการจับคู่รถ-คนขับ สำเร็จ 100%' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });

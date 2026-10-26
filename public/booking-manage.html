@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERN TMS - ลงเบอร์ตู้ (Container Manage)</title>
+    <title>TERN TMS - จัดรถ & ลงเบอร์ตู้ (Dispatch & Containers)</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -27,7 +27,7 @@
     <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-4 shrink-0 z-20 shadow-sm">
         <div class="flex items-center gap-4">
             <span class="font-bold text-lg text-emerald-700 tracking-wide hidden sm:flex items-center gap-2">
-                <i class="fa-solid fa-boxes-stacked"></i> ลงเบอร์ตู้
+                <i class="fa-solid fa-truck-fast"></i> จัดรถ & ลงเบอร์ตู้
             </span>
             <div class="flex gap-1 ml-0 sm:ml-2 sm:border-l sm:border-slate-200 sm:pl-3">
                 <a href="/index.html" class="text-slate-500 hover:text-primary hover:bg-slate-100 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors">
@@ -79,20 +79,25 @@
                     <button onclick="clearAllFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors" title="ล้างค่าตัวกรองทั้งหมด"><i class="fa-solid fa-eraser text-sm"></i></button>
                 </div>
 
+                <!-- 🌟 กลุ่มปุ่มกดสั่งการ (เพิ่มปุ่มเปิด/ปิด ลานฝากตู้ เข้ามาแล้ว) 🌟 -->
                 <div class="flex items-center gap-2">
-                    <button onclick="saveGridSettings()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-amber-300 h-8 shadow-sm">
+                    <button onclick="toggleDropYards()" id="btn-toggle-drops" class="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-purple-200 h-8 shadow-sm transition-colors">
+                        <i class="fa-solid fa-eye-slash"></i> ลานฝากตู้
+                    </button>
+                    
+                    <button onclick="saveGridSettings()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-amber-300 h-8 shadow-sm transition-colors">
                         <i class="fa-solid fa-table-columns"></i> จำมุมมอง
                     </button>
                     <!-- ปุ่มลบตู้ -->
-                    <button onclick="deleteContainerRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-red-200 h-8 shadow-sm">
+                    <button onclick="deleteContainerRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-red-200 h-8 shadow-sm transition-colors">
                         <i class="fa-solid fa-trash-can"></i> ลบตู้
                     </button>
                     <!-- ปุ่มเพิ่มตู้ -->
-                    <button onclick="addNewContainerRow()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-blue-200 h-8 shadow-sm">
+                    <button onclick="addNewContainerRow()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-blue-200 h-8 shadow-sm transition-colors">
                         <i class="fa-solid fa-plus"></i> เพิ่มตู้เข้า Booking
                     </button>
                     <!-- ปุ่มเซฟ -->
-                    <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm">
+                    <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm transition-colors">
                         <i class="fa-solid fa-floppy-disk"></i> บันทึกเบอร์ตู้
                     </button>
                 </div>

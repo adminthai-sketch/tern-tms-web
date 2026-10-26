@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: CONTAINER MANAGE (Fixed Delete Logic & Fee Sync)
+// 📦 MODULE: CONTAINER MANAGE (Ghost Sweeper & Auto-Sync)
 // ==========================================
 
 let hotGridInstance = null;
@@ -80,12 +80,10 @@ async function loadContainerGridData() {
 
                 const bNo = fullRow[7] ? String(fullRow[7]).trim() : ''; 
                 
-                // 🌟 ดึงข้อมูลและค่าเงินจากหัวบิล มาใส่ตู้ย่อย 🌟
                 if (bookingsMap[bNo]) {
                     if (!fullRow[78]) fullRow[78] = bookingsMap[bNo].origin || '';
                     if (!fullRow[79]) fullRow[79] = bookingsMap[bNo].destination || '';
                     
-                    // บังคับแปลงค่าเงินเป็นตัวเลข เพื่อเช็คว่าถ้าไม่มีหรือเป็น 0 ให้ดึงจากหัวบิลมาเติมเสมอ
                     const currentTrip = parseFloat(String(fullRow[56]).replace(/,/g, '')) || 0;
                     const currentTrans = parseFloat(String(fullRow[57]).replace(/,/g, '')) || 0;
                     
@@ -93,7 +91,9 @@ async function loadContainerGridData() {
                     if (currentTrans === 0) fullRow[57] = bookingsMap[bNo].trans_fee;
                 }
                 return fullRow;
-            });
+            })
+            // 🌟 Ghost Sweeper: ดักเตะ "ตู้ผี" ที่ไม่มี Order ID ทิ้งกลางอากาศ ไม่ให้หลุดมาโชว์ในตาราง! 🌟
+            .filter(row => row[1] !== null && row[1] !== undefined && String(row[1]).trim() !== '');
 
             editedRowIndices.clear();
             
@@ -250,7 +250,7 @@ function containerValidator(value, callback) {
 }
 
 // ==========================================
-// 📊 จัดการตาราง Handsontable
+// 📊 จัดการตาราง Handsontable 
 // ==========================================
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -405,7 +405,6 @@ window.addNewContainerRow = function() {
     alert(`✅ สร้างแถวตู้ใหม่ให้ Booking: ${filterBooking} เรียบร้อยแล้วครับ!`);
 };
 
-// 🌟 แก้ไขระบบลบตู้ ให้ยิง API ได้แม่นยำขึ้น 🌟
 window.deleteContainerRows = async function() {
     if (!hotGridInstance) return;
     
@@ -413,14 +412,14 @@ window.deleteContainerRows = async function() {
     const rowsToDelete = [];
     const idsToDelete = [];
 
-    // วนเช็คว่าแถวไหนโดนติ๊ก Checkbox (ค่าจะเป็น true)
     data.forEach((row, index) => {
         const src = hotGridInstance.getSourceDataAtRow(index);
         if (src[0] === true || src[0] === 'true' || src[0] === 1) { 
             rowsToDelete.push(index);
-            // เอาเฉพาะที่มี Order ID จริงๆ ส่งไปลบในฐานข้อมูล
-            if (src[1] && !src[1].includes('ORD-ADD')) { 
-                idsToDelete.push(src[1]); 
+            
+            const orderId = src[1] !== null && src[1] !== undefined ? String(src[1]).trim() : '';
+            if (orderId && !orderId.includes('ORD-ADD')) { 
+                idsToDelete.push(orderId); 
             }
         }
     });
@@ -432,7 +431,6 @@ window.deleteContainerRows = async function() {
 
     if (!confirm(`⚠️ ยืนยันการลบตู้จำนวน ${rowsToDelete.length} รายการทิ้งถาวร?`)) return;
 
-    // ถ้ามีออเดอร์ในฐานข้อมูล ให้ยิง API ไปลบก่อน
     if (idsToDelete.length > 0) {
         try { 
             const res = await fetch('/api/shipments', { 
@@ -444,7 +442,7 @@ window.deleteContainerRows = async function() {
             const result = await res.json();
             if(!result.success) {
                 alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message);
-                return; // ถ้ายิง API ไม่ผ่าน ไม่ต้องลบตารางหน้าเว็บ
+                return; 
             }
         } catch (e) {
             alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
@@ -453,7 +451,7 @@ window.deleteContainerRows = async function() {
     }
     
     alert(`✅ ลบตู้เสร็จสิ้น!`);
-    loadContainerGridData(); // 🌟 โหลดตารางใหม่จากหลังบ้านเพื่อรีเฟรชข้อมูลให้ชัวร์ที่สุด
+    loadContainerGridData(); 
 };
 
 function updateSaveStatusBadge() {

@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Ultimate Edition: Left Actions, Vertical Times, Hide Columns)
+// 📋 MODULE: BOOKING LIST (Auto-Rate Fill, Vertical Times, Hide Columns)
 // ==========================================
 
 let hotGridInstance = null;
@@ -8,6 +8,9 @@ let filteredList = [];
 let editedRowIndices = new Set(); 
 let userGridSettings = {}; 
 let globalContainerSizes = ['20', '40', '40HC', '45HC']; 
+
+// 🌟 ตัวแปรเก็บข้อมูลตารางราคา (เรท) สำหรับ Auto-Fill
+let rateDataMap = {}; 
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
@@ -31,6 +34,21 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (err) {}
 
+    // 🌟 ดึงข้อมูลเรทราคามาเก็บไว้ล่วงหน้า 🌟
+    try {
+        const rateRes = await fetch('/api/rates');
+        const rateResult = await rateRes.json();
+        if (rateResult.success && rateResult.data) {
+            rateResult.data.forEach(r => {
+                rateDataMap[r[0]] = { // r[0] คือชื่องาน
+                    customer: r[1], origin: r[2], dest: r[3], jobType: r[6],
+                    trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10],
+                    trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14]
+                };
+            });
+        }
+    } catch (err) {}
+
     await loadBookingGridData();
 });
 
@@ -49,7 +67,6 @@ function applyZebraStripingCSS() {
             .handsontable tbody tr td.ht-edited-row { background-color: #fef9c3 !important; }
             .handsontable tbody tr:hover td { background-color: #f1f5f9 !important; }
             
-            /* 🌟 สไตล์กล่องเวลาแบบ List 🌟 */
             .time-row { display: flex; justify-content: space-between; align-items: center; background-color: #ffffff; border: 1px solid #f1f5f9; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
             .time-row:last-child { margin-bottom: 0; }
             .time-label { font-size: 9px; font-weight: 700; color: #64748b; }
@@ -148,11 +165,9 @@ function updateSummaryFooter(data) {
     document.getElementById('sum-count').innerText = data.length.toLocaleString(); document.getElementById('sum-container').innerText = sumContainers.toLocaleString(); document.getElementById('sum-trans').innerText = sumTrans.toLocaleString(); document.getElementById('sum-trip').innerText = sumTrip.toLocaleString();
 }
 
-// 🌟 สร้าง HTML เวลาแบบ List (แยกตรรกะ EXPORT / IMPORT ชัดเจน) 🌟
 function createTimeListHtml(mode, type, item) {
     let html = '<div class="flex flex-col w-full">';
     let hasData = false;
-    
     const addRow = (label, val, colorCls) => {
         if(val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') {
             const fVal = formatDateTime(val);
@@ -162,29 +177,15 @@ function createTimeListHtml(mode, type, item) {
             }
         }
     };
-
     if (mode === 'EXPORT') {
-        if (type === 'PICKUP') {
-            addRow('CY DATE', item.cy_date, 'text-blue-600');
-            addRow('VGM CUT', item.vgm_cutoff, 'text-red-500');
-            addRow('CUTOFF', item.cutoff_time, 'text-red-600');
-        } else if (type === 'DELIVERY') {
-            addRow('LOAD', item.load_date, 'text-amber-600');
-        } else if (type === 'RETURN') {
-            addRow('OPEN GATE', item.open_gate, 'text-emerald-600');
-            addRow('CUTOFF', item.cutoff_time, 'text-red-600'); // นำ CUTOFF มาโชว์คู่ใน RETURN ให้ตามที่ขอ
-        }
+        if (type === 'PICKUP') { addRow('CY DATE', item.cy_date, 'text-blue-600'); addRow('VGM CUT', item.vgm_cutoff, 'text-red-500'); addRow('CUTOFF', item.cutoff_time, 'text-red-600'); } 
+        else if (type === 'DELIVERY') { addRow('LOAD', item.load_date, 'text-amber-600'); } 
+        else if (type === 'RETURN') { addRow('OPEN GATE', item.open_gate, 'text-emerald-600'); addRow('CUTOFF', item.cutoff_time, 'text-red-600'); }
     } else if (mode === 'IMPORT') {
-        if (type === 'PICKUP') {
-            addRow('CY DATE', item.cy_date, 'text-blue-600');
-            addRow('RENT CUT', item.rent_cutoff, 'text-red-500');
-        } else if (type === 'DELIVERY') {
-            addRow('UNLOAD', item.unload_date, 'text-amber-600');
-        } else if (type === 'RETURN') {
-            addRow('RETURN', item.return_date, 'text-slate-700');
-        }
+        if (type === 'PICKUP') { addRow('CY DATE', item.cy_date, 'text-blue-600'); addRow('RENT CUT', item.rent_cutoff, 'text-red-500'); } 
+        else if (type === 'DELIVERY') { addRow('UNLOAD', item.unload_date, 'text-amber-600'); } 
+        else if (type === 'RETURN') { addRow('RETURN', item.return_date, 'text-slate-700'); }
     }
-
     html += '</div>';
     return hasData ? html : '<span class="text-slate-300 italic text-[10px] w-full text-center block py-1">+ เพิ่มเวลา</span>';
 }
@@ -196,16 +197,12 @@ function initBookingHandsontable(data) {
 
     const formattedTableData = data.map(item => {
         const jobNameDisplay = (item.job_name && item.job_name !== 'NaN') ? item.job_name : (item.job_title || '-');
-        
-        // 🌟 เรียกใช้ฟังก์ชันที่แยก Mode EXPORT/IMPORT แล้ว
         const pickup = createTimeListHtml(item.mode, 'PICKUP', item);
         const delivery = createTimeListHtml(item.mode, 'DELIVERY', item);
         const ret = createTimeListHtml(item.mode, 'RETURN', item);
 
         return [
-            false, 
-            item.booking_no, // ส่งเข้าคอลัมน์ปุ่มจัดการ
-            item.id, item.booking_no || '', item.mode || 'EXPORT', 
+            false, item.booking_no, item.id, item.booking_no || '', item.mode || 'EXPORT', 
             item.run_date ? String(item.run_date).split('T')[0] : '', item.customer_name || '', 
             item.agent || '', jobNameDisplay, item.job_type || '', item.origin || '', item.destination || '', 
             item.container_count || 1, item.container_size || '', item.price_type || '', item.trip_fee || 0, item.trans_fee || 0, 
@@ -226,8 +223,6 @@ function initBookingHandsontable(data) {
         wordWrap: false, 
         columns: [
             { type: 'checkbox', className: 'htCenter htMiddle' }, 
-            
-            // 🌟 คอลัมน์ปุ่มจัดการ (วางซ้อนบน-ล่าง) 🌟
             { 
                 readOnly: true, 
                 renderer: function(instance, td, row, col, prop, value) {
@@ -246,7 +241,6 @@ function initBookingHandsontable(data) {
                     }
                 } 
             },
-
             { readOnly: true, className: 'htCenter htMiddle text-slate-400 font-bold bg-slate-50' }, 
             { type: 'text', className: 'font-bold text-primary htMiddle' }, 
             { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'], className: 'htCenter htMiddle font-bold text-slate-600' }, 
@@ -267,10 +261,7 @@ function initBookingHandsontable(data) {
             { type: 'text', renderer: renderClickableTimeCell, readOnly: true }
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
-        
-        // 🌟 ตั้งค่าให้ซ่อนคอลัมน์ได้เมื่อคลิกขวา (Context Menu) 🌟
-        manualColumnResize: true, 
-        manualColumnMove: true,
+        manualColumnResize: true, manualColumnMove: true,
         hiddenColumns: { indicators: true },
         contextMenu: ['hidden_columns_hide', 'hidden_columns_show', '---------', 'alignment', 'copy'],
 
@@ -281,7 +272,45 @@ function initBookingHandsontable(data) {
         afterChange: function(changes, source) {
             if (source === 'loadData' || !changes) return;
             changes.forEach(([row, prop, oldVal, newVal]) => {
-                if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
+                if (oldVal !== newVal && prop !== 0) {
+                    editedRowIndices.add(row);
+                    
+                    // 🌟 ระบบ Auto-Fill อัตโนมัติเมื่อแก้ชื่องาน หรือ ประเภทรถ 🌟
+                    const colName = this.getColHeader(prop);
+                    const headersNow = this.getColHeader(); 
+                    
+                    const custIdx = headersNow.indexOf('ลูกค้า');
+                    const jobTypeIdx = headersNow.indexOf('ประเภท');
+                    const originIdx = headersNow.indexOf('ต้นทาง');
+                    const destIdx = headersNow.indexOf('ปลายทาง');
+                    const carTypeIdx = headersNow.indexOf('รถ');
+                    const tripIdx = headersNow.indexOf('ค่าเที่ยว');
+                    const transIdx = headersNow.indexOf('ค่าขนส่ง');
+                    const jobNameIdx = headersNow.indexOf('ชื่องาน');
+
+                    if (colName === 'ชื่องาน' && newVal) {
+                        const rate = rateDataMap[newVal.trim()];
+                        if (rate) {
+                            if(custIdx >= 0) this.setDataAtCell(row, custIdx, rate.customer || '', 'auto');
+                            if(jobTypeIdx >= 0) this.setDataAtCell(row, jobTypeIdx, rate.jobType || '', 'auto');
+                            if(originIdx >= 0) this.setDataAtCell(row, originIdx, rate.origin || '', 'auto');
+                            if(destIdx >= 0) this.setDataAtCell(row, destIdx, rate.dest || '', 'auto');
+                            if(carTypeIdx >= 0) {
+                                const carType = this.getDataAtCell(row, carTypeIdx);
+                                if (carType) applyRateDynamicallyInList(this, row, rate, carType, tripIdx, transIdx);
+                            }
+                        }
+                    }
+                    
+                    if (colName === 'รถ' && newVal) {
+                        if(jobNameIdx >= 0) {
+                            const jobName = this.getDataAtCell(row, jobNameIdx); 
+                            if (jobName && rateDataMap[jobName.trim()]) {
+                                applyRateDynamicallyInList(this, row, rateDataMap[jobName.trim()], newVal, tripIdx, transIdx);
+                            }
+                        }
+                    }
+                }
             });
             updateSaveStatusBadge(); this.render(); 
         },
@@ -295,6 +324,15 @@ function initBookingHandsontable(data) {
     if (userGridSettings.columnPositions && userGridSettings.columnPositions.length === colHeaders.length) {
         try { hotGridInstance.getPlugin('manualColumnMove').moveColumns(userGridSettings.columnPositions, 0); } catch(e) {}
     }
+}
+
+// 🌟 ฟังก์ชันช่วยคำนวณราคาย่อย 🌟
+function applyRateDynamicallyInList(hot, row, rate, type, tripIdx, transIdx) {
+    if(tripIdx < 0 || transIdx < 0) return;
+    if(type === '6W') { hot.setDataAtCell(row, tripIdx, rate.trp6||''); hot.setDataAtCell(row, transIdx, rate.trn6||''); }
+    else if(type === '10W') { hot.setDataAtCell(row, tripIdx, rate.trp10||''); hot.setDataAtCell(row, transIdx, rate.trn10||''); }
+    else if(type === '12W*2') { hot.setDataAtCell(row, tripIdx, rate.trp12||''); hot.setDataAtCell(row, transIdx, rate.trn12||''); }
+    else if(type === 'เงินสด') { hot.setDataAtCell(row, tripIdx, rate.trpCash||''); hot.setDataAtCell(row, transIdx, rate.trnCash||''); }
 }
 
 window.saveGridSettings = async function() {
@@ -337,32 +375,22 @@ let currentModalRow = -1; let currentModalProp = -1;
 window.openDateTimeModal = function(row, prop) {
     currentModalRow = row; 
     currentModalProp = prop;
-    
-    // ดึงรหัส Booking จากแถวที่คลิก (Index 3 คือเลข Booking ตามตารางล่าสุด)
     const rData = hotGridInstance.getSourceDataAtRow(row);
     const bookingNo = rData[3]; 
-    
-    // ดึงข้อมูลต้นฉบับจากตัวแปร List
     const item = filteredList.find(i => i.booking_no === bookingNo);
     if (!item) return;
-
-    // 🌟 ดึง Mode จาก Item ตรงๆ และบังคับตัดช่องว่าง/ตัวใหญ่เสมอ ป้องกันบั๊ก 🌟
     const mode = item.mode ? String(item.mode).trim().toUpperCase() : 'EXPORT';
 
     let html = '', title = '';
-    
-    // 🛃 แยกช่องกรอก Modal ตามโหมด EXPORT / IMPORT 100%
     if (prop === 17) { 
         title = `เวลา PICK UP (${mode})`;
         html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
-        
         if (mode === 'EXPORT') {
             html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
             html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
         } else if (mode === 'IMPORT') {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (คืนตู้ฟรีถึง)', item.rent_cutoff);
         }
-        
     } else if (prop === 18) { 
         title = `เวลา DELIVERY (${mode})`;
         if (mode === 'EXPORT') {
@@ -370,7 +398,6 @@ window.openDateTimeModal = function(row, prop) {
         } else if (mode === 'IMPORT') {
             html += createDatetimeInput('unload_date', 'Unload Date & Time (ลงของ)', item.unload_date);
         }
-        
     } else if (prop === 19) { 
         title = `เวลา RETURN (${mode})`;
         if (mode === 'EXPORT') {
@@ -379,7 +406,6 @@ window.openDateTimeModal = function(row, prop) {
         } else if (mode === 'IMPORT') {
             html += createDatetimeInput('return_date', 'Return Date & Time (เวลาที่คืนตู้จริง)', item.return_date);
         }
-        
     } else { return; }
 
     document.getElementById('modal-title').innerText = title; document.getElementById('modal-body').innerHTML = html;

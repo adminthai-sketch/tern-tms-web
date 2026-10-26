@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Fixed Row Heights & Perfect Layout)
+// 📋 MODULE: BOOKING LIST (Vertical Actions & Mode-Specific Times)
 // ==========================================
 
 let hotGridInstance = null;
@@ -39,20 +39,18 @@ function applyZebraStripingCSS() {
         const style = document.createElement('style');
         style.id = 'tms-zebra-css';
         style.innerHTML = `
-            /* 🌟 แก้อาการแถวระเบิดความสูง 🌟 */
             .handsontable td { 
                 vertical-align: middle !important;
-                border-color: #e2e8f0; font-size: 11px !important; padding: 4px 6px !important; 
+                border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; 
             }
             .handsontable th { background-color: #f1f5f9; color: #475569; font-weight: 700; border-color: #cbd5e1; font-size: 11px; padding: 4px !important; }
-            
             .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
             .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
             .handsontable tbody tr td.ht-edited-row { background-color: #fef9c3 !important; }
             .handsontable tbody tr:hover td { background-color: #f1f5f9 !important; }
             
             /* 🌟 สไตล์กล่องเวลาแบบ List 🌟 */
-            .time-row { display: flex; justify-content: space-between; align-items: center; background-color: #ffffff; border: 1px solid #f1f5f9; padding: 2px 4px; border-radius: 4px; margin-bottom: 3px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+            .time-row { display: flex; justify-content: space-between; align-items: center; background-color: #ffffff; border: 1px solid #f1f5f9; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
             .time-row:last-child { margin-bottom: 0; }
             .time-label { font-size: 9px; font-weight: 700; color: #64748b; }
             .time-val { font-size: 10px; font-weight: 700; }
@@ -150,22 +148,45 @@ function updateSummaryFooter(data) {
     document.getElementById('sum-count').innerText = data.length.toLocaleString(); document.getElementById('sum-container').innerText = sumContainers.toLocaleString(); document.getElementById('sum-trans').innerText = sumTrans.toLocaleString(); document.getElementById('sum-trip').innerText = sumTrip.toLocaleString();
 }
 
-// 🌟 สร้าง HTML เวลาแบบ List แนวตั้ง เหมือนตาราง Ref 🌟
-function createTimeListHtml(type, d1, d2, d3) {
+// 🌟 สร้าง HTML เวลาแบบ List (แยกตรรกะ EXPORT / IMPORT ชัดเจน) 🌟
+function createTimeListHtml(mode, type, item) {
     let html = '<div class="flex flex-col w-full">';
-    if (type === 'PICKUP') {
-        if (d1) html += `<div class="time-row"><span class="time-label">CY DATE</span><span class="time-val text-blue-600 whitespace-nowrap">${d1}</span></div>`;
-        if (d2) html += `<div class="time-row"><span class="time-label">VGM CUT</span><span class="time-val text-red-500 whitespace-nowrap">${d2}</span></div>`;
-        if (d3) html += `<div class="time-row"><span class="time-label text-red-500">CUTOFF</span><span class="time-val text-red-600 whitespace-nowrap">${d3}</span></div>`;
-    } else if (type === 'DELIVERY') {
-        if (d1) html += `<div class="time-row"><span class="time-label">LOAD</span><span class="time-val text-amber-600 whitespace-nowrap">${d1}</span></div>`;
-        if (d2) html += `<div class="time-row"><span class="time-label">UNLOAD</span><span class="time-val text-amber-600 whitespace-nowrap">${d2}</span></div>`;
-    } else if (type === 'RETURN') {
-        if (d1) html += `<div class="time-row"><span class="time-label whitespace-nowrap mr-2">OPEN GATE</span><span class="time-val text-emerald-600 whitespace-nowrap">${d1}</span></div>`;
-        if (d2) html += `<div class="time-row"><span class="time-label whitespace-nowrap mr-2">RETURN</span><span class="time-val text-slate-700 whitespace-nowrap">${d2}</span></div>`;
+    let hasData = false;
+    
+    const addRow = (label, val, colorCls) => {
+        if(val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') {
+            const fVal = formatDateTime(val);
+            if(fVal) {
+                html += `<div class="time-row"><span class="time-label whitespace-nowrap mr-2">${label}</span><span class="time-val ${colorCls} whitespace-nowrap">${fVal}</span></div>`;
+                hasData = true;
+            }
+        }
+    };
+
+    if (mode === 'EXPORT') {
+        if (type === 'PICKUP') {
+            addRow('CY DATE', item.cy_date, 'text-blue-600');
+            addRow('VGM CUT', item.vgm_cutoff, 'text-red-500');
+            addRow('CUTOFF', item.cutoff_time, 'text-red-600');
+        } else if (type === 'DELIVERY') {
+            addRow('LOAD', item.load_date, 'text-amber-600');
+        } else if (type === 'RETURN') {
+            addRow('OPEN GATE', item.open_gate, 'text-emerald-600');
+            addRow('CUTOFF', item.cutoff_time, 'text-red-600'); // นำ CUTOFF มาโชว์คู่ใน RETURN ให้ตามที่ขอ
+        }
+    } else if (mode === 'IMPORT') {
+        if (type === 'PICKUP') {
+            addRow('CY DATE', item.cy_date, 'text-blue-600');
+            addRow('RENT CUT', item.rent_cutoff, 'text-red-500');
+        } else if (type === 'DELIVERY') {
+            addRow('UNLOAD', item.unload_date, 'text-amber-600');
+        } else if (type === 'RETURN') {
+            addRow('RETURN', item.return_date, 'text-slate-700');
+        }
     }
+
     html += '</div>';
-    return (d1 || d2 || d3) ? html : '<span class="text-slate-300 italic text-[10px] w-full text-center block py-2">+ เพิ่มเวลา</span>';
+    return hasData ? html : '<span class="text-slate-300 italic text-[10px] w-full text-center block py-1">+ เพิ่มเวลา</span>';
 }
 
 function initBookingHandsontable(data) {
@@ -175,9 +196,11 @@ function initBookingHandsontable(data) {
 
     const formattedTableData = data.map(item => {
         const jobNameDisplay = (item.job_name && item.job_name !== 'NaN') ? item.job_name : (item.job_title || '-');
-        const pickup = createTimeListHtml('PICKUP', formatDateTime(item.cy_date), formatDateTime(item.vgm_cutoff), formatDateTime(item.cutoff_time));
-        const delivery = createTimeListHtml('DELIVERY', formatDateTime(item.load_date), formatDateTime(item.unload_date), null);
-        const ret = createTimeListHtml('RETURN', formatDateTime(item.open_gate), formatDateTime(item.return_date), null);
+        
+        // 🌟 เรียกใช้ฟังก์ชันที่แยก Mode EXPORT/IMPORT แล้ว
+        const pickup = createTimeListHtml(item.mode, 'PICKUP', item);
+        const delivery = createTimeListHtml(item.mode, 'DELIVERY', item);
+        const ret = createTimeListHtml(item.mode, 'RETURN', item);
 
         return [
             false, 
@@ -199,24 +222,24 @@ function initBookingHandsontable(data) {
     hotGridInstance = new Handsontable(container, {
         data: formattedTableData,
         colHeaders: colHeaders,
-        autoRowSize: true, // กลับมาใช้ขนาดตามเนื้อหา แต่ไม่มี h-full กวนใจแล้ว
-        wordWrap: false, // ป้องกันการขึ้นบรรทัดใหม่มั่วซั่ว
+        autoRowSize: true, 
+        wordWrap: false, 
         columns: [
             { type: 'checkbox', className: 'htCenter htMiddle' }, 
             
-            // 🌟 1. คอลัมน์ปุ่มจัดการ (ปลด h-full ออก และบังคับ whitespace-nowrap) 🌟
+            // 🌟 1. คอลัมน์ปุ่มจัดการ (วางซ้อนบน-ล่าง) 🌟
             { 
                 readOnly: true, 
                 renderer: function(instance, td, row, col, prop, value) {
                     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
                     if (value) {
                         td.innerHTML = `
-                            <div class="flex items-center justify-center gap-1.5 w-full">
-                                <button onclick="window.goToFormEdit('${value}')" title="แก้ไขหัวบิล" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 font-bold px-2 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap gap-1">
-                                    <i class="fa-solid fa-pen"></i> แก้
+                            <div class="flex flex-col items-stretch justify-center gap-1 w-full p-0.5">
+                                <button onclick="window.goToFormEdit('${value}')" title="แก้ไขหัวบิล" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
+                                    <i class="fa-solid fa-pen mr-1"></i> แก้
                                 </button>
-                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" title="จัดรถและลงเบอร์ตู้" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap gap-1">
-                                    <i class="fa-solid fa-truck-fast"></i> จัดรถ
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" title="จัดรถและลงเบอร์ตู้" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
+                                    <i class="fa-solid fa-truck-fast mr-1"></i> รถ
                                 </button>
                             </div>
                         `;
@@ -245,8 +268,8 @@ function initBookingHandsontable(data) {
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
-        // 🌟 2. ปรับความกว้างให้ "จัดการ" และ "RETURN" มีพื้นที่หายใจ 🌟
-        colWidths: userGridSettings.columnWidths || [30, 105, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 140, 125, 135],
+        // 🌟 ปรับความกว้างให้ "จัดการ" เล็กลง (50px) 🌟
+        colWidths: userGridSettings.columnWidths || [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 130, 120, 130],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
 
@@ -315,19 +338,32 @@ window.openDateTimeModal = function(row, prop) {
     if (!item) return;
 
     let html = '', title = '';
+    
+    // แยกช่องกรอก Modal ตาม EXPORT / IMPORT
     if (prop === 17) { 
         title = 'เวลา PICK UP (รับตู้/ลาน)';
         html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
-        html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
-        html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
+        if (mode === 'EXPORT') {
+            html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
+            html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
+        } else if (mode === 'IMPORT') {
+            html += createDatetimeInput('rent_cutoff', 'Rent Cutoff', item.rent_cutoff);
+        }
     } else if (prop === 18) { 
         title = 'เวลา DELIVERY (โหลด/ลงของ)';
-        html += createDatetimeInput('load_date', 'Load Date & Time', item.load_date);
-        html += createDatetimeInput('unload_date', 'Unload Date & Time', item.unload_date);
+        if (mode === 'EXPORT') {
+            html += createDatetimeInput('load_date', 'Load Date & Time', item.load_date);
+        } else {
+            html += createDatetimeInput('unload_date', 'Unload Date & Time', item.unload_date);
+        }
     } else if (prop === 19) { 
         title = 'เวลา RETURN (คืนตู้)';
-        html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
-        html += createDatetimeInput('return_date', 'Return Date & Time', item.return_date);
+        if (mode === 'EXPORT') {
+            html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
+            html += createDatetimeInput('cutoff_time', 'Cutoff Time (แก้ไขที่นี่ได้)', item.cutoff_time);
+        } else {
+            html += createDatetimeInput('return_date', 'Return Date & Time', item.return_date);
+        }
     } else { return; }
 
     document.getElementById('modal-title').innerText = title; document.getElementById('modal-body').innerHTML = html;
@@ -363,9 +399,11 @@ window.saveDateTimeModal = function() {
     inputs.forEach(input => { const field = input.id.replace('modal_input_', ''); item[field] = input.value ? input.value.replace('T', ' ') : null; });
 
     editedRowIndices.add(currentModalRow);
-    const pickup = createTimeListHtml('PICKUP', formatDateTime(item.cy_date), formatDateTime(item.vgm_cutoff), formatDateTime(item.cutoff_time));
-    const delivery = createTimeListHtml('DELIVERY', formatDateTime(item.load_date), formatDateTime(item.unload_date), null);
-    const ret = createTimeListHtml('RETURN', formatDateTime(item.open_gate), formatDateTime(item.return_date), null);
+    
+    // ดึง HTML อัปเดตใหม่
+    const pickup = createTimeListHtml(item.mode, 'PICKUP', item);
+    const delivery = createTimeListHtml(item.mode, 'DELIVERY', item);
+    const ret = createTimeListHtml(item.mode, 'RETURN', item);
 
     if (currentModalProp === 17) hotGridInstance.setDataAtRowProp(currentModalRow, 17, pickup);
     if (currentModalProp === 18) hotGridInstance.setDataAtRowProp(currentModalRow, 18, delivery);

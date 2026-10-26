@@ -18,9 +18,13 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <style>
-        .handsontable th { font-weight: bold !important; font-size: 12px !important; background: #f8fafc; }
-        .handsontable td { font-size: 13px !important; vertical-align: middle; }
-        .ht-status-col { font-weight: bold; text-align: center; background-color: #f1f5f9 !important; }
+        /* 🌟 อัปเกรดสไตล์ตารางให้สวยแบบม้าลาย (Zebra Stripes) และลดความสูงแถว 🌟 */
+        .handsontable td { vertical-align: middle !important; border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; }
+        .handsontable th { background-color: #f1f5f9; color: #475569; font-weight: 700 !important; border-color: #cbd5e1; font-size: 11px !important; padding: 4px !important; }
+        .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
+        .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
+        .handsontable tbody tr:hover td { background-color: #f1f5f9 !important; }
+        .ht-status-col { font-weight: bold; text-align: center; }
     </style>
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col relative">
@@ -48,7 +52,6 @@
     <div class="flex-1 flex overflow-hidden justify-center relative">
         <main class="w-full max-w-7xl p-6 overflow-y-auto flex flex-col relative bg-bglight gap-4">
             
-            <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน (เพิ่มปุ่มที่ 3: ตารางบุคกิ้ง) 🌟 -->
             <div class="flex flex-wrap gap-3 shrink-0">
                 <a href="/booking.html" class="bg-white text-slate-500 hover:bg-slate-50 px-6 py-2.5 rounded-lg font-bold text-sm border border-slate-300 flex items-center gap-2 transition-colors shadow-sm">
                     <i class="fa-solid fa-pen-to-square"></i> 1. สร้างรายการแบบเดี่ยว (1 Job)
@@ -136,6 +139,9 @@
         let rateDataMap = {};
         let currentModalRow = -1;
         let currentModalProp = -1;
+        
+        // 🌟 เพิ่มตัวแปรเก็บขนาดตู้
+        let globalContainerSizes = ['20', '40', '40HC', '45HC'];
 
         window.addEventListener('DOMContentLoaded', async () => {
             const savedUser = localStorage.getItem('tms_user');
@@ -143,6 +149,7 @@
             const user = JSON.parse(savedUser);
             document.getElementById('user-fullname').innerText = user.fullName;
             
+            // ดึงเรทราคา
             try {
                 const res = await fetch('/api/rates');
                 const d = await res.json();
@@ -154,6 +161,15 @@
                             trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14]
                         };
                     });
+                }
+            } catch (err) {}
+
+            // 🌟 ดึงข้อมูลขนาดตู้จากฐานข้อมูล 🌟
+            try {
+                const szRes = await fetch('/api/bookings/container-sizes');
+                const szResult = await szRes.json();
+                if (szResult.success && szResult.data && szResult.data.length > 0) {
+                    globalContainerSizes = szResult.data.map(r => r.size_name);
                 }
             } catch (err) {}
 
@@ -287,19 +303,23 @@
 
         function getBulkHeaders(mode) {
             const commonCols = [
-                { title: 'สถานะเซฟ', readOnly: true, className: 'htCenter htMiddle font-bold text-lg' },
-                { title: 'วันที่วิ่งงาน\n(YYYY-MM-DD)', type: 'date', dateFormat: 'YYYY-MM-DD' },
-                { title: 'ชื่องาน', type: 'text', className: 'font-bold text-primary' }, 
-                { title: 'จำนวนตู้', type: 'numeric' },
-                { title: 'ลูกค้า', type: 'text', readOnly: true, className: 'text-slate-500 font-bold bg-slate-50' },
-                { title: 'Job Type', type: 'dropdown', source: ['Domestic', 'CONTAINER'] },
-                { title: 'Agent', type: 'text' },
-                { title: 'ต้นทาง', type: 'text' },
-                { title: 'ปลายทาง', type: 'text' },
-                { title: 'Booking/BL', type: 'text' },
-                { title: 'ประเภทรถ', type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] },
-                { title: 'ค่าเที่ยว', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold bg-green-50/30' },
-                { title: 'ค่าขนส่ง', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50/30' }
+                { title: 'สถานะเซฟ', readOnly: true, className: 'ht-status-col htMiddle font-bold text-lg' },
+                { title: 'วันที่วิ่งงาน\n(YYYY-MM-DD)', type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter htMiddle text-slate-700 font-bold bg-slate-50' },
+                { title: 'ชื่องาน', type: 'text', className: 'font-bold text-primary htMiddle' }, 
+                { title: 'จำนวนตู้', type: 'numeric', className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/40' },
+                
+                // 🌟 เพิ่มคอลัมน์ขนาดตู้ 🌟
+                { title: 'ขนาดตู้', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/20' },
+                
+                { title: 'ลูกค้า', type: 'text', readOnly: true, className: 'text-slate-600 font-bold bg-slate-50 htMiddle' },
+                { title: 'Job Type', type: 'dropdown', source: ['Domestic', 'CONTAINER'], className: 'htCenter htMiddle' },
+                { title: 'Agent', type: 'text', className: 'font-bold text-purple-700 htMiddle' },
+                { title: 'ต้นทาง', type: 'text', className: 'htMiddle' },
+                { title: 'ปลายทาง', type: 'text', className: 'htMiddle' },
+                { title: 'Booking/BL', type: 'text', className: 'htMiddle font-bold text-slate-700' },
+                { title: 'ประเภทรถ', type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'], className: 'htCenter htMiddle text-slate-700 font-medium' },
+                { title: 'ค่าเที่ยว', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold htRight htMiddle' },
+                { title: 'ค่าขนส่ง', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold htRight htMiddle' }
             ];
 
             let timeCols = [];
@@ -318,6 +338,11 @@
                     { title: 'Demurrage (Time)\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
                     { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
                     { title: 'Return Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell }
+                ];
+            } else {
+                timeCols = [
+                    { title: 'Load Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+                    { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell }
                 ];
             }
             return [...commonCols, ...timeCols];
@@ -343,6 +368,8 @@
                 height: '100%',
                 stretchH: 'all',
                 minSpareRows: 3,
+                autoRowSize: false,
+                rowHeights: 30, // 🌟 ล็อกความสูงแถว
                 
                 manualColumnResize: true,
                 manualColumnMove: true,
@@ -424,6 +451,10 @@
             setVal(sampleRow1, 'วันที่วิ่งงาน', today);
             setVal(sampleRow1, 'ชื่องาน', 'ตัวอย่างงานที่ 1');
             setVal(sampleRow1, 'จำนวนตู้', 1);
+            
+            // 🌟 แทรกค่าตู้ในไฟล์โหลดแบบ Excel
+            setVal(sampleRow1, 'ขนาดตู้', '40HC');
+            
             setVal(sampleRow1, 'ลูกค้า', 'ระบบเติมอัตโนมัติ');
             setVal(sampleRow1, 'ประเภทรถ', '10W');
             
@@ -431,7 +462,7 @@
                 setVal(sampleRow1, 'CY Date & Time', `${today} 08:30`);
                 setVal(sampleRow1, 'VGM Cutoff', `${today} 12:00`);
                 setVal(sampleRow1, 'Cutoff Time', `${today} 17:00`);
-            } else {
+            } else if (mode === 'IMPORT') {
                 setVal(sampleRow1, 'CY Date & Time', `${today} 08:30`);
                 setVal(sampleRow1, 'Rent Cutoff', `${today} 12:00`);
             }
@@ -507,6 +538,10 @@
                     run_date: formatExcelDate(runDate),
                     job_name: jobName, 
                     container_count: parseInt(getVal(r, 'จำนวนตู้')) || 1, 
+                    
+                    // 🌟 ดึงข้อมูล "ขนาดตู้" เพื่อเตรียมเซฟลง DB
+                    container_size: getVal(r, 'ขนาดตู้'), 
+                    
                     customer_name: customer, 
                     job_type: getVal(r, 'Job Type'),
                     agent: getVal(r, 'Agent'),
@@ -524,12 +559,15 @@
                     bData.cutoff_time = formatExcelDate(getVal(r, 'Cutoff Time'));
                     bData.load_date = formatExcelDate(getVal(r, 'Load Date & Time'));
                     bData.open_gate = formatExcelDate(getVal(r, 'Open Gate') || getVal(r, 'Gate Date & Time'));
-                } else {
+                } else if (mode === 'IMPORT') {
                     bData.cy_date = formatExcelDate(getVal(r, 'CY Date & Time'));
                     bData.rent_cutoff = formatExcelDate(getVal(r, 'Rent Cutoff'));
                     bData.demurrage = formatExcelDate(getVal(r, 'Demurrage'));
                     bData.unload_date = formatExcelDate(getVal(r, 'Unload Date & Time'));
                     bData.return_date = formatExcelDate(getVal(r, 'Return Date & Time'));
+                } else {
+                    bData.load_date = formatExcelDate(getVal(r, 'Load Date & Time'));
+                    bData.unload_date = formatExcelDate(getVal(r, 'Unload Date & Time'));
                 }
 
                 try {
@@ -540,7 +578,7 @@
                     
                     if (result.success) {
                         hotBulkInstance.setDataAtCell(r, 0, '✅ สำเร็จ', 'auto');
-                        hotBulkInstance.getCellMeta(r, 0).className = 'htCenter htMiddle font-bold text-green-600 bg-green-50';
+                        hotBulkInstance.getCellMeta(r, 0).className = 'htCenter htMiddle font-bold text-emerald-600 bg-emerald-50';
                         successCount++;
                     } else {
                         hotBulkInstance.setDataAtCell(r, 0, '❌ พลาด', 'auto');

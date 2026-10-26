@@ -1,5 +1,5 @@
 // ==========================================
-// 🚀 MODULE: BULK BOOKING UPLOAD (Fix Layout Crash)
+// 🚀 MODULE: BULK BOOKING UPLOAD (Added Container Size & Premium UI)
 // ==========================================
 
 let hotBulkInstance = null;
@@ -7,8 +7,12 @@ let currentUserSettings = {};
 let rateDataMap = {};
 let currentModalRow = -1;
 let currentModalProp = -1;
+let globalContainerSizes = ['20', '40', '40HC', '45HC']; // 🌟 ค่าเริ่มต้น
 
 window.addEventListener('DOMContentLoaded', async () => {
+    applyBulkZebraStripingCSS(); // 🌟 ใส่ CSS ตกแต่งตาราง
+    
+    // ดึงเรทราคา
     try {
         const res = await fetch('/api/rates');
         const d = await res.json();
@@ -23,10 +27,34 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (err) {}
 
+    // 🌟 ดึงข้อมูลขนาดตู้จากฐานข้อมูล
+    try {
+        const szRes = await fetch('/api/bookings/container-sizes');
+        const szResult = await szRes.json();
+        if (szResult.success && szResult.data && szResult.data.length > 0) {
+            globalContainerSizes = szResult.data.map(r => r.size_name);
+        }
+    } catch (err) {}
+
     window.loadUserGridSettingsAndInit();
 });
 
-// 💾 โหลดตั้งค่าคอลัมน์ของ User
+// 🌟 สไตล์ตารางให้สวยเหมือนหน้า Booking List
+function applyBulkZebraStripingCSS() {
+    if (!document.getElementById('tms-bulk-zebra-css')) {
+        const style = document.createElement('style');
+        style.id = 'tms-bulk-zebra-css';
+        style.innerHTML = `
+            .handsontable td { vertical-align: middle !important; border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; }
+            .handsontable th { background-color: #f1f5f9; color: #475569; font-weight: 700; border-color: #cbd5e1; font-size: 11px; padding: 4px !important; }
+            .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
+            .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
+            .handsontable tbody tr:hover td { background-color: #f1f5f9 !important; }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
 window.loadUserGridSettingsAndInit = async function() {
     const loader = document.getElementById('loading-overlay');
     if (loader) loader.classList.remove('hidden');
@@ -48,38 +76,31 @@ window.loadUserGridSettingsAndInit = async function() {
     }
 };
 
-// 💾 บันทึกตั้งค่าคอลัมน์
 window.saveGridSettings = async function() {
     if (!hotBulkInstance) return;
     const mode = document.getElementById('bulk-mode').value;
     const gridName = `bulk_booking_${mode.toLowerCase()}`;
     const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
-
     const colCount = hotBulkInstance.countCols();
     const widths = [];
     for (let i = 0; i < colCount; i++) widths.push(hotBulkInstance.getColWidth(i));
-
     const movePlugin = hotBulkInstance.getPlugin('manualColumnMove');
     let positions = [];
     if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
         positions = movePlugin.columnsMapper.getIndexesSequence();
     }
-
     try {
         await fetch('/api/users/grid-settings', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.id, gridName: gridName, settings: { columnWidths: widths, columnPositions: positions } })
         });
         alert(`✅ บันทึกการตั้งค่าตารางโหมด ${mode} เรียบร้อยแล้ว!`);
     } catch (err) {}
 };
 
-// 🕒 Popup Modal สำหรับเวลา
 window.openBulkDateTimeModal = function(row, prop, title) {
     currentModalRow = row; 
     currentModalProp = prop;
-    
     document.getElementById('bulk-modal-title').innerText = title;
     const currentVal = hotBulkInstance.getDataAtCell(row, prop);
     const dateInput = document.getElementById('bulk_modal_date');
@@ -92,19 +113,14 @@ window.openBulkDateTimeModal = function(row, prop, title) {
     } else {
         dateInput.value = ''; timeInput.value = '';
     }
-
     const modal = document.getElementById('bulk-datetime-modal');
     modal.classList.remove('hidden'); modal.classList.add('flex');
-    setTimeout(() => {
-        modal.classList.remove('opacity-0');
-        document.getElementById('bulk-datetime-modal-content').classList.remove('scale-95');
-    }, 10);
+    setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('bulk-datetime-modal-content').classList.remove('scale-95'); }, 10);
 };
 
 window.closeBulkDateTimeModal = function() {
     const modal = document.getElementById('bulk-datetime-modal');
-    modal.classList.add('opacity-0');
-    document.getElementById('bulk-datetime-modal-content').classList.add('scale-95');
+    modal.classList.add('opacity-0'); document.getElementById('bulk-datetime-modal-content').classList.add('scale-95');
     setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
 };
 
@@ -119,11 +135,11 @@ window.saveBulkDateTimeModal = function() {
 function renderClickableBulkTimeCell(instance, td, row, col, prop, value) {
     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
     const headerTitle = instance.getColHeader(col);
-    let content = value ? `<span class="font-bold text-blue-700">${value}</span>` : '<span class="text-slate-400 italic">-- คลิกเลือกเวลา --</span>';
+    let content = value ? `<span class="font-bold text-blue-700">${value}</span>` : '<span class="text-slate-400 italic font-medium">+ เพิ่มเวลา</span>';
     td.innerHTML = `
-        <div class="relative group cursor-pointer w-full h-full min-h-[30px] flex items-center justify-center transition-colors hover:bg-blue-50" onclick="openBulkDateTimeModal(${row}, ${col}, '${headerTitle}')">
+        <div class="relative group cursor-pointer w-full h-full min-h-[25px] flex items-center justify-center transition-colors hover:bg-blue-50 px-1" onclick="openBulkDateTimeModal(${row}, ${col}, '${headerTitle}')">
             ${content}
-            <div class="absolute top-1 right-1 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded p-1 shadow-sm items-center justify-center"><i class="fa-solid fa-clock text-[10px]"></i></div>
+            <div class="absolute top-0 right-0 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded p-1 shadow-sm items-center justify-center"><i class="fa-solid fa-clock text-[10px]"></i></div>
         </div>
     `;
     td.style.verticalAlign = 'middle'; td.style.padding = '0';
@@ -132,36 +148,45 @@ function renderClickableBulkTimeCell(instance, td, row, col, prop, value) {
 function getBulkHeaders(mode) {
     const commonCols = [
         { title: 'สถานะเซฟ', readOnly: true, className: 'htCenter htMiddle font-bold text-lg' },
-        { title: 'วันที่วิ่งงาน\n(YYYY-MM-DD)', type: 'date', dateFormat: 'YYYY-MM-DD' },
-        { title: 'ชื่องาน', type: 'text', className: 'font-bold text-primary' }, 
-        { title: 'จำนวนตู้', type: 'numeric' },
-        { title: 'ลูกค้า', type: 'text', readOnly: true, className: 'text-slate-500 font-bold bg-slate-50' },
-        { title: 'Job Type', type: 'dropdown', source: ['Domestic', 'CONTAINER'] },
-        { title: 'Agent', type: 'text' },
-        { title: 'ต้นทาง', type: 'text' },
-        { title: 'ปลายทาง', type: 'text' },
-        { title: 'Booking/BL', type: 'text' },
-        { title: 'ประเภทรถ', type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'] },
-        { title: 'ค่าเที่ยว', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold bg-green-50/30' },
-        { title: 'ค่าขนส่ง', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50/30' }
+        { title: 'วันที่วิ่งงาน\n(YYYY-MM-DD)', type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter htMiddle text-slate-700 font-bold bg-slate-50' },
+        { title: 'ชื่องาน', type: 'text', className: 'font-bold text-primary htMiddle' }, 
+        { title: 'จำนวนตู้', type: 'numeric', className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/40' },
+        
+        // 🌟 เพิ่มคอลัมน์ขนาดตู้ 🌟
+        { title: 'ขนาดตู้', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/20' },
+        
+        { title: 'ลูกค้า', type: 'text', readOnly: true, className: 'text-slate-600 font-bold bg-slate-50 htMiddle' },
+        { title: 'Job Type', type: 'dropdown', source: ['Domestic', 'CONTAINER'], className: 'htCenter htMiddle' },
+        { title: 'Agent', type: 'text', className: 'font-bold text-purple-700 htMiddle' },
+        { title: 'ต้นทาง', type: 'text', className: 'htMiddle' },
+        { title: 'ปลายทาง', type: 'text', className: 'htMiddle' },
+        { title: 'Booking/BL', type: 'text', className: 'htMiddle font-bold text-slate-700' },
+        { title: 'ประเภทรถ', type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'], className: 'htCenter htMiddle text-slate-700 font-medium' },
+        { title: 'ค่าเที่ยว', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold htRight htMiddle' },
+        { title: 'ค่าขนส่ง', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold htRight htMiddle' }
     ];
 
     let timeCols = [];
     if (mode === 'EXPORT') {
         timeCols = [
-            { title: 'CY Date & Time', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'VGM Cutoff (Time)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Cutoff Time', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Load Date & Time', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Open Gate Date & Time', readOnly: true, renderer: renderClickableBulkTimeCell }
+            { title: 'CY Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'VGM Cutoff (Time)\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'Cutoff Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'Load Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'Open Gate Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell }
         ];
     } else if (mode === 'IMPORT') {
         timeCols = [
-            { title: 'CY Date & Time', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Rent Cutoff (Time)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Demurrage (Time)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Unload Date & Time', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Return Date & Time', readOnly: true, renderer: renderClickableBulkTimeCell }
+            { title: 'CY Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'Rent Cutoff (Time)\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'Demurrage (Time)\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'Return Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell }
+        ];
+    } else {
+        timeCols = [
+            { title: 'Load Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
+            { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell }
         ];
     }
     return [...commonCols, ...timeCols];
@@ -187,6 +212,8 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
         height: '100%',
         stretchH: 'all',
         minSpareRows: 3,
+        autoRowSize: false,
+        rowHeights: 30, // 🌟 ล็อกความสูงแถวให้เรียบร้อย
         
         manualColumnResize: true,
         manualColumnMove: true,
@@ -199,7 +226,6 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
             if (source === 'loadData' || !changes) return;
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal === newVal) return;
-                
                 const colName = this.getColHeader(prop);
                 const headersNow = this.getColHeader(); 
                 
@@ -237,11 +263,8 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
         }
     });
     
-    // 🌟 ป้องกันตารางพัง ถ้าย้ายคอลัมน์ไม่ตรงกับจำนวนคอลัมน์เวอร์ชันใหม่
     if (userSettings.columnPositions && userSettings.columnPositions.length === headers.length) {
-        try { 
-            hotBulkInstance.getPlugin('manualColumnMove').moveColumns(userSettings.columnPositions, 0); 
-        } catch(e) {}
+        try { hotBulkInstance.getPlugin('manualColumnMove').moveColumns(userSettings.columnPositions, 0); } catch(e) {}
     }
 };
 
@@ -255,12 +278,57 @@ function applyRateDynamically(hot, row, rate, type, tripIdx, transIdx) {
 
 window.downloadExcelTemplate = function() {
     const mode = document.getElementById('bulk-mode').value;
-    const headers = getBulkHeaders(mode).map(c => c.title).slice(1);
-    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const headers = getBulkHeaders(mode).map(c => c.title.replace('\n', ' ')).slice(1);
+    
+    let sampleRow1 = new Array(headers.length).fill('');
+    const setVal = (rowArr, name, val) => { 
+        const idx = headers.findIndex(h => h.includes(name));
+        if(idx >= 0) rowArr[idx] = val; 
+    };
+
+    const today = new Date().toISOString().slice(0, 10);
+    
+    setVal(sampleRow1, 'วันที่วิ่งงาน', today);
+    setVal(sampleRow1, 'ชื่องาน', 'ตัวอย่างงานที่ 1');
+    setVal(sampleRow1, 'จำนวนตู้', 1);
+    
+    // 🌟 ใส่ข้อมูลตัวอย่างขนาดตู้
+    setVal(sampleRow1, 'ขนาดตู้', '40HC');
+    
+    setVal(sampleRow1, 'ลูกค้า', 'ระบบเติมอัตโนมัติ');
+    setVal(sampleRow1, 'ประเภทรถ', '10W');
+    
+    if (mode === 'EXPORT') {
+        setVal(sampleRow1, 'CY Date & Time', `${today} 08:30`);
+        setVal(sampleRow1, 'VGM Cutoff', `${today} 12:00`);
+        setVal(sampleRow1, 'Cutoff Time', `${today} 17:00`);
+    } else if (mode === 'IMPORT') {
+        setVal(sampleRow1, 'CY Date & Time', `${today} 08:30`);
+        setVal(sampleRow1, 'Rent Cutoff', `${today} 12:00`);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, sampleRow1]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `Template_${mode}`);
     XLSX.writeFile(wb, `TMS_Bulk_Template_${mode}.xlsx`);
 };
+
+function formatExcelDate(val) {
+    if (val === null || val === undefined || val === '') return '';
+    const num = Number(val);
+    if (!isNaN(num) && num > 20000 && num < 80000) {
+        const adjustedNum = num > 59 ? num - 1 : num;
+        const dateObj = new Date((adjustedNum - 25568) * 86400 * 1000);
+        const year = dateObj.getUTCFullYear();
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getUTCDate()).padStart(2, '0');
+        const hours = String(dateObj.getUTCHours()).padStart(2, '0');
+        const minutes = String(dateObj.getUTCMinutes()).padStart(2, '0');
+        if (num % 1 !== 0) { return `${year}-${month}-${day} ${hours}:${minutes}`; }
+        return `${year}-${month}-${day}`;
+    }
+    return String(val).trim();
+}
 
 window.uploadExcelFile = function(event) {
     const file = event.target.files[0];
@@ -269,10 +337,30 @@ window.uploadExcelFile = function(event) {
     reader.onload = function (e) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
-        const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+        const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: true });
         if (rawJson.length <= 1) return;
-        const formattedRows = rawJson.slice(1).map(row => ["", ...row]);
-        window.initBulkTable(formattedRows, currentUserSettings);
+        
+        const mode = document.getElementById('bulk-mode').value;
+        const headers = getBulkHeaders(mode).map(c => c.title);
+
+        const dateCols = [];
+        headers.forEach((h, idx) => {
+            if (h.includes('วันที่วิ่งงาน') || h.includes('Date & Time') || h.includes('Cutoff') || h.includes('Demurrage') || h.includes('Gate')) {
+                dateCols.push(idx);
+            }
+        });
+
+        const formattedRows = rawJson.slice(1).map(row => {
+            let newRow = ["", ...row];
+            dateCols.forEach(colIdx => {
+                if (newRow[colIdx] !== undefined && newRow[colIdx] !== null) {
+                    newRow[colIdx] = formatExcelDate(newRow[colIdx]);
+                }
+            });
+            return newRow;
+        });
+
+        initBulkTable(formattedRows, currentUserSettings);
     };
     reader.readAsArrayBuffer(file);
     event.target.value = '';
@@ -304,9 +392,13 @@ window.processBulkSave = async function() {
 
         let bData = {
             mode: mode,
-            run_date: runDate,
+            run_date: formatExcelDate(runDate),
             job_name: jobName, 
             container_count: parseInt(getVal(r, 'จำนวนตู้')) || 1, 
+            
+            // 🌟 ดึงข้อมูลขนาดตู้ไปบันทึก
+            container_size: getVal(r, 'ขนาดตู้'), 
+            
             customer_name: customer, 
             job_type: getVal(r, 'Job Type'),
             agent: getVal(r, 'Agent'),
@@ -319,17 +411,20 @@ window.processBulkSave = async function() {
         };
 
         if (mode === 'EXPORT') {
-            bData.cy_date = getVal(r, 'CY Date & Time');
-            bData.vgm_cutoff = getVal(r, 'VGM Cutoff');
-            bData.cutoff_time = getVal(r, 'Cutoff Time');
-            bData.load_date = getVal(r, 'Load Date & Time');
-            bData.open_gate = getVal(r, 'Open Gate') || getVal(r, 'Gate Date & Time');
+            bData.cy_date = formatExcelDate(getVal(r, 'CY Date & Time'));
+            bData.vgm_cutoff = formatExcelDate(getVal(r, 'VGM Cutoff'));
+            bData.cutoff_time = formatExcelDate(getVal(r, 'Cutoff Time'));
+            bData.load_date = formatExcelDate(getVal(r, 'Load Date & Time'));
+            bData.open_gate = formatExcelDate(getVal(r, 'Open Gate') || getVal(r, 'Gate Date & Time'));
+        } else if (mode === 'IMPORT') {
+            bData.cy_date = formatExcelDate(getVal(r, 'CY Date & Time'));
+            bData.rent_cutoff = formatExcelDate(getVal(r, 'Rent Cutoff'));
+            bData.demurrage = formatExcelDate(getVal(r, 'Demurrage'));
+            bData.unload_date = formatExcelDate(getVal(r, 'Unload Date & Time'));
+            bData.return_date = formatExcelDate(getVal(r, 'Return Date & Time'));
         } else {
-            bData.cy_date = getVal(r, 'CY Date & Time');
-            bData.rent_cutoff = getVal(r, 'Rent Cutoff');
-            bData.demurrage = getVal(r, 'Demurrage');
-            bData.unload_date = getVal(r, 'Unload Date & Time');
-            bData.return_date = getVal(r, 'Return Date & Time');
+            bData.load_date = formatExcelDate(getVal(r, 'Load Date & Time'));
+            bData.unload_date = formatExcelDate(getVal(r, 'Unload Date & Time'));
         }
 
         try {

@@ -289,4 +289,21 @@ router.post('/rates/single', async (req, res) => {
         res.json({ success: true });
     } catch (err) { res.status(500).json({ success: false }); } finally { client.release(); }
 });
+
+// ดึงรายการขนาดตู้ทั้งหมดไปโชว์ที่ Dropdown
+router.get('/container-sizes', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT size_name FROM master_container_sizes ORDER BY size_name ASC');
+        res.json({ success: true, data: result.rows });
+    } catch(err) { res.status(500).json({ success: false }); }
+});
+
+// บันทึกขนาดตู้รายการใหม่
+router.post('/container-sizes', async (req, res) => {
+    try {
+        const { size_name } = req.body;
+        await pool.query('INSERT INTO master_container_sizes (size_name) VALUES ($1) ON CONFLICT DO NOTHING', [size_name.trim().toUpperCase()]);
+        res.json({ success: true });
+    } catch(err) { res.status(500).json({ success: false }); }
+});
 module.exports = router;

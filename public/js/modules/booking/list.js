@@ -1,5 +1,5 @@
 // ==========================================
-// 📋 MODULE: BOOKING LIST (Clean Version - Link to Manage Page)
+// 📋 MODULE: BOOKING LIST (Auto-Rate Fill, Vertical Times, Hide Columns)
 // ==========================================
 
 let hotGridInstance = null;
@@ -8,6 +8,8 @@ let filteredList = [];
 let editedRowIndices = new Set(); 
 let userGridSettings = {}; 
 let globalContainerSizes = ['20', '40', '40HC', '45HC']; 
+
+// 🌟 ตัวแปรเก็บข้อมูลตารางราคา (เรท) สำหรับ Auto-Fill
 let rateDataMap = {}; 
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -15,7 +17,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     const today = new Date();
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     
-    const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
+    // 🌟 เช็คล็อกอินและแสดงชื่อ 🌟
+    const savedUser = localStorage.getItem('tms_user');
+    if (!savedUser) { window.location.href = '/login.html'; return; }
+    const user = JSON.parse(savedUser);
+    const userEl = document.getElementById('user-fullname');
+    if (userEl) userEl.innerText = user.fullName || user.username || 'ผู้ดูแลระบบ';
+    
     if (user.id) {
         try {
             const res = await fetch(`/api/users/grid-settings?userId=${user.id}`);
@@ -56,12 +64,16 @@ function applyZebraStripingCSS() {
         const style = document.createElement('style');
         style.id = 'tms-zebra-css';
         style.innerHTML = `
-            .handsontable td { vertical-align: middle !important; border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; }
+            .handsontable td { 
+                vertical-align: middle !important;
+                border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; 
+            }
             .handsontable th { background-color: #f1f5f9; color: #475569; font-weight: 700; border-color: #cbd5e1; font-size: 11px; padding: 4px !important; }
             .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
             .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
             .handsontable tbody tr td.ht-edited-row { background-color: #fef9c3 !important; }
             .handsontable tbody tr:hover td { background-color: #f1f5f9 !important; }
+            
             .time-row { display: flex; justify-content: space-between; align-items: center; background-color: #ffffff; border: 1px solid #f1f5f9; padding: 2px 4px; border-radius: 4px; margin-bottom: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
             .time-row:last-child { margin-bottom: 0; }
             .time-label { font-size: 9px; font-weight: 700; color: #64748b; }
@@ -228,8 +240,6 @@ function initBookingHandsontable(data) {
                                 <button onclick="window.goToFormEdit('${value}')" title="แก้ไขหัวบิล" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
                                     <i class="fa-solid fa-pen mr-1"></i> แก้
                                 </button>
-                                
-                                <!-- 🌟 ย้อนกลับมาให้เด้งไปหน้าจัดการตู้แบบสมบูรณ์ 🌟 -->
                                 <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" title="จัดรถและลงเบอร์ตู้" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
                                     <i class="fa-solid fa-truck-fast mr-1"></i> รถ
                                 </button>
@@ -262,9 +272,7 @@ function initBookingHandsontable(data) {
         hiddenColumns: { indicators: true },
         contextMenu: ['hidden_columns_hide', 'hidden_columns_show', '---------', 'alignment', 'copy'],
 
-        // 🌟 ดึงค่าความกว้างที่จำไว้มาใช้ (ถ้าไม่มีใช้ค่า default)
-        colWidths: userGridSettings.columnWidths && userGridSettings.columnWidths.length > 0 ? userGridSettings.columnWidths : [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 130, 120, 130],
-        
+        colWidths: userGridSettings.columnWidths || [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 130, 120, 130],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
 
@@ -274,6 +282,7 @@ function initBookingHandsontable(data) {
                 if (oldVal !== newVal && prop !== 0) {
                     editedRowIndices.add(row);
                     
+                    // 🌟 ระบบ Auto-Fill อัตโนมัติเมื่อแก้ชื่องาน หรือ ประเภทรถ 🌟
                     const colName = this.getColHeader(prop);
                     const headersNow = this.getColHeader(); 
                     
@@ -319,12 +328,12 @@ function initBookingHandsontable(data) {
         }
     });
 
-    // 🌟 ดึงลำดับคอลัมน์ที่จำไว้มาใช้
-    if (userGridSettings.columnPositions && userGridSettings.columnPositions.length > 0) {
+    if (userGridSettings.columnPositions && userGridSettings.columnPositions.length === colHeaders.length) {
         try { hotGridInstance.getPlugin('manualColumnMove').moveColumns(userGridSettings.columnPositions, 0); } catch(e) {}
     }
 }
 
+// 🌟 ฟังก์ชันช่วยคำนวณราคาย่อย 🌟
 function applyRateDynamicallyInList(hot, row, rate, type, tripIdx, transIdx) {
     if(tripIdx < 0 || transIdx < 0) return;
     if(type === '6W') { hot.setDataAtCell(row, tripIdx, rate.trp6||''); hot.setDataAtCell(row, transIdx, rate.trn6||''); }
@@ -333,49 +342,21 @@ function applyRateDynamicallyInList(hot, row, rate, type, tripIdx, transIdx) {
     else if(type === 'เงินสด') { hot.setDataAtCell(row, tripIdx, rate.trpCash||''); hot.setDataAtCell(row, transIdx, rate.trnCash||''); }
 }
 
-// 🌟 แก้ไขฟังก์ชันบันทึกมุมมองให้แสดงแจ้งเตือนชัดเจนขึ้น
 window.saveGridSettings = async function() {
     if (!hotGridInstance) return;
-    
     const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
-    if (!user.id) {
-        alert("❌ ไม่สามารถจำมุมมองได้ เนื่องจากคุณยังไม่ได้เข้าสู่ระบบอย่างถูกต้อง");
-        return;
-    }
-
-    const btn = document.querySelector('button[onclick="saveGridSettings()"]');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังจำ...';
-
     const colCount = hotGridInstance.countCols();
-    const widths = []; 
-    for (let i = 0; i < colCount; i++) {
-        widths.push(hotGridInstance.getColWidth(i));
-    }
-    
+    const widths = []; for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
     const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
-    let positions = []; 
-    if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') { 
-        positions = movePlugin.columnsMapper.getIndexesSequence(); 
-    }
+    let positions = []; if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') { positions = movePlugin.columnsMapper.getIndexesSequence(); }
 
     try {
-        const response = await fetch('/api/users/grid-settings', {
-            method: 'PUT', 
-            headers: { 'Content-Type': 'application/json' },
+        await fetch('/api/users/grid-settings', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.id, gridName: 'booking_list', settings: { columnWidths: widths, columnPositions: positions } })
         });
-        
-        if (response.ok) {
-            alert('✅ บันทึกมุมมองตารางสำหรับคุณเรียบร้อยแล้ว!');
-        } else {
-            alert('❌ เกิดข้อผิดพลาดในการบันทึกมุมมอง');
-        }
-    } catch (err) {
-        alert('❌ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์เพื่อบันทึกมุมมองได้');
-    } finally {
-        btn.innerHTML = originalText;
-    }
+        alert('✅ บันทึกมุมมองตารางเรียบร้อยแล้ว!');
+    } catch (err) {}
 };
 
 window.goToFormEdit = function(bookingNo) { window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`; };

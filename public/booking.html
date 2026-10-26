@@ -42,7 +42,7 @@
     <div class="flex-1 flex overflow-hidden justify-center relative">
         <main class="w-full max-w-7xl p-6 overflow-y-auto flex flex-col relative bg-bglight gap-4">
             
-           <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน (จัดหมวดหมู่ใหม่) 🌟 -->
+           <!-- 🌟 เมนูเลือกหน้าต่างการทำงาน 🌟 -->
             <div class="flex flex-wrap gap-3 shrink-0">
                 <a href="/booking.html" class="bg-primary text-white px-6 py-2.5 rounded-lg font-bold text-sm border border-primary shadow-md flex items-center gap-2 transition-colors">
                     <i class="fa-solid fa-pen-to-square"></i> 1. สร้างบุคกิ้งใหม่
@@ -89,7 +89,7 @@
                             <input type="number" id="rowCount" value="1" min="1" class="w-24 px-3 py-2 border border-blue-400 rounded-lg text-sm font-bold text-center bg-blue-50 text-primary">
                         </div>
                         
-                        <!-- 🌟 เปลี่ยนช่อง ขนาดตู้ ให้เป็นแบบพิมพ์อิสระ + Autocomplete 🌟 -->
+                        <!-- ช่อง ขนาดตู้ -->
                         <div class="flex flex-col gap-1.5">
                             <label class="text-xs font-bold text-slate-700">ขนาดตู้ <span class="text-red-500">*</span></label>
                             <input type="text" id="containerSize" list="dl-container-sizes" onchange="checkNewContainerSize(this)" placeholder="เลือกหรือพิมพ์ขนาดตู้..." class="w-40 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:border-primary outline-none transition-colors shadow-sm uppercase">
@@ -98,13 +98,13 @@
 
                         <div class="flex-1 min-w-[250px]">
                             <label class="block text-sm font-semibold text-slate-700 mb-1">🔍 ค้นหาชื่องาน (ดึงราคา/ต้นทาง/ปลายทางอัตโนมัติ)</label>
-                            <input type="text" id="jobNameInput" list="jobList" onchange="previewJobData()" onkeyup="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูล..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white shadow-sm">
+                            <input type="text" id="jobNameInput" list="jobList" oninput="previewJobData()" onchange="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูล..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white shadow-sm">
                             <datalist id="jobList"></datalist>
                         </div>
                     </div>
                 </div>
 
-                <!-- STEP 2: ข้อมูลเฉพาะทาง (มีเวลาทุกช่อง) และ ค่าเที่ยว -->
+                <!-- STEP 2: ข้อมูลเฉพาะทาง และ ค่าเที่ยว -->
                 <div id="jobPreviewBox" class="hidden animate-[fadeIn_0.3s_ease-out]">
                     <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-5 relative">
                         <!-- โซน EXPORT -->
@@ -223,10 +223,9 @@
 
     <script>
         let rateDataMap = {};
-        let containerSizeOptions = []; // 🌟 เก็บข้อมูลขนาดตู้ 🌟
+        let containerSizeOptions = []; 
 
         window.addEventListener('DOMContentLoaded', async () => {
-            // เช็คผู้ใช้ล็อกอิน
             const savedUser = localStorage.getItem('tms_user');
             if (!savedUser) { window.location.href = '/login.html'; return; }
             try {
@@ -234,29 +233,31 @@
                 document.getElementById('user-fullname').innerText = userObj.fullName || 'User';
             } catch(e) { window.location.href = '/login.html'; return; }
 
-            loadContainerSizes(); // 🌟 โหลดขนาดตู้ตอนเปิดหน้า
+            loadContainerSizes(); 
 
-            // โหลดเรทราคา
+            // 🌟 โหลดเรทราคา (แก้ Index ให้ตรงกับ API ที่มี ID แล้ว)
             try {
                 const res = await fetch('/api/rates');
                 const d = await res.json();
                 if (d.success && d.data) {
                     const datalist = document.getElementById('jobList');
-                    datalist.innerHTML = '';
+                    if (datalist) datalist.innerHTML = '';
                     d.data.forEach(r => {
-                        rateDataMap[r[0]] = {
-                            customer: r[1], origin: r[2], dest: r[3], jobType: r[6],
-                            trp6: r[7], trp10: r[8], trp12: r[9], trpCash: r[10],
-                            trn6: r[11], trn10: r[12], trn12: r[13], trnCash: r[14]
+                        // r[2] = ชื่องาน, r[1] = ชื่อย่อลูกค้า
+                        rateDataMap[r[2]] = {
+                            customer: r[1], origin: r[3], dest: r[4], jobType: r[7],
+                            trp6: r[8], trp10: r[9], trp12: r[10], trpCash: r[11],
+                            trn6: r[12], trn10: r[13], trn12: r[14], trnCash: r[15]
                         };
-                        const opt = document.createElement('option');
-                        opt.value = r[0];
-                        datalist.appendChild(opt);
+                        if (datalist) {
+                            const opt = document.createElement('option');
+                            opt.value = r[2]; // ใช้ชื่องานเป็น Value
+                            datalist.appendChild(opt);
+                        }
                     });
                 }
             } catch (err) {}
 
-            // ตรวจสอบพารามิเตอร์โหมดแก้ไข
             const urlParams = new URLSearchParams(window.location.search);
             const editBookingNo = urlParams.get('edit');
             if (editBookingNo) await loadBookingForEdit(editBookingNo);
@@ -264,7 +265,6 @@
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
-        // 🌟 ฟังก์ชันจัดการ ขนาดตู้อัจฉริยะ (ดึงค่า, วาดลิสต์, เซฟอันใหม่) 🌟
         async function loadContainerSizes() {
             try {
                 const res = await fetch('/api/bookings/container-sizes');
@@ -273,7 +273,6 @@
                     containerSizeOptions = result.data.map(r => r.size_name);
                     updateContainerSizeDatalist();
                 } else {
-                    // ถ้ายังไม่ได้รัน SQL ให้มีค่าตั้งต้นไว้ก่อน
                     containerSizeOptions = ['20', '40', '40HC', '45HC'];
                     updateContainerSizeDatalist();
                 }
@@ -297,7 +296,7 @@
         async function checkNewContainerSize(input) {
             const val = input.value.trim().toUpperCase();
             if (!val) return;
-            input.value = val; // บังคับตัวพิมพ์ใหญ่
+            input.value = val;
 
             if (!containerSizeOptions.includes(val)) {
                 if (confirm(`🚨 ไม่พบขนาดตู้ "${val}" ในระบบ\n\nคุณต้องการบันทึก "${val}" เป็นขนาดตู้มาตรฐาน เพื่อให้คลิกเลือกได้ในครั้งต่อไปหรือไม่?`)) {
@@ -308,7 +307,7 @@
                             body: JSON.stringify({ size_name: val })
                         });
                         const result = await res.json();
-                        if (result.success || res.ok) { // เผื่อหลังบ้านพ่น error แต่จริงๆ insert สำเร็จ
+                        if (result.success || res.ok) {
                             containerSizeOptions.push(val);
                             updateContainerSizeDatalist();
                         }
@@ -335,7 +334,6 @@
                     document.getElementById('runDate').value = item.run_date ? item.run_date.split('T')[0] : '';
                     document.getElementById('rowCount').value = item.container_count || 1;
                     
-                    // 🌟 โหลดขนาดตู้กลับมาตอนกดแก้ไข 🌟
                     if (document.getElementById('containerSize')) document.getElementById('containerSize').value = item.container_size || '';
 
                     document.getElementById('jobNameInput').value = item.job_name || '';
@@ -399,8 +397,9 @@
             if(exp && auto) auto.value = exp.value; 
         }
 
+        // 🌟 ดึงข้อมูลต้นทาง-ปลายทาง-ลูกค้า เมื่อเลือกชื่องาน
         function previewJobData() {
-            const val = document.getElementById('jobNameInput').value;
+            const val = document.getElementById('jobNameInput') ? document.getElementById('jobNameInput').value.trim() : '';
             if(!val || !rateDataMap[val]) return;
             const rate = rateDataMap[val];
             
@@ -419,8 +418,9 @@
             updateFeeDropdowns(); 
         }
 
+        // 🌟 ดึงราคาอัตโนมัติเมื่อเลือกประเภทรถ
         function updateFeeDropdowns() {
-            const val = document.getElementById('jobNameInput').value; 
+            const val = document.getElementById('jobNameInput') ? document.getElementById('jobNameInput').value.trim() : ''; 
             const type = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
             const trpInp = document.getElementById('pTripFee'); 
             const trnInp = document.getElementById('pTransFee');
@@ -446,8 +446,6 @@
             const runDate = document.getElementById('runDate').value;
             const customer = document.getElementById('pCustomer').value;
             const containerCount = document.getElementById('rowCount').value || 1;
-            
-            // 🌟 ดึงค่าขนาดตู้ 🌟
             const containerSizeVal = document.getElementById('containerSize') ? document.getElementById('containerSize').value.toUpperCase() : '';
             
             if(!mode || !runDate || !customer) {
@@ -524,7 +522,7 @@
                 mode: mode, run_date: runDate, customer_name: customer, job_name: jobName, job_type: jobTypeVal,
                 origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
                 container_count: containerCount,
-                container_size: containerSizeVal, // 🌟 ส่งค่าขนาดตู้ไปหลังบ้าน
+                container_size: containerSizeVal,
                 booking_no: b_no,
                 price_type: priceTypeVal, trip_fee: tripFeeVal, trans_fee: transFeeVal,
                 cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
@@ -536,7 +534,6 @@
             btn.disabled = true;
 
             try {
-                // เช็คว่าเป็นการสร้างใหม่หรือแก้ไข
                 const urlParams = new URLSearchParams(window.location.search);
                 const editBookingNo = urlParams.get('edit');
                 

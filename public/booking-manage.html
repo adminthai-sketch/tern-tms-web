@@ -46,42 +46,41 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 h-8">
                         <label class="text-xs font-bold text-emerald-700 flex items-center gap-1"><i class="fa-regular fa-calendar-check"></i> เดือน:</label>
-                        <input type="month" id="filter-month" onchange="loadManageData()" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-emerald-700 outline-none cursor-pointer">
+                        <input type="month" id="filter-month" onchange="loadContainerGridData()" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-emerald-700 outline-none cursor-pointer">
                     </div>
                     
-                    <input type="text" id="filter-run-date" list="dl-run-date" onchange="handleManageFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
+                    <input type="text" id="filter-run-date" list="dl-run-date" onchange="handleCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
                     <datalist id="dl-run-date"></datalist>
 
-                    <input type="text" id="filter-customer" list="dl-customer" onchange="handleManageFilter()" placeholder="🏢 ชื่องาน/ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-emerald-500">
+                    <input type="text" id="filter-customer" list="dl-customer" onchange="handleCrossFilter()" placeholder="🏢 ชื่องาน/ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-emerald-500">
                     <datalist id="dl-customer"></datalist>
 
-                    <input type="text" id="filter-booking-no" list="dl-booking-no" onchange="handleManageFilter()" placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
+                    <input type="text" id="filter-booking-no" list="dl-booking-no" onchange="handleCrossFilter()" placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
                     <datalist id="dl-booking-no"></datalist>
 
                     <div class="relative">
                         <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
-                        <input type="text" id="global-search" onkeyup="applyManageFilters()" placeholder="ค้นหาเบอร์ตู้..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-white h-8 w-48 focus:border-emerald-500 shadow-sm">
+                        <input type="text" id="global-search" onkeyup="applyFilters()" placeholder="ค้นหาเบอร์ตู้..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-white h-8 w-48 focus:border-emerald-500 shadow-sm">
                     </div>
-                    <button onclick="clearManageFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser text-sm"></i></button>
+                    <button onclick="clearAllFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser text-sm"></i></button>
                 </div>
 
                 <div class="flex items-center gap-2">
                     <button onclick="saveGridSettings()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-amber-300 h-8 shadow-sm">
                         <i class="fa-solid fa-table-columns"></i> จำมุมมอง
                     </button>
-                    <button onclick="deleteSelectedRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-red-200 h-8 shadow-sm">
+                    <button onclick="deleteContainerRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-red-200 h-8 shadow-sm">
                         <i class="fa-solid fa-trash-can"></i> ลบตู้
                     </button>
                     <button onclick="addNewContainerRow()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-blue-200 h-8 shadow-sm">
                         <i class="fa-solid fa-plus"></i> เพิ่มตู้เข้า Booking
                     </button>
-                    <button onclick="saveManageChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm">
+                    <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm">
                         <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล
                     </button>
                 </div>
             </div>
             
-            <!-- แถวล่าง: Quick Filters -->
             <div class="flex items-center gap-2 text-xs border-t border-slate-100 pt-2">
                 <span class="font-bold text-slate-500"><i class="fa-solid fa-bolt text-amber-500"></i> ตัวกรองด่วน:</span>
                 <button id="qf-pending" onclick="setQuickFilter('pending')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">รอลงเบอร์ตู้</button>
@@ -96,7 +95,7 @@
                 <i class="fa-solid fa-circle-notch fa-spin text-4xl text-emerald-600 mb-3"></i>
                 <p class="font-bold text-slate-600">กำลังโหลดข้อมูลตู้...</p>
             </div>
-            <div id="manage-grid-container" class="absolute inset-0 z-0"></div>
+            <div id="container-grid-container" class="absolute inset-0 z-0"></div>
         </div>
     </main>
 
@@ -107,7 +106,7 @@
             <div class="bg-purple-50 px-5 py-4 border-b border-purple-100 flex justify-between items-center">
                 <div>
                     <h3 class="font-bold text-purple-900 text-lg flex items-center gap-2"><i class="fa-solid fa-route"></i> จัดการเส้นทาง & ลานฝากตู้</h3>
-                    <p class="text-xs text-purple-600 mt-1 font-medium">เพิ่มจุดแวะพักตู้ และเปลี่ยนข้อมูลรถ/คนขับมารับช่วงต่อ</p>
+                    <p class="text-xs text-purple-600 mt-1 font-medium" id="drop-yard-subtitle">Order: - | ต้นทาง: - | ปลายทาง: -</p>
                 </div>
                 <button onclick="closeTimelineModal()" class="text-slate-400 hover:text-red-500 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
@@ -122,13 +121,13 @@
                         <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                             <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">1. ต้นทาง (ไปรับตู้)</span>
                             <div class="mt-2 flex gap-2">
-                                <input type="text" placeholder="ทะเบียนรถ..." class="w-1/3 px-2 py-1.5 border border-slate-300 rounded text-xs bg-slate-100" readonly value="ดึงจากตารางหลัก">
-                                <input type="text" placeholder="คนขับรถ..." class="w-2/3 px-2 py-1.5 border border-slate-300 rounded text-xs bg-slate-100" readonly value="ดึงจากตารางหลัก">
+                                <input type="text" id="leg1-car-preview" placeholder="ทะเบียนรถ..." class="w-1/3 px-2 py-1.5 border border-slate-300 rounded text-xs bg-slate-100 text-slate-500" readonly>
+                                <input type="text" id="leg1-driver-preview" placeholder="คนขับรถ..." class="w-2/3 px-2 py-1.5 border border-slate-300 rounded text-xs bg-slate-100 text-slate-500" readonly>
                             </div>
                         </div>
                     </div>
 
-                    <!-- จุดที่ 2: ลานฝากตู้ (ซ่อนไว้ รอแอดมินกดเพิ่ม) -->
+                    <!-- จุดที่ 2: ลานฝากตู้ -->
                     <div id="drop-yard-node" class="relative hidden">
                         <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-purple-500 rounded-full z-10 shadow-sm flex items-center justify-center"><i class="fa-solid fa-anchor text-[8px] text-purple-500"></i></div>
                         <div class="bg-purple-50 p-3 rounded-lg border border-purple-200 shadow-sm">
@@ -136,10 +135,10 @@
                                 <span class="text-xs font-bold text-purple-800 uppercase tracking-wide">2. ฝากลานพักตู้ (Drop Yard)</span>
                                 <button onclick="removeDropYard()" class="text-red-400 hover:text-red-600 text-xs font-bold"><i class="fa-solid fa-trash-can"></i> ลบจุดพัก</button>
                             </div>
-                            <input type="text" placeholder="ชื่อลานฝากตู้..." class="w-full px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white mb-2">
+                            <input type="text" id="drop-yard-loc" placeholder="ชื่อลานฝากตู้ (อู่รถ, ลานพัก)..." class="w-full px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white mb-2">
                             <div class="flex gap-2">
-                                <input type="text" placeholder="ทะเบียนรถ (คันที่มารับช่วงต่อ)..." class="w-1/3 px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white">
-                                <input type="text" placeholder="คนขับรถ (คันที่มารับช่วงต่อ)..." class="w-2/3 px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white">
+                                <input type="text" id="drop-yard-car" placeholder="ทะเบียนรถ (คันที่มารับช่วงต่อ)..." class="w-1/3 px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white font-bold text-purple-800">
+                                <input type="text" id="drop-yard-driver" placeholder="คนขับรถ (คันที่มารับช่วงต่อ)..." class="w-2/3 px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white font-bold text-purple-800">
                             </div>
                         </div>
                     </div>
@@ -171,6 +170,14 @@
     </div>
 
     <script src="js/modules/booking/manage.js"></script>
-    <script>function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }</script>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('tms_user');
+            if (!savedUser) { window.location.href = '/login.html'; return; }
+            const user = JSON.parse(savedUser);
+            document.getElementById('user-fullname').innerText = user.fullName || user.username || 'ผู้ดูแลระบบ';
+        });
+        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
+    </script>
 </body>
 </html>

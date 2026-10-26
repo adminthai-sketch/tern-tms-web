@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: DISPATCH & CONTAINER MANAGE (5 Legs Workflow - ฉบับสมบูรณ์)
+// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Modal Timeline - Idea B)
 // ==========================================
 
 let hotGridInstance = null;
@@ -8,11 +8,11 @@ let filteredList = [];
 let editedRowIndices = new Set(); 
 let userGridSettings = {}; 
 
-// ตัวแปรเก็บข้อมูลรถและคนขับ
 let globalTruckList = [];
 let globalDriverList = [];
-let fleetAssignments = {}; // { 'ทะเบียนรถ': 'ชื่อคนขับ' }
-let isDropYardsHidden = true; // สถานะเริ่มต้น ซ่อนลานฝาก
+let fleetAssignments = {}; 
+let globalContainerSizes = ['20', '40', '40HC', '45HC'];
+let currentTimelineRow = -1; 
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
@@ -20,16 +20,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     
     const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
+    if (user.id) {
+        try {
+            const res = await fetch(`/api/users/grid-settings?userId=${user.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                userGridSettings = data.settings?.['container_manage'] || {};
+            }
+        } catch (err) {}
+    }
+    
     try {
-        const res = await fetch(`/api/users/grid-settings?userId=${user.id}`);
-        if (res.ok) {
-            const data = await res.json();
-            userGridSettings = data.settings?.['container_manage'] || {};
+        const szRes = await fetch('/api/bookings/container-sizes');
+        const szResult = await szRes.json();
+        if (szResult.success && szResult.data && szResult.data.length > 0) {
+            globalContainerSizes = szResult.data.map(r => r.size_name);
         }
     } catch (err) {}
-    
-    await loadFleetData(); // ดึงรายชื่อรถและคนขับมาก่อน
-    loadContainerGridData();
+
+    await loadFleetData(); 
+    await loadContainerGridData();
 });
 
 async function loadFleetData() {
@@ -41,7 +51,7 @@ async function loadFleetData() {
             globalDriverList = result.driverList || [];
             if (result.data) {
                 result.data.forEach(item => {
-                    if (item[1] && item[2]) fleetAssignments[item[1]] = item[2]; // ทะเบียน = คนขับ
+                    if (item[1] && item[2]) fleetAssignments[item[1]] = item[2]; 
                 });
             }
         }
@@ -49,21 +59,22 @@ async function loadFleetData() {
 }
 
 function applyZebraStripingCSS() {
-    if (!document.getElementById('tms-zebra-css')) {
+    if (!document.getElementById('tms-manage-css')) {
         const style = document.createElement('style');
-        style.id = 'tms-zebra-css';
+        style.id = 'tms-manage-css';
         style.innerHTML = `
-            .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
-            .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
-            .handsontable tbody tr td.ht-edited-row { background-color: #fef08a !important; color: #b45309 !important; transition: background-color 0.2s ease; }
-            .handsontable tbody tr td.ht-edited-row.unsaved-id-cell { color: #dc2626 !important; font-weight: 800 !important; background-color: #fde047 !important; }
-            .handsontable tbody tr:hover td { background-color: #e2e8f0 !important; transition: all 0.2s; }
-            .handsontable th { background-color: #f1f5f9; color: #1e293b; font-weight: 700; border-color: #cbd5e1; }
-            .invalid-container { background-color: #fee2e2 !important; color: #b91c1c !important; font-weight: bold; }
-            .bg-leg-1 { background-color: #fdf4ff !important; } /* ชมพูอ่อน Pick Up */
-            .bg-leg-drop { background-color: #f3f4f6 !important; } /* เทา Drop */
-            .bg-leg-2 { background-color: #fffbeb !important; } /* เหลืองอ่อน Delivery */
-            .bg-leg-3 { background-color: #f0fdf4 !important; } /* เขียวอ่อน Return */
+            .handsontable td { vertical-align: middle !important; border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; }
+            .handsontable th { background-color: #f8fafc; color: #334155; font-weight: 700 !important; border-color: #cbd5e1; font-size: 11px !important; }
+            
+            .zone-info { background-color: #f8fafc !important; color: #475569; }
+            .zone-container { background-color: #f0f9ff !important; } 
+            .zone-leg1 { background-color: #fdf4ff !important; } 
+            .zone-leg2 { background-color: #fffbeb !important; } 
+            .zone-leg3 { background-color: #f0fdf4 !important; } 
+            
+            .handsontable tbody tr:hover td { filter: brightness(0.96); transition: all 0.2s; }
+            .ht-edited-row { border-left: 3px solid #f59e0b !important; }
+            .unsaved-id-cell { color: #dc2626 !important; font-weight: 800 !important; background-color: #fde047 !important; }
         `;
         document.head.appendChild(style);
     }
@@ -92,7 +103,7 @@ async function loadContainerGridData() {
         if (bResult.success && bResult.data) {
             bResult.data.forEach(b => {
                 bookingsMap[b.booking_no] = { 
-                    origin: b.origin, destination: b.destination,
+                    customer: b.customer_name, origin: b.origin, destination: b.destination,
                     trip_fee: parseFloat(b.trip_fee) || 0, trans_fee: parseFloat(b.trans_fee) || 0
                 };
             });
@@ -105,6 +116,10 @@ async function loadContainerGridData() {
 
                 const bNo = fullRow[7] ? String(fullRow[7]).trim() : ''; 
                 if (bookingsMap[bNo]) {
+                    fullRow[6] = bookingsMap[bNo].customer; // ลูกค้า
+                    fullRow[10] = bookingsMap[bNo].origin; // ต้นทาง (ดึงมาไว้ Index 10 ชั่วคราว)
+                    fullRow[11] = bookingsMap[bNo].destination; // ปลายทาง (ดึงมาไว้ Index 11)
+                    
                     const currentTrip = parseFloat(String(fullRow[56]).replace(/,/g, '')) || 0;
                     const currentTrans = parseFloat(String(fullRow[57]).replace(/,/g, '')) || 0;
                     if (currentTrip === 0) fullRow[56] = bookingsMap[bNo].trip_fee;
@@ -136,16 +151,11 @@ function updateDropdownOptions() {
     rawShipmentList.forEach(i => {
         const iD = i[4] ? String(i[4]).trim() : ''; 
         const iC = i[6] ? String(i[6]).trim() : ''; 
-        const iJ = i[5] ? String(i[5]).trim() : ''; 
         const iB = i[7] ? String(i[7]).trim() : ''; 
 
-        const matchC = !cVal || iC === cVal || iJ === cVal;
-        const matchB = !bVal || iB === bVal;
-        const matchD = !dVal || iD === dVal;
-
-        if (matchC && matchB && iD) dates.add(iD);
-        if (matchD && matchB) { if (iC) custs.add(iC); if (iJ) custs.add(iJ); }
-        if (matchD && matchC && iB) books.add(iB);
+        if ((!cVal || iC === cVal) && (!bVal || iB === bVal) && iD) dates.add(iD);
+        if ((!dVal || iD === dVal) && (!bVal || iB === bVal)) { if (iC) custs.add(iC); }
+        if ((!dVal || iD === dVal) && (!cVal || iC === cVal) && iB) books.add(iB);
     });
 
     const dlDate = document.getElementById('dl-run-date');
@@ -159,30 +169,33 @@ function updateDropdownOptions() {
 
 window.handleCrossFilter = function() { applyFilters(); };
 window.applyFilters = function() {
+    const d = document.getElementById('filter-run-date').value;
+    const c = document.getElementById('filter-customer').value;
     const b = document.getElementById('filter-booking-no').value;
     const searchTxt = document.getElementById('global-search').value.toLowerCase().trim();
 
     filteredList = rawShipmentList.filter(item => {
+        const iD = item[4] ? String(item[4]).trim() : ''; 
+        const iC = item[6] ? String(item[6]).trim() : ''; 
         const iB = item[7] ? String(item[7]).trim() : ''; 
+        
+        const matchD = !d || iD === d; 
+        const matchC = !c || iC === c; 
         const matchB = !b || iB === b;
         const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
-        return matchB && matchGlobal;
+        return matchD && matchC && matchB && matchGlobal;
     });
 
     initContainerHandsontable(filteredList);
-    updateSummaryFooter(filteredList);
 };
 
 window.clearAllFilters = function() { 
+    document.getElementById('filter-run-date').value = '';
+    document.getElementById('filter-customer').value = '';
     document.getElementById('filter-booking-no').value = ''; 
     document.getElementById('global-search').value = ''; 
     applyFilters(); 
 };
-
-function containerValidator(value, callback) {
-    if (!value || value === 'ยังไม่ระบุ') { callback(true); return; }
-    callback(/^[A-Z]{4}\d{7}$/i.test(value.replace(/\s/g, '')));
-}
 
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -194,70 +207,82 @@ function initContainerHandsontable(data) {
 
     hotGridInstance = new Handsontable(container, {
         data: gridData,
-        // 🌟 หัวตารางซ้อน 2 ชั้น 🌟
         nestedHeaders: [
             [
-                { label: '📋 ข้อมูลบิลและตู้', colspan: 6 },
-                { label: '📦 ขา 1: PICK UP (รับตู้)', colspan: 4 },
-                { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
-                { label: '🏭 ขา 2: DELIVERY (เข้าจุดบรรจุ)', colspan: 4 },
-                { label: '🅿️ ขาฝาก 2 (DROP 2)', colspan: 4 },
-                { label: '🚢 ขา 3: RETURN (คืนตู้)', colspan: 4 },
+                { label: '📋 ข้อมูลงาน', colspan: 6 },
+                { label: '📦 ข้อมูลตู้ (พิมพ์ข้อมูลตอนหน้างานแจ้งมา)', colspan: 7 },
+                { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 4 },
+                { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ)', colspan: 3 },
+                { label: '🚢 ขา 3: RETURN (คืนตู้)', colspan: 3 },
                 { label: '💵 การเงิน', colspan: 2 }
             ],
             [
-                '✔', 'Order ID', 'Booking', 'ลูกค้า', 'เบอร์ตู้', 'ขนาด', // ข้อมูลหลัก
-                'ทะเบียนรถ', 'พนักงานขับรถ', 'สถานที่ (รับตู้)', '✅',     // Pickup
-                'ทะเบียนรถ', 'พนักงานขับรถ', 'สถานที่ (ลานฝาก)', '✅',    // Drop1
-                'ทะเบียนรถ', 'พนักงานขับรถ', 'สถานที่ (โรงงาน)', '✅',     // Delivery
-                'ทะเบียนรถ', 'พนักงานขับรถ', 'สถานที่ (ลานฝาก)', '✅',    // Drop2
-                'ทะเบียนรถ', 'พนักงานขับรถ', 'สถานที่ (ลานคืน)', '✅',     // Return
-                'ค่าเที่ยว', 'ค่าขนส่ง'                               // การเงิน
+                '✔', 'Order ID', 'Booking', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', // 6
+                'ขนาดตู้', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', // 7
+                'ทะเบียนรถ', 'คนขับ', 'เส้นทาง', 'เสร็จ', // 4
+                'ทะเบียนรถ', 'คนขับ', 'เสร็จ', // 3
+                'ทะเบียนรถ', 'คนขับ', 'เสร็จ', // 3
+                'ค่าเที่ยว', 'ค่าขนส่ง' // 2
             ]
         ],
         columns: [
-            { data: 0, type: 'checkbox', className: 'htCenter htMiddle' }, 
-            { data: 1, type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle' }, 
-            { data: 7, type: 'text', readOnly: true, className: 'font-bold text-emerald-700 htMiddle' }, 
-            { data: 6, type: 'text', readOnly: true, className: 'text-slate-600 htMiddle' }, 
-            { data: 8, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 uppercase htCenter htMiddle', allowInvalid: true }, 
-            { data: 11, type: 'dropdown', source: ['20', '40', '40HC', '45HC'], className: 'htCenter htMiddle' }, 
+            // 📋 ข้อมูลงาน
+            { data: 0, type: 'checkbox', className: 'htCenter htMiddle zone-info' }, 
+            { data: 1, type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info' }, 
+            { data: 7, type: 'text', readOnly: true, className: 'font-bold text-primary htCenter htMiddle zone-info' }, 
+            { data: 6, type: 'text', readOnly: true, className: 'text-slate-700 font-bold htMiddle zone-info' }, 
+            { data: 10, type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, // ต้นทาง
+            { data: 11, type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, // ปลายทาง
+            
+            // 📦 ข้อมูลตู้
+            { data: 12, type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, // ขนาด
+            { data: 8, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' }, // เบอร์ตู้ 1
+            { data: 9, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' }, // เบอร์ตู้ 2
+            { data: 78, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' }, // SEAL
+            { data: 79, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' }, // POP
+            { data: 76, type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' }, // TARE
+            { data: 77, type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' }, // GROSS
 
-            { data: 28, type: 'autocomplete', source: globalTruckList, strict: false, className: 'bg-leg-1 font-bold' },
-            { data: 27, type: 'autocomplete', source: globalDriverList, strict: false, className: 'bg-leg-1' },
-            { data: 30, type: 'text', className: 'bg-leg-1' },
-            { data: 31, type: 'checkbox', className: 'htCenter htMiddle bg-leg-1' },
+            // 🚚 ขา 1: PICK UP
+            { data: 28, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
+            { data: 27, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
+            { 
+                data: 36, // ใช้ index ว่างๆ มาเก็บสถานะ has_drop
+                readOnly: true, className: 'htCenter htMiddle bg-purple-50/20',
+                renderer: function(instance, td, row, col, prop, value) {
+                    Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+                    const isDrop = (value === true || value === 'true');
+                    const btnClass = isDrop ? 'bg-purple-200 text-purple-800 border-purple-400' : 'bg-white text-slate-500 border-slate-300 hover:bg-purple-50 hover:text-purple-600';
+                    const icon = isDrop ? '<i class="fa-solid fa-anchor"></i> แวะลานพัก' : '<i class="fa-solid fa-route"></i> ตรงไปโรงงาน';
+                    td.innerHTML = `<div class="p-1 w-full h-full"><button onclick="openTimelineModal(${row})" class="w-full h-full text-[10px] font-bold border rounded shadow-sm flex items-center justify-center gap-1 transition-colors ${btnClass}">${icon}</button></div>`;
+                }
+            },
+            { data: 31, type: 'checkbox', className: 'htCenter htMiddle zone-leg1' },
 
-            { data: 34, type: 'autocomplete', source: globalTruckList, strict: false, className: 'bg-leg-drop font-bold' },
-            { data: 33, type: 'autocomplete', source: globalDriverList, strict: false, className: 'bg-leg-drop' },
-            { data: 35, type: 'text', className: 'bg-leg-drop' },
-            { data: 36, type: 'checkbox', className: 'htCenter htMiddle bg-leg-drop' },
+            // 🏭 ขา 2: DELIVERY
+            { data: 39, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
+            { data: 38, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
+            { data: 42, type: 'checkbox', className: 'htCenter htMiddle zone-leg2' },
 
-            { data: 39, type: 'autocomplete', source: globalTruckList, strict: false, className: 'bg-leg-2 font-bold' },
-            { data: 38, type: 'autocomplete', source: globalDriverList, strict: false, className: 'bg-leg-2' },
-            { data: 41, type: 'text', className: 'bg-leg-2' },
-            { data: 42, type: 'checkbox', className: 'htCenter htMiddle bg-leg-2' },
+            // 🚢 ขา 3: RETURN
+            { data: 49, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
+            { data: 48, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
+            { data: 52, type: 'checkbox', className: 'htCenter htMiddle zone-leg3' },
 
-            { data: 44, type: 'autocomplete', source: globalTruckList, strict: false, className: 'bg-leg-drop font-bold' },
-            { data: 43, type: 'autocomplete', source: globalDriverList, strict: false, className: 'bg-leg-drop' },
-            { data: 45, type: 'text', className: 'bg-leg-drop' },
-            { data: 46, type: 'checkbox', className: 'htCenter htMiddle bg-leg-drop' },
-
-            { data: 49, type: 'autocomplete', source: globalTruckList, strict: false, className: 'bg-leg-3 font-bold' },
-            { data: 48, type: 'autocomplete', source: globalDriverList, strict: false, className: 'bg-leg-3' },
-            { data: 51, type: 'text', className: 'bg-leg-3' },
-            { data: 52, type: 'checkbox', className: 'htCenter htMiddle bg-leg-3' },
-
-            { data: 56, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold bg-green-50 htRight htMiddle' }, 
+            // 💵 การเงิน
+            { data: 56, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold bg-green-50 htRight htMiddle' }, 
             { data: 57, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50 htRight htMiddle' }
         ],
+        colWidths: [
+            30, 110, 100, 100, 80, 80, // Info
+            60, 100, 100, 90, 80, 70, 80, // Container
+            90, 110, 100, 40, // Leg 1
+            90, 110, 40, // Leg 2
+            90, 110, 40, // Leg 3
+            70, 70 // Finance
+        ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
-        manualColumnResize: true, 
-        
-        hiddenColumns: {
-            columns: isDropYardsHidden ? [10, 11, 12, 13, 18, 19, 20, 21] : [], // สั่งซ่อน/เปิด ลานฝากตั้งต้น
-            indicators: true
-        },
+        manualColumnResize: true, manualColumnMove: true,
         contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'copy'],
         licenseKey: 'non-commercial-and-evaluation',
 
@@ -266,13 +291,13 @@ function initContainerHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
                 
-                if (prop === 8 && newVal && typeof newVal === 'string') {
+                if ([8, 9, 78, 79].includes(prop) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
                     if (cleanVal !== newVal) this.setDataAtCell(row, this.propToCol(prop), cleanVal, 'auto');
                 }
 
                 // 🌟 ดึงชื่อคนขับอัตโนมัติเมื่อพิมพ์ทะเบียนรถ 🌟
-                if ([28, 34, 39, 44, 49].includes(prop) && newVal) {
+                if ([28, 39, 49].includes(prop) && newVal) {
                     if (fleetAssignments[newVal]) {
                         const colIdx = this.propToCol(prop);
                         this.setDataAtCell(row, colIdx + 1, fleetAssignments[newVal], 'auto');
@@ -291,141 +316,11 @@ function initContainerHandsontable(data) {
             return cp;
         }
     });
+
+    if (userGridSettings.columnPositions && userGridSettings.columnPositions.length === hotGridInstance.countCols()) {
+        try { hotGridInstance.getPlugin('manualColumnMove').moveColumns(userGridSettings.columnPositions, 0); } catch(e) {}
+    }
 }
-
-// 🌟 ฟังก์ชันเปิด/ปิด การแสดงผลลานฝาก 🌟
-window.toggleDropYards = function() {
-    isDropYardsHidden = !isDropYardsHidden;
-    const btn = document.getElementById('btn-toggle-drops');
-    
-    if (isDropYardsHidden) {
-        btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้`;
-        btn.classList.replace('bg-purple-600', 'bg-purple-50');
-        btn.classList.replace('text-white', 'text-purple-700');
-        hotGridInstance.getPlugin('hiddenColumns').hideColumns([10, 11, 12, 13, 18, 19, 20, 21]);
-    } else {
-        btn.innerHTML = `<i class="fa-solid fa-eye"></i> ซ่อนลานฝากตู้`;
-        btn.classList.replace('bg-purple-50', 'bg-purple-600');
-        btn.classList.replace('text-purple-700', 'text-white');
-        hotGridInstance.getPlugin('hiddenColumns').showColumns([10, 11, 12, 13, 18, 19, 20, 21]);
-    }
-    hotGridInstance.render();
-};
-
-window.updateSummaryFooter = function(data) {
-    let total = data.length;
-    let missing = 0;
-    data.forEach(item => {
-        const cNo = item[8] ? String(item[8]).trim() : ''; 
-        if (cNo === '' || cNo === 'ยังไม่ระบุ') missing++;
-    });
-    document.getElementById('sum-total').innerText = total.toLocaleString();
-    document.getElementById('sum-filled').innerText = (total - missing).toLocaleString();
-    document.getElementById('sum-missing').innerText = missing.toLocaleString();
-};
-
-window.saveGridSettings = async function() {
-    if (!hotGridInstance) return;
-    const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
-    const colCount = hotGridInstance.countCols();
-    const widths = [];
-    for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
-    
-    const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
-    let positions = [];
-    if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
-        positions = movePlugin.columnsMapper.getIndexesSequence();
-    }
-
-    try {
-        await fetch('/api/users/grid-settings', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, gridName: 'container_manage', settings: { columnWidths: widths, columnPositions: positions } })
-        });
-        alert('✅ บันทึกมุมมองตารางลงเบอร์ตู้เรียบร้อยแล้ว!');
-    } catch (err) {}
-};
-
-window.addNewContainerRow = function() {
-    const filterBooking = document.getElementById('filter-booking-no').value;
-    
-    if (!filterBooking) { alert("⚠️ กรุณากรองเลือกเลข Booking ที่ต้องการเพิ่มตู้ในช่องค้นหาด้านบนก่อนครับ!"); return; }
-
-    const templateRow = rawShipmentList.find(r => r[7] === filterBooking);
-    if (!templateRow) { alert("❌ ไม่พบข้อมูล Booking นี้ในตารางครับ"); return; }
-
-    const timestampID = `ORD-ADD-${Date.now().toString().slice(-4)}`;
-    
-    const newRow = new Array(80).fill('');
-    newRow[0] = false; 
-    newRow[1] = timestampID; 
-    newRow[2] = templateRow[2]; 
-    newRow[4] = templateRow[4]; 
-    newRow[5] = templateRow[5]; 
-    newRow[6] = templateRow[6]; 
-    newRow[7] = filterBooking;  
-    newRow[10] = templateRow[10]; 
-    newRow[11] = templateRow[11]; 
-    newRow[12] = templateRow[12]; 
-    newRow[13] = templateRow[13]; 
-    newRow[14] = templateRow[14]; 
-    newRow[56] = templateRow[56]; 
-    newRow[57] = templateRow[57]; 
-    newRow[78] = templateRow[78] || ''; 
-    newRow[79] = templateRow[79] || '';
-
-    rawShipmentList.unshift(newRow); 
-    applyFilters(); 
-    
-    editedRowIndices.add(0);
-    updateSaveStatusBadge();
-    
-    hotGridInstance.selectCell(0, 11); 
-    alert(`✅ สร้างแถวตู้ใหม่ให้ Booking: ${filterBooking} เรียบร้อยแล้วครับ!`);
-};
-
-window.deleteContainerRows = async function() {
-    if (!hotGridInstance) return;
-    
-    const data = hotGridInstance.getData();
-    const rowsToDelete = [];
-    const idsToDelete = [];
-
-    data.forEach((row, index) => {
-        const src = hotGridInstance.getSourceDataAtRow(index);
-        if (src[0] === true || src[0] === 'true' || src[0] === 1) { 
-            rowsToDelete.push(index);
-            
-            const orderId = src[1] !== null && src[1] !== undefined ? String(src[1]).trim() : '';
-            if (orderId && !orderId.includes('ORD-ADD')) { 
-                idsToDelete.push(orderId); 
-            }
-        }
-    });
-
-    if (rowsToDelete.length === 0) { alert('🖱️ กรุณาติ๊กถูกที่กล่องสี่เหลี่ยมด้านหน้าสุดของแถวที่ต้องการจะลบตู้ก่อนครับ'); return; }
-
-    if (!confirm(`⚠️ ยืนยันการลบตู้จำนวน ${rowsToDelete.length} รายการทิ้งถาวร?`)) return;
-
-    if (idsToDelete.length > 0) {
-        try { 
-            const res = await fetch('/api/shipments', { 
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_ids: idsToDelete }) 
-            }); 
-            
-            const result = await res.json();
-            if(!result.success) { alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message); return; }
-        } catch (e) {
-            alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์'); return;
-        }
-    }
-    
-    alert(`✅ ลบตู้เสร็จสิ้น!`);
-    loadContainerGridData(); 
-};
 
 function updateSaveStatusBadge() {
     const badge = document.getElementById('save-status-badge');
@@ -440,6 +335,84 @@ function updateSaveStatusBadge() {
     }
 }
 
+window.saveGridSettings = async function() {
+    if (!hotGridInstance) return;
+    const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
+    if (!user.id) { alert("❌ ต้องเข้าสู่ระบบก่อนบันทึกมุมมอง"); return; }
+    
+    const colCount = hotGridInstance.countCols();
+    const widths = [];
+    for (let i = 0; i < colCount; i++) widths.push(hotGridInstance.getColWidth(i));
+    
+    const movePlugin = hotGridInstance.getPlugin('manualColumnMove');
+    let positions = [];
+    if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
+        positions = movePlugin.columnsMapper.getIndexesSequence();
+    }
+
+    try {
+        await fetch('/api/users/grid-settings', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, gridName: 'container_manage', settings: { columnWidths: widths, columnPositions: positions } })
+        });
+        alert('✅ บันทึกมุมมองตารางลงเบอร์ตู้เรียบร้อยแล้ว!');
+    } catch (err) {}
+};
+
+window.addNewContainerRow = function() {
+    const filterBooking = document.getElementById('filter-booking-no').value;
+    if (!filterBooking) { alert("⚠️ กรุณากรองเลือกเลข Booking ที่ต้องการเพิ่มตู้ในช่องค้นหาด้านบนก่อนครับ!"); return; }
+
+    const templateRow = rawShipmentList.find(r => r[7] === filterBooking);
+    if (!templateRow) { alert("❌ ไม่พบข้อมูล Booking นี้ในตารางครับ"); return; }
+
+    const timestampID = `ORD-ADD-${Date.now().toString().slice(-4)}`;
+    
+    const newRow = new Array(80).fill('');
+    newRow[0] = false; newRow[1] = timestampID; newRow[7] = filterBooking;  
+    newRow[2] = templateRow[2]; newRow[6] = templateRow[6]; newRow[10] = templateRow[10]; newRow[11] = templateRow[11]; 
+    newRow[12] = templateRow[12]; newRow[56] = templateRow[56]; newRow[57] = templateRow[57]; 
+
+    rawShipmentList.unshift(newRow); 
+    applyFilters(); 
+    editedRowIndices.add(0);
+    updateSaveStatusBadge();
+    alert(`✅ สร้างแถวตู้ใหม่ให้ Booking: ${filterBooking} เรียบร้อยแล้วครับ!`);
+};
+
+window.deleteContainerRows = async function() {
+    if (!hotGridInstance) return;
+    const data = hotGridInstance.getData();
+    const rowsToDelete = [];
+    const idsToDelete = [];
+
+    data.forEach((row, index) => {
+        const src = hotGridInstance.getSourceDataAtRow(index);
+        if (src[0] === true || src[0] === 'true' || src[0] === 1) { 
+            rowsToDelete.push(index);
+            const orderId = src[1] !== null && src[1] !== undefined ? String(src[1]).trim() : '';
+            if (orderId && !orderId.includes('ORD-ADD')) idsToDelete.push(orderId); 
+        }
+    });
+
+    if (rowsToDelete.length === 0) { alert('🖱️ กรุณาติ๊กถูกด้านหน้าแถวที่ต้องการจะลบตู้ก่อนครับ'); return; }
+    if (!confirm(`⚠️ ยืนยันการลบตู้จำนวน ${rowsToDelete.length} รายการทิ้งถาวร?`)) return;
+
+    if (idsToDelete.length > 0) {
+        try { 
+            const res = await fetch('/api/shipments', { 
+                method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_ids: idsToDelete }) 
+            }); 
+            const result = await res.json();
+            if(!result.success) { alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message); return; }
+        } catch (e) { alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์'); return; }
+    }
+    
+    alert(`✅ ลบตู้เสร็จสิ้น!`);
+    loadContainerGridData(); 
+};
+
 window.saveGridChanges = async function() {
     if (!hotGridInstance || editedRowIndices.size === 0) return;
     const btn = document.getElementById('btn-save-grid');
@@ -447,17 +420,13 @@ window.saveGridChanges = async function() {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
 
     const dataToSave = [];
-    editedRowIndices.forEach(idx => {
-        dataToSave.push(hotGridInstance.getSourceDataAtRow(idx));
-    });
+    editedRowIndices.forEach(idx => { dataToSave.push(hotGridInstance.getSourceDataAtRow(idx)); });
 
     try {
         const res = await fetch('/api/shipments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: dataToSave }) 
         });
-        
         alert('✅ บันทึกข้อมูลตู้และคนขับสำเร็จ!');
         editedRowIndices.clear();
         loadContainerGridData(); 
@@ -466,4 +435,77 @@ window.saveGridChanges = async function() {
     } finally {
         btn.innerHTML = orgText; btn.disabled = false;
     }
+};
+
+// ==========================================
+// 📍 MODAL: DROP YARD TIMELINE
+// ==========================================
+
+window.openTimelineModal = function(row) {
+    currentTimelineRow = row;
+    const srcData = hotGridInstance.getSourceDataAtRow(row);
+    
+    document.getElementById('drop-yard-subtitle').innerText = `Order: ${srcData[1]} | ต้นทาง: ${srcData[10] || '-'} | ปลายทาง: ${srcData[11] || '-'}`;
+    
+    // ดึงค่ารถ/คนขับ ขา 1 มาโชว์
+    document.getElementById('leg1-car-preview').value = srcData[28] || '';
+    document.getElementById('leg1-driver-preview').value = srcData[27] || '';
+
+    // โหลดสถานะเดิมและข้อมูลลานฝาก (ถ้ามี) 
+    const hasDrop = (srcData[36] === true || srcData[36] === 'true');
+    if (hasDrop) {
+        document.getElementById('drop-yard-node').classList.remove('hidden');
+        document.getElementById('btn-add-drop').classList.add('hidden');
+        document.getElementById('drop-yard-loc').value = srcData[35] || ''; // สถานที่ลานฝาก
+        document.getElementById('drop-yard-car').value = srcData[34] || ''; // รถรับลาน
+        document.getElementById('drop-yard-driver').value = srcData[33] || ''; // คนขับรับลาน
+    } else {
+        document.getElementById('drop-yard-node').classList.add('hidden');
+        document.getElementById('btn-add-drop').classList.remove('hidden');
+        document.getElementById('drop-yard-loc').value = '';
+        document.getElementById('drop-yard-car').value = '';
+        document.getElementById('drop-yard-driver').value = '';
+    }
+
+    const modal = document.getElementById('drop-yard-modal');
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('drop-yard-modal-content').classList.remove('scale-95'); }, 10);
+};
+
+window.closeTimelineModal = function() {
+    const modal = document.getElementById('drop-yard-modal');
+    modal.classList.add('opacity-0'); document.getElementById('drop-yard-modal-content').classList.add('scale-95');
+    setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
+};
+
+window.addDropYard = function() {
+    document.getElementById('drop-yard-node').classList.remove('hidden');
+    document.getElementById('btn-add-drop').classList.add('hidden');
+};
+
+window.removeDropYard = function() {
+    document.getElementById('drop-yard-node').classList.add('hidden');
+    document.getElementById('btn-add-drop').classList.remove('hidden');
+};
+
+window.saveTimeline = function() {
+    const isDropYardVisible = !document.getElementById('drop-yard-node').classList.contains('hidden');
+    
+    // อัปเดตข้อมูลลงตารางหลัก (Source Data Index: 36 = has_drop, 35 = loc, 34 = car, 33 = driver)
+    hotGridInstance.setDataAtCell(currentTimelineRow, 15, isDropYardVisible); // คอลัมน์ที่ 15 คือเส้นทาง
+    
+    const srcRowIdx = hotGridInstance.toPhysicalRow(currentTimelineRow);
+    const srcData = hotGridInstance.getSourceDataAtRow(srcRowIdx);
+    
+    if (isDropYardVisible) {
+        srcData[35] = document.getElementById('drop-yard-loc').value;
+        srcData[34] = document.getElementById('drop-yard-car').value;
+        srcData[33] = document.getElementById('drop-yard-driver').value;
+    } else {
+        srcData[35] = ''; srcData[34] = ''; srcData[33] = '';
+    }
+    
+    editedRowIndices.add(srcRowIdx);
+    updateSaveStatusBadge();
+    closeTimelineModal();
 };

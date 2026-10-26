@@ -31,14 +31,23 @@ router.post('/import-excel', upload.single('file'), (req, res) => {
 router.get('/export-bookings', async (req, res) => {
     try {
         const { year, month } = req.query;
-        let query = 'SELECT booking_no, mode, run_date, job_name, customer_name, origin, destination, container_count, price_type, trip_fee, trans_fee FROM bookings';
+        
+        // 🌟 แก้ไขคำสั่ง SQL ให้ Join ไปดึงชื่อลูกค้า (short_name) จากตาราง customers
+        let query = `
+            SELECT b.booking_no, b.mode, b.run_date, b.job_name, c.short_name AS customer_name, 
+                   b.origin, b.destination, b.container_count, b.price_type, b.trip_fee, b.trans_fee 
+            FROM bookings b
+            LEFT JOIN customers c ON b.customer_id = c.id
+            WHERE 1=1
+        `;
         let params = [];
+        let paramIndex = 1;
 
         if (year && month) {
-            query += ' WHERE EXTRACT(MONTH FROM run_date) = $1 AND EXTRACT(YEAR FROM run_date) = $2';
+            query += ` AND EXTRACT(MONTH FROM b.run_date) = $${paramIndex++} AND EXTRACT(YEAR FROM b.run_date) = $${paramIndex++}`;
             params.push(month, year);
         }
-        query += ' ORDER BY id DESC';
+        query += ` ORDER BY b.id DESC`;
 
         const result = await pool.query(query, params);
 

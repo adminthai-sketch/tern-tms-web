@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: CONTAINER MANAGE (Ghost Sweeper & Auto-Sync)
+// 📦 MODULE: CONTAINER MANAGE (Ghost Sweeper + Auto-Sync + Context Menu)
 // ==========================================
 
 let hotGridInstance = null;
@@ -92,7 +92,7 @@ async function loadContainerGridData() {
                 }
                 return fullRow;
             })
-            // 🌟 Ghost Sweeper: ดักเตะ "ตู้ผี" ที่ไม่มี Order ID ทิ้งกลางอากาศ ไม่ให้หลุดมาโชว์ในตาราง! 🌟
+            // กรอง "ตู้ผี" ที่ไม่มี Order ID ทิ้งไป
             .filter(row => row[1] !== null && row[1] !== undefined && String(row[1]).trim() !== '');
 
             editedRowIndices.clear();
@@ -117,9 +117,6 @@ async function loadContainerGridData() {
     }
 }
 
-// ==========================================
-// 🔍 ระบบ Cross-Filtering
-// ==========================================
 function updateDropdownOptions() {
     const dVal = document.getElementById('filter-run-date').value;
     const cVal = document.getElementById('filter-customer').value;
@@ -151,10 +148,7 @@ function updateDropdownOptions() {
     dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`);
 }
 
-window.handleCrossFilter = function() {
-    updateDropdownOptions(); 
-    applyFilters(); 
-};
+window.handleCrossFilter = function() { updateDropdownOptions(); applyFilters(); };
 
 window.applyFilters = function() {
     const d = document.getElementById('filter-run-date').value;
@@ -240,17 +234,13 @@ function updateSummaryFooter(data) {
 }
 
 function containerValidator(value, callback) {
-    if (!value || value === 'ยังไม่ระบุ') {
-        callback(true);
-        return;
-    }
+    if (!value || value === 'ยังไม่ระบุ') { callback(true); return; }
     const regex = /^[A-Z]{4}\d{7}$/i; 
-    const isValid = regex.test(value.replace(/\s/g, ''));
-    callback(isValid);
+    callback(regex.test(value.replace(/\s/g, '')));
 }
 
 // ==========================================
-// 📊 จัดการตาราง Handsontable 
+// 📊 จัดการตาราง Handsontable (เปิดระบบ Context Menu ให้แล้ว)
 // ==========================================
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -272,35 +262,47 @@ function initContainerHandsontable(data) {
         colHeaders: colHeaders,
         columns: [
             { data: 0, type: 'checkbox', className: 'htCenter htMiddle' }, 
-            
             { data: 1, type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter' }, 
             { data: 2, type: 'text', readOnly: true, className: 'htCenter font-bold text-slate-500' }, 
             { data: 4, type: 'date', dateFormat: 'YYYY-MM-DD', readOnly: true, className: 'htCenter text-slate-600' }, 
             { data: 5, type: 'text', readOnly: true, className: 'font-semibold text-slate-700' }, 
             { data: 6, type: 'text', readOnly: true, className: 'text-slate-600' }, 
             { data: 7, type: 'text', readOnly: true, className: 'font-bold text-emerald-700 htCenter bg-emerald-50/20' }, 
-            
             { data: 12, type: 'autocomplete', source: ['ตู้บรรจุ 1*40', 'ทอยตู้เปล่า 1*40', 'ทอยตู้เปล่า 2*20'], strict: false }, 
-            
             { data: 78, type: 'text', className: 'font-medium text-amber-700 bg-amber-50/30' }, 
             { data: 79, type: 'text', className: 'font-medium text-amber-700 bg-amber-50/30' }, 
             { data: 14, type: 'text', className: 'font-bold text-blue-600 htCenter bg-blue-50/20' }, 
-            
             { data: 8, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, 
             { data: 9, type: 'text', validator: containerValidator, className: 'font-bold text-blue-700 bg-blue-50 uppercase htCenter', allowInvalid: true }, 
             { data: 11, type: 'dropdown', source: ['20', '40', '40HC', '45HC'] }, 
-            
             { data: 15, type: 'text' }, 
             { data: 16, type: 'numeric', numericFormat: { pattern: '0,0' } }, 
             { data: 17, type: 'numeric', numericFormat: { pattern: '0,0' } }, 
-            
             { data: 56, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-green-700 font-bold bg-green-50/30 htRight' }, 
             { data: 57, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50/30 htRight' }  
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
         colWidths: userGridSettings.columnWidths || [40, 110, 75, 90, 140, 120, 120, 130, 100, 100, 90, 120, 120, 70, 95, 80, 80, 85, 85],
-        filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+        
+        // 🌟 ตั้งค่าให้แสดงระบบคลิกขวา (Context Menu) อย่างสมบูรณ์ 🌟
+        filters: true, 
+        dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
+        hiddenColumns: { indicators: true },
+        hiddenRows: { indicators: true },
+        contextMenu: {
+            items: {
+                'hidden_columns_hide': { name: '👁️‍🗨️ ซ่อนคอลัมน์นี้ (Hide Column)' },
+                'hidden_columns_show': { name: '👁️ ยกเลิกซ่อนคอลัมน์ (Show Column)' },
+                'hsep1': '---------',
+                'hidden_rows_hide': { name: '➖ ซ่อนแถวนี้ (Hide Row)' },
+                'hidden_rows_show': { name: '➕ ยกเลิกซ่อนแถว (Show Row)' },
+                'hsep2': '---------',
+                'alignment': { name: '📝 จัดตำแหน่งข้อความ' },
+                'copy': { name: '📋 คัดลอก (Copy)' }
+            }
+        },
+
         licenseKey: 'non-commercial-and-evaluation',
 
         afterChange: function(changes, source) {
@@ -325,9 +327,7 @@ function initContainerHandsontable(data) {
             const cp = {};
             if (editedRowIndices.has(row)) {
                 cp.className = (cp.className || '') + ' ht-edited-row';
-                if (col === 1) {
-                    cp.className += ' unsaved-id-cell';
-                }
+                if (col === 1) cp.className += ' unsaved-id-cell';
             }
             return cp;
         }
@@ -364,16 +364,10 @@ window.saveGridSettings = async function() {
 window.addNewContainerRow = function() {
     const filterBooking = document.getElementById('filter-booking-no').value;
     
-    if (!filterBooking) {
-        alert("⚠️ กรุณากรองเลือกเลข Booking ที่ต้องการเพิ่มตู้ในช่องค้นหาด้านบนก่อนครับ!");
-        return;
-    }
+    if (!filterBooking) { alert("⚠️ กรุณากรองเลือกเลข Booking ที่ต้องการเพิ่มตู้ในช่องค้นหาด้านบนก่อนครับ!"); return; }
 
     const templateRow = rawShipmentList.find(r => r[7] === filterBooking);
-    if (!templateRow) {
-        alert("❌ ไม่พบข้อมูล Booking นี้ในตารางครับ");
-        return;
-    }
+    if (!templateRow) { alert("❌ ไม่พบข้อมูล Booking นี้ในตารางครับ"); return; }
 
     const timestampID = `ORD-ADD-${Date.now().toString().slice(-4)}`;
     
@@ -424,10 +418,7 @@ window.deleteContainerRows = async function() {
         }
     });
 
-    if (rowsToDelete.length === 0) {
-        alert('🖱️ กรุณาติ๊กถูกที่กล่องสี่เหลี่ยมด้านหน้าสุดของแถวที่ต้องการจะลบตู้ก่อนครับ');
-        return;
-    }
+    if (rowsToDelete.length === 0) { alert('🖱️ กรุณาติ๊กถูกที่กล่องสี่เหลี่ยมด้านหน้าสุดของแถวที่ต้องการจะลบตู้ก่อนครับ'); return; }
 
     if (!confirm(`⚠️ ยืนยันการลบตู้จำนวน ${rowsToDelete.length} รายการทิ้งถาวร?`)) return;
 
@@ -440,13 +431,9 @@ window.deleteContainerRows = async function() {
             }); 
             
             const result = await res.json();
-            if(!result.success) {
-                alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message);
-                return; 
-            }
+            if(!result.success) { alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message); return; }
         } catch (e) {
-            alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-            return;
+            alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์'); return;
         }
     }
     

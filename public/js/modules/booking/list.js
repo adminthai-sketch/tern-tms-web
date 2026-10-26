@@ -30,21 +30,23 @@ function applyZebraStripingCSS() {
         const style = document.createElement('style');
         style.id = 'tms-zebra-css';
         style.innerHTML = `
-            /* ตกแต่งตารางให้ดูมินิมอล */
+            /* 🌟 ตกแต่งตารางให้ Compact และมินิมอลขึ้น 🌟 */
             .handsontable tbody tr:nth-child(even) td { background-color: #f8fafc; }
             .handsontable tbody tr:nth-child(odd) td { background-color: #ffffff; }
             .handsontable tbody tr td.ht-edited-row { background-color: #fef9c3 !important; }
             .handsontable tbody tr:hover td { background-color: #f1f5f9 !important; transition: all 0.2s; }
-            .handsontable th { background-color: #f1f5f9; color: #475569; font-weight: 700; border-color: #e2e8f0; font-size: 11px; padding: 6px 4px; }
-            .handsontable td { border-color: #e2e8f0; }
             
-            /* สไตล์สำหรับกล่องป้ายวันที่/เวลาให้ดูโปร่ง */
-            .time-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-bottom: 2px; border: 1px solid transparent; }
-            .time-cy { background-color: #e0f2fe; color: #0284c7; border-color: #bae6fd; }
-            .time-cutoff { background-color: #fee2e2; color: #dc2626; border-color: #fecaca; }
-            .time-load { background-color: #fef3c7; color: #d97706; border-color: #fde68a; }
-            .time-gate { background-color: #d1fae5; color: #059669; border-color: #a7f3d0; }
-            .time-return { background-color: #f3f4f6; color: #475569; border-color: #e5e7eb; }
+            /* ลดขนาดช่องว่าง (Padding) ให้ตารางดูไม่เทอะทะ */
+            .handsontable th { background-color: #f1f5f9; color: #475569; font-weight: 700; border-color: #e2e8f0; font-size: 11px; padding: 4px 2px !important; }
+            .handsontable td { border-color: #e2e8f0; font-size: 11px !important; padding: 2px 4px !important; }
+            
+            /* สไตล์สำหรับกล่องป้ายเวลา (ลดความสูงลง) */
+            .time-badge { display: block; padding: 1px 4px; border-radius: 2px; font-size: 9px; font-weight: 600; margin-bottom: 2px; border: 1px solid transparent; line-height: 1.2; text-align: left; letter-spacing: -0.2px; }
+            .time-cy { background-color: #f0f9ff; color: #0284c7; border-color: #bae6fd; }
+            .time-cutoff { background-color: #fef2f2; color: #dc2626; border-color: #fecaca; }
+            .time-load { background-color: #fffbeb; color: #d97706; border-color: #fde68a; }
+            .time-gate { background-color: #ecfdf5; color: #059669; border-color: #a7f3d0; }
+            .time-return { background-color: #f8fafc; color: #475569; border-color: #e2e8f0; }
         `;
         document.head.appendChild(style);
     }
@@ -202,7 +204,7 @@ function updateSummaryFooter(data) {
 }
 
 // ==========================================
-// 📊 จัดการตาราง Handsontable
+// 📊 จัดการตาราง Handsontable (เพิ่ม AGENT และ ขนาดตู้)
 // ==========================================
 function initBookingHandsontable(data) {
     const container = document.getElementById('booking-grid-container');
@@ -210,39 +212,42 @@ function initBookingHandsontable(data) {
     if (hotGridInstance) { hotGridInstance.destroy(); }
 
     const formattedTableData = data.map(item => {
-        // 🌟 ปรับปรุงการแสดงผลกล่องเวลาให้เป็น Badge สวยๆ 🌟
         let pickup = [];
-        if (item.cy_date && item.cy_date !== 'null') pickup.push(`<div class="time-badge time-cy"><i class="fa-regular fa-calendar-check mr-1"></i> CY: ${formatDateTime(item.cy_date)}</div>`);
-        if (item.vgm_cutoff && item.vgm_cutoff !== 'null') pickup.push(`<div class="time-badge time-cutoff"><i class="fa-solid fa-weight-scale mr-1"></i> VGM: ${formatDateTime(item.vgm_cutoff)}</div>`);
-        if (item.cutoff_time && item.cutoff_time !== 'null') pickup.push(`<div class="time-badge time-cutoff"><i class="fa-solid fa-ban mr-1"></i> CUTOFF: ${formatDateTime(item.cutoff_time)}</div>`);
-        if (item.rent_cutoff && item.rent_cutoff !== 'null') pickup.push(`<div class="time-badge time-cutoff"><i class="fa-regular fa-clock mr-1"></i> RENT: ${formatDateTime(item.rent_cutoff)}</div>`);
-        if (item.demurrage && item.demurrage !== 'null') pickup.push(`<div class="time-badge time-cutoff"><i class="fa-solid fa-money-bill-wave mr-1"></i> DEMUR: ${formatDateTime(item.demurrage)}</div>`);
+        if (item.cy_date && item.cy_date !== 'null') pickup.push(`<div class="time-badge time-cy">CY: ${formatDateTime(item.cy_date)}</div>`);
+        if (item.vgm_cutoff && item.vgm_cutoff !== 'null') pickup.push(`<div class="time-badge time-cutoff">VGM: ${formatDateTime(item.vgm_cutoff)}</div>`);
+        if (item.cutoff_time && item.cutoff_time !== 'null') pickup.push(`<div class="time-badge time-cutoff">CUT: ${formatDateTime(item.cutoff_time)}</div>`);
+        if (item.rent_cutoff && item.rent_cutoff !== 'null') pickup.push(`<div class="time-badge time-cutoff">RNT: ${formatDateTime(item.rent_cutoff)}</div>`);
+        if (item.demurrage && item.demurrage !== 'null') pickup.push(`<div class="time-badge time-cutoff">DMR: ${formatDateTime(item.demurrage)}</div>`);
 
         let delivery = [];
-        if (item.load_date && item.load_date !== 'null') delivery.push(`<div class="time-badge time-load"><i class="fa-solid fa-box-open mr-1"></i> LOAD: ${formatDateTime(item.load_date)}</div>`);
-        if (item.unload_date && item.unload_date !== 'null') delivery.push(`<div class="time-badge time-load"><i class="fa-solid fa-dolly mr-1"></i> UNLOAD: ${formatDateTime(item.unload_date)}</div>`);
+        if (item.load_date && item.load_date !== 'null') delivery.push(`<div class="time-badge time-load">LD: ${formatDateTime(item.load_date)}</div>`);
+        if (item.unload_date && item.unload_date !== 'null') delivery.push(`<div class="time-badge time-load">UN: ${formatDateTime(item.unload_date)}</div>`);
 
         let ret = [];
-        if (item.open_gate && item.open_gate !== 'null') ret.push(`<div class="time-badge time-gate"><i class="fa-solid fa-door-open mr-1"></i> GATE: ${formatDateTime(item.open_gate)}</div>`);
-        if (item.return_date && item.return_date !== 'null') ret.push(`<div class="time-badge time-return"><i class="fa-solid fa-rotate-left mr-1"></i> RETURN: ${formatDateTime(item.return_date)}</div>`);
+        if (item.open_gate && item.open_gate !== 'null') ret.push(`<div class="time-badge time-gate">GT: ${formatDateTime(item.open_gate)}</div>`);
+        if (item.return_date && item.return_date !== 'null') ret.push(`<div class="time-badge time-return">RT: ${formatDateTime(item.return_date)}</div>`);
 
         const jobNameDisplay = (item.job_name && item.job_name !== 'NaN') ? item.job_name : (item.job_title || '-');
 
         return [
             false, item.id, item.booking_no || '', item.mode || 'EXPORT', 
             item.run_date ? String(item.run_date).split('T')[0] : '', item.customer_name || '', 
+            item.agent || '', // 🌟 เพิ่ม AGENT
             jobNameDisplay, item.job_type || '', item.origin || '', item.destination || '', 
-            item.container_count || 1, item.price_type || '', item.trip_fee || 0, item.trans_fee || 0, 
-            pickup.join('') || '<span class="text-slate-300 italic text-[11px]"><i class="fa-solid fa-plus"></i> เพิ่มเวลา</span>', 
-            delivery.join('') || '<span class="text-slate-300 italic text-[11px]"><i class="fa-solid fa-plus"></i> เพิ่มเวลา</span>', 
-            ret.join('') || '<span class="text-slate-300 italic text-[11px]"><i class="fa-solid fa-plus"></i> เพิ่มเวลา</span>', 
+            item.container_count || 1, 
+            item.container_size || '', // 🌟 เพิ่ม ขนาดตู้
+            item.price_type || '', item.trip_fee || 0, item.trans_fee || 0, 
+            pickup.join('') || '<span class="text-slate-300 italic text-[10px]">+ เวลา</span>', 
+            delivery.join('') || '<span class="text-slate-300 italic text-[10px]">+ เวลา</span>', 
+            ret.join('') || '<span class="text-slate-300 italic text-[10px]">+ เวลา</span>', 
             item.booking_no 
         ];
     });
 
+    // 🌟 หัวคอลัมน์ใหม่ (รวม 20 คอลัมน์)
     const colHeaders = [
-        '✔', 'ID', 'Booking / BL', 'MODE', '📅 วันที่วิ่งงาน', 'ลูกค้า', 'ชื่องาน', 'ประเภทงาน', 
-        'ต้นทาง', 'ปลายทาง', 'ตู้', 'ประเภทรถ', 'ค่าเที่ยว', 'ค่าขนส่ง', 
+        '✔', 'ID', 'Booking / BL', 'MODE', '📅 วันที่วิ่ง', 'ลูกค้า', 'AGENT', 'ชื่องาน', 'ประเภท', 
+        'ต้นทาง', 'ปลายทาง', 'ตู้', 'ขนาด', 'รถ', 'ค่าเที่ยว', 'ค่าขนส่ง', 
         '📦 PICK UP', '🚚 DELIVERY', '🔄 RETURN', '⚙️ จัดการ'
     ];
 
@@ -256,11 +261,14 @@ function initBookingHandsontable(data) {
             { type: 'dropdown', source: ['EXPORT', 'IMPORT', 'TRANSFER'], className: 'htCenter htMiddle font-bold text-slate-600' }, 
             { type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter htMiddle text-slate-700 font-medium' }, 
             { type: 'text', className: 'font-bold text-slate-800 htMiddle' }, 
-            { type: 'text', className: 'font-medium text-slate-700 htMiddle' },
+            { type: 'text', className: 'font-medium text-purple-700 htMiddle bg-purple-50/30' }, // AGENT
+            { type: 'text', className: 'font-medium text-slate-700 htMiddle' }, 
             { type: 'dropdown', source: ['Domestic', 'CONTAINER'], className: 'htCenter htMiddle text-slate-600' }, 
-            { type: 'text', className: 'htMiddle text-slate-600' }, { type: 'text', className: 'htMiddle text-slate-600' }, 
+            { type: 'text', className: 'htMiddle text-slate-600' }, 
+            { type: 'text', className: 'htMiddle text-slate-600' }, 
             { type: 'numeric', className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/50' }, 
-            { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'], className: 'htCenter htMiddle text-slate-600 font-medium' }, 
+            { type: 'text', className: 'htCenter htMiddle font-bold text-blue-700' }, // ขนาดตู้
+            { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'], className: 'htCenter htMiddle text-slate-600' }, 
             { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold htRight htMiddle' }, 
             { type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold htRight htMiddle' }, 
             { type: 'text', renderer: renderClickableTimeCell, readOnly: true }, 
@@ -271,14 +279,14 @@ function initBookingHandsontable(data) {
                 renderer: function(instance, td, row, col, prop, value) {
                     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
                     if (value) {
-                        // 🌟 ยุบเหลือ 2 ปุ่ม ดีไซน์ใหม่ มินิมอลและชัดเจน 🌟
+                        // 🌟 ปุ่มเล็กลง และดีไซน์ให้ไม่เกะกะ 🌟
                         td.innerHTML = `
-                            <div class="flex flex-col items-stretch justify-center gap-1.5 p-1 h-full">
-                                <button onclick="window.goToFormEdit('${value}')" class="bg-white hover:bg-amber-50 text-slate-600 hover:text-amber-700 border border-slate-300 hover:border-amber-400 font-bold py-1.5 px-2 rounded shadow-sm text-[11px] transition-all flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-pen-to-square text-amber-500"></i> แก้ไขข้อมูล
+                            <div class="flex flex-col items-stretch justify-center gap-1 p-0.5 h-full">
+                                <button onclick="window.goToFormEdit('${value}')" class="bg-white hover:bg-amber-50 text-slate-600 hover:text-amber-700 border border-slate-300 hover:border-amber-400 font-bold py-1 px-1 rounded shadow-sm text-[10px] transition-all flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-pen-to-square text-amber-500"></i> แก้ไข
                                 </button>
-                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-1.5 px-2 rounded shadow-md text-[11px] transition-all flex items-center justify-center gap-1 border border-transparent">
-                                    <i class="fa-solid fa-truck-fast"></i> จัดรถ & ลงเบอร์ตู้
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-1 px-1 rounded shadow-sm text-[10px] transition-all flex items-center justify-center gap-1 border border-transparent">
+                                    <i class="fa-solid fa-truck-fast"></i> จัดรถ/ลงตู้
                                 </button>
                             </div>
                         `;
@@ -289,7 +297,8 @@ function initBookingHandsontable(data) {
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
-        colWidths: userGridSettings.columnWidths || [35, 45, 120, 80, 95, 120, 140, 90, 90, 90, 45, 80, 80, 80, 160, 160, 160, 110],
+        // 🌟 ปรับความกว้างคอลัมน์ให้สมส่วนขึ้น 🌟
+        colWidths: userGridSettings.columnWidths || [30, 40, 110, 75, 80, 100, 80, 120, 75, 80, 80, 40, 50, 50, 60, 60, 110, 110, 110, 80],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
 
@@ -341,15 +350,15 @@ window.goToFormEdit = function(bookingNo) { window.location.href = `/booking.htm
 window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
     Handsontable.renderers.HtmlRenderer.apply(this, arguments);
     td.innerHTML = `
-        <div class="relative group cursor-pointer w-full h-full min-h-[45px] p-1.5 rounded transition-colors" onclick="openDateTimeModal(${row}, ${prop})">
-            <div class="flex flex-col gap-1 items-start justify-center h-full">
+        <div class="relative group cursor-pointer w-full h-full min-h-[25px] p-0.5 rounded transition-colors" onclick="openDateTimeModal(${row}, ${prop})">
+            <div class="flex flex-col items-start justify-center h-full gap-[1px]">
                 ${value}
             </div>
-            <div class="absolute top-1 right-1 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded p-1 shadow-md items-center justify-center transition-all"><i class="fa-solid fa-pen text-[10px]"></i></div>
+            <div class="absolute top-0 right-0 hidden group-hover:flex bg-white border border-blue-200 text-blue-500 rounded p-1 shadow-md items-center justify-center transition-all z-10"><i class="fa-solid fa-pen text-[9px]"></i></div>
         </div>
     `;
     td.style.verticalAlign = 'middle';
-    if (!value || value.includes('เพิ่มเวลา')) {
+    if (!value || value.includes('+ เวลา')) {
         td.style.backgroundColor = '#f8fafc';
     }
 };
@@ -357,7 +366,7 @@ window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
 function formatDateTime(dtStr) {
     if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return '';
     const cleanStr = String(dtStr).replace('T', ' '); 
-    return cleanStr.length >= 16 ? cleanStr.substring(0, 16) : cleanStr; 
+    return cleanStr.length >= 16 ? cleanStr.substring(5, 16) : cleanStr; // 🌟 ตัดปีออกโชว์แค่ MM-DD HH:mm เพื่อประหยัดที่
 }
 
 let currentModalRow = -1;
@@ -377,7 +386,8 @@ window.openDateTimeModal = function(row, prop) {
     let html = '';
     let title = '';
 
-    if (prop === 14) { 
+    // Index อัปเดตใหม่: PickUp=16, Delivery=17, Return=18
+    if (prop === 16) { 
         title = 'เวลา PICK UP (รับตู้/ลาน)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
@@ -388,14 +398,14 @@ window.openDateTimeModal = function(row, prop) {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (Time)', item.rent_cutoff);
             html += createDatetimeInput('demurrage', 'Demurrage', item.demurrage);
         }
-    } else if (prop === 15) { 
+    } else if (prop === 17) { 
         title = 'เวลา DELIVERY (โหลดของ/ลงของ)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('load_date', 'Load Date & Time', item.load_date);
         } else {
             html += createDatetimeInput('unload_date', 'Unload Date & Time', item.unload_date);
         }
-    } else if (prop === 16) { 
+    } else if (prop === 18) { 
         title = 'เวลา RETURN (คืนตู้/เข้าท่า)';
         if (mode === 'EXPORT') {
             html += createDatetimeInput('open_gate', 'Open Gate & Time', item.open_gate);
@@ -449,23 +459,23 @@ window.saveDateTimeModal = function() {
 
     editedRowIndices.add(currentModalRow);
     
-    // อัปเดตข้อมูลตารางแบบ Force Render (ไม่ดึงใหม่เพื่อความเร็ว)
     let pickup = [], delivery = [], ret = [];
-    if (item.cy_date && item.cy_date !== 'null') pickup.push(`<div class="time-badge time-cy"><i class="fa-regular fa-calendar-check mr-1"></i> CY: ${formatDateTime(item.cy_date)}</div>`);
-    if (item.vgm_cutoff && item.vgm_cutoff !== 'null') pickup.push(`<div class="time-badge time-cutoff"><i class="fa-solid fa-weight-scale mr-1"></i> VGM: ${formatDateTime(item.vgm_cutoff)}</div>`);
-    if (item.cutoff_time && item.cutoff_time !== 'null') pickup.push(`<div class="time-badge time-cutoff"><i class="fa-solid fa-ban mr-1"></i> CUTOFF: ${formatDateTime(item.cutoff_time)}</div>`);
-    if (item.rent_cutoff && item.rent_cutoff !== 'null') pickup.push(`<div class="time-badge time-cutoff"><i class="fa-regular fa-clock mr-1"></i> RENT: ${formatDateTime(item.rent_cutoff)}</div>`);
-    if (item.demurrage && item.demurrage !== 'null') pickup.push(`<div class="time-badge time-cutoff"><i class="fa-solid fa-money-bill-wave mr-1"></i> DEMUR: ${formatDateTime(item.demurrage)}</div>`);
+    if (item.cy_date && item.cy_date !== 'null') pickup.push(`<div class="time-badge time-cy">CY: ${formatDateTime(item.cy_date)}</div>`);
+    if (item.vgm_cutoff && item.vgm_cutoff !== 'null') pickup.push(`<div class="time-badge time-cutoff">VGM: ${formatDateTime(item.vgm_cutoff)}</div>`);
+    if (item.cutoff_time && item.cutoff_time !== 'null') pickup.push(`<div class="time-badge time-cutoff">CUT: ${formatDateTime(item.cutoff_time)}</div>`);
+    if (item.rent_cutoff && item.rent_cutoff !== 'null') pickup.push(`<div class="time-badge time-cutoff">RNT: ${formatDateTime(item.rent_cutoff)}</div>`);
+    if (item.demurrage && item.demurrage !== 'null') pickup.push(`<div class="time-badge time-cutoff">DMR: ${formatDateTime(item.demurrage)}</div>`);
     
-    if (item.load_date && item.load_date !== 'null') delivery.push(`<div class="time-badge time-load"><i class="fa-solid fa-box-open mr-1"></i> LOAD: ${formatDateTime(item.load_date)}</div>`);
-    if (item.unload_date && item.unload_date !== 'null') delivery.push(`<div class="time-badge time-load"><i class="fa-solid fa-dolly mr-1"></i> UNLOAD: ${formatDateTime(item.unload_date)}</div>`);
+    if (item.load_date && item.load_date !== 'null') delivery.push(`<div class="time-badge time-load">LD: ${formatDateTime(item.load_date)}</div>`);
+    if (item.unload_date && item.unload_date !== 'null') delivery.push(`<div class="time-badge time-load">UN: ${formatDateTime(item.unload_date)}</div>`);
     
-    if (item.open_gate && item.open_gate !== 'null') ret.push(`<div class="time-badge time-gate"><i class="fa-solid fa-door-open mr-1"></i> GATE: ${formatDateTime(item.open_gate)}</div>`);
-    if (item.return_date && item.return_date !== 'null') ret.push(`<div class="time-badge time-return"><i class="fa-solid fa-rotate-left mr-1"></i> RETURN: ${formatDateTime(item.return_date)}</div>`);
+    if (item.open_gate && item.open_gate !== 'null') ret.push(`<div class="time-badge time-gate">GT: ${formatDateTime(item.open_gate)}</div>`);
+    if (item.return_date && item.return_date !== 'null') ret.push(`<div class="time-badge time-return">RT: ${formatDateTime(item.return_date)}</div>`);
 
-    if (currentModalProp === 14) hotGridInstance.setDataAtRowProp(currentModalRow, 14, pickup.join('') || '<span class="text-slate-300 italic text-[11px]"><i class="fa-solid fa-plus"></i> เพิ่มเวลา</span>');
-    if (currentModalProp === 15) hotGridInstance.setDataAtRowProp(currentModalRow, 15, delivery.join('') || '<span class="text-slate-300 italic text-[11px]"><i class="fa-solid fa-plus"></i> เพิ่มเวลา</span>');
-    if (currentModalProp === 16) hotGridInstance.setDataAtRowProp(currentModalRow, 16, ret.join('') || '<span class="text-slate-300 italic text-[11px]"><i class="fa-solid fa-plus"></i> เพิ่มเวลา</span>');
+    // อัปเดตตาราง
+    if (currentModalProp === 16) hotGridInstance.setDataAtRowProp(currentModalRow, 16, pickup.join('') || '<span class="text-slate-300 italic text-[10px]">+ เวลา</span>');
+    if (currentModalProp === 17) hotGridInstance.setDataAtRowProp(currentModalRow, 17, delivery.join('') || '<span class="text-slate-300 italic text-[10px]">+ เวลา</span>');
+    if (currentModalProp === 18) hotGridInstance.setDataAtRowProp(currentModalRow, 18, ret.join('') || '<span class="text-slate-300 italic text-[10px]">+ เวลา</span>');
 
     updateSaveStatusBadge();
     closeDateTimeModal();
@@ -477,7 +487,7 @@ function updateSaveStatusBadge() {
     const count = editedRowIndices.size;
     if (count > 0) {
         badge.className = "ml-auto text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse";
-        badge.innerHTML = `<i class="fa-solid fa-pen"></i> ${count} รายการรอเซฟ`;
+        badge.innerHTML = `<i class="fa-solid fa-pen"></i> ${count} รอเซฟ`;
     } else {
         badge.className = "ml-auto text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1";
         badge.innerHTML = `<i class="fa-solid fa-check text-emerald-500"></i> บันทึกแล้ว`;
@@ -500,9 +510,9 @@ window.saveGridChanges = async function() {
 
         const updateData = {
             booking_no: row[2], mode: row[3], run_date: row[4],
-            customer_name: row[5], job_name: row[6], job_type: row[7], origin: row[8], 
-            destination: row[9], container_count: row[10], price_type: row[11],
-            trip_fee: row[12], trans_fee: row[13],
+            customer_name: row[5], agent: row[6], job_name: row[7], job_type: row[8], origin: row[9], 
+            destination: row[10], container_count: row[11], container_size: row[12], price_type: row[13],
+            trip_fee: row[14], trans_fee: row[15],
             cy_date: item.cy_date, vgm_cutoff: item.vgm_cutoff, cutoff_time: item.cutoff_time,
             rent_cutoff: item.rent_cutoff, demurrage: item.demurrage,
             load_date: item.load_date, unload_date: item.unload_date,

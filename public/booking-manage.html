@@ -66,6 +66,11 @@
                 </div>
 
                 <div class="flex items-center gap-2">
+                    <!-- 🌟 ปุ่มเปิด-ปิด ลานฝากตู้ (Idea A) 🌟 -->
+                    <button id="btn-toggle-drops" onclick="toggleDropYards()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-purple-200 h-8 shadow-sm transition-colors">
+                        <i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้
+                    </button>
+                    
                     <button onclick="saveGridSettings()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-amber-300 h-8 shadow-sm">
                         <i class="fa-solid fa-table-columns"></i> จำมุมมอง
                     </button>
@@ -98,76 +103,6 @@
             <div id="container-grid-container" class="absolute inset-0 z-0"></div>
         </div>
     </main>
-
-    <!-- 🌟 Pop-up Modal สำหรับจัดการเส้นทางฝากตู้ (Drop Yard Timeline) 🌟 -->
-    <div id="drop-yard-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[60] hidden items-center justify-center opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform scale-95 transition-transform duration-200" id="drop-yard-modal-content">
-            <!-- Header -->
-            <div class="bg-purple-50 px-5 py-4 border-b border-purple-100 flex justify-between items-center">
-                <div>
-                    <h3 class="font-bold text-purple-900 text-lg flex items-center gap-2"><i class="fa-solid fa-route"></i> จัดการเส้นทาง & ลานฝากตู้</h3>
-                    <p class="text-xs text-purple-600 mt-1 font-medium" id="drop-yard-subtitle">Order: - | ต้นทาง: - | ปลายทาง: -</p>
-                </div>
-                <button onclick="closeTimelineModal()" class="text-slate-400 hover:text-red-500 transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            
-            <!-- Body: Timeline -->
-            <div class="p-5 max-h-[60vh] overflow-y-auto bg-slate-50">
-                <div class="relative pl-6 border-l-2 border-purple-200 space-y-6" id="timeline-container">
-                    
-                    <!-- จุดที่ 1: รับตู้ -->
-                    <div class="relative">
-                        <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-emerald-500 rounded-full z-10 shadow-sm"></div>
-                        <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">1. ต้นทาง (ไปรับตู้)</span>
-                            <div class="mt-2 flex gap-2">
-                                <input type="text" id="leg1-car-preview" placeholder="ทะเบียนรถ..." class="w-1/3 px-2 py-1.5 border border-slate-300 rounded text-xs bg-slate-100 text-slate-500" readonly>
-                                <input type="text" id="leg1-driver-preview" placeholder="คนขับรถ..." class="w-2/3 px-2 py-1.5 border border-slate-300 rounded text-xs bg-slate-100 text-slate-500" readonly>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- จุดที่ 2: ลานฝากตู้ -->
-                    <div id="drop-yard-node" class="relative hidden">
-                        <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-purple-500 rounded-full z-10 shadow-sm flex items-center justify-center"><i class="fa-solid fa-anchor text-[8px] text-purple-500"></i></div>
-                        <div class="bg-purple-50 p-3 rounded-lg border border-purple-200 shadow-sm">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-bold text-purple-800 uppercase tracking-wide">2. ฝากลานพักตู้ (Drop Yard)</span>
-                                <button onclick="removeDropYard()" class="text-red-400 hover:text-red-600 text-xs font-bold"><i class="fa-solid fa-trash-can"></i> ลบจุดพัก</button>
-                            </div>
-                            <input type="text" id="drop-yard-loc" placeholder="ชื่อลานฝากตู้ (อู่รถ, ลานพัก)..." class="w-full px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white mb-2">
-                            <div class="flex gap-2">
-                                <input type="text" id="drop-yard-car" placeholder="ทะเบียนรถ (คันที่มารับช่วงต่อ)..." class="w-1/3 px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white font-bold text-purple-800">
-                                <input type="text" id="drop-yard-driver" placeholder="คนขับรถ (คันที่มารับช่วงต่อ)..." class="w-2/3 px-2 py-1.5 border border-purple-300 rounded text-xs outline-none focus:border-purple-500 bg-white font-bold text-purple-800">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- จุดที่ 3: ปลายทาง -->
-                    <div class="relative">
-                        <div class="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-slate-400 rounded-full z-10 shadow-sm"></div>
-                        <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">3. ปลายทาง (เข้าโรงงาน / คืนตู้)</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-6 flex justify-center">
-                    <button id="btn-add-drop" onclick="addDropYard()" class="bg-white border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 hover:border-purple-400 font-bold py-2 px-6 rounded-lg text-sm transition-colors flex items-center gap-2 shadow-sm">
-                        <i class="fa-solid fa-plus"></i> แทรกจุดฝากตู้
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Footer -->
-            <div class="bg-white px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
-                <button onclick="closeTimelineModal()" class="px-4 py-2 rounded-lg text-slate-600 bg-white border border-slate-300 text-sm font-bold hover:bg-slate-100">ยกเลิก</button>
-                <button onclick="saveTimeline()" class="px-5 py-2 rounded-lg text-white bg-purple-600 text-sm font-bold hover:bg-purple-700 shadow-sm flex items-center gap-2">
-                    <i class="fa-solid fa-floppy-disk"></i> บันทึกเส้นทาง
-                </button>
-            </div>
-        </div>
-    </div>
 
     <script src="js/modules/booking/manage.js"></script>
     <script>

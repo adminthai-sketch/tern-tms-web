@@ -175,13 +175,11 @@ router.post('/driver_info', async (req, res) => {
 
 router.get('/truck_assignments', async (req, res) => {
     try {
-        // เพิ่ม default_vehicle_type ใน SELECT
         const result = await pool.query('SELECT id, default_plate_number, default_vehicle_type, driver_name FROM drivers WHERE default_plate_number IS NOT NULL ORDER BY id ASC');
         const trucks = await pool.query("SELECT default_plate_number FROM drivers WHERE status = 'ACTIVE' AND default_plate_number IS NOT NULL");
         const drivers = await pool.query("SELECT driver_name FROM drivers WHERE status = 'ACTIVE'");
         res.json({ 
             success: true, 
-            // แมปข้อมูล 4 ค่าให้ตรงกับคอลัมน์หน้าบ้าน
             data: result.rows.map(r => [r.id, r.default_plate_number, r.default_vehicle_type || '', r.driver_name]),
             truckList: trucks.rows.map(t => t.default_plate_number),
             driverList: drivers.rows.map(d => d.driver_name)
@@ -189,7 +187,6 @@ router.get('/truck_assignments', async (req, res) => {
     } catch (err) { res.json({ success: true, data: [], truckList: [], driverList: [] }); }
 });
     
-
 router.post('/truck_assignments', async (req, res) => {
     const { data } = req.body;
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
@@ -197,7 +194,7 @@ router.post('/truck_assignments', async (req, res) => {
     try {
         await client.query('BEGIN');
         for (const row of data) {
-            const [id, plate_number, driver_name] = row;
+            const [id, plate_number, dummy, driver_name] = row;
             if (id) {
                 await client.query(`UPDATE drivers SET default_plate_number = $1, driver_name = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, [plate_number, driver_name, id]);
             }
@@ -215,8 +212,11 @@ router.post('/truck_assignments', async (req, res) => {
 // ==========================================
 router.get('/customers', async (req, res) => {
     try {
-        const result = await pool.query('SELECT customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id FROM customers ORDER BY id ASC');
-        res.json({ success: true, data: result.rows.map(r => [r.customer_no, r.customer_name, r.short_name, r.billing_name, r.phone_number, r.address, r.tax_id]) });
+        const result = await pool.query('SELECT id, customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id, credit_term FROM customers ORDER BY id ASC');
+        res.json({ 
+            success: true, 
+            data: result.rows.map(r => [r.id, r.customer_no, r.customer_name, r.short_name, r.billing_name, r.phone_number, r.address, r.tax_id, r.credit_term]) 
+        });
     } catch (err) { res.json({ success: true, data: [] }); }
 });
 
@@ -225,14 +225,20 @@ router.post('/customers', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        await client.query('DELETE FROM customers');
         for (const row of data) {
-            const [c_no, c_name, s_name, b_name, phone, addr, tax] = row;
-            if (!c_no) continue;
-            await client.query(`INSERT INTO customers (customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [c_no, c_name, s_name, b_name, phone, addr, tax]);
+            const [id, c_no, c_name, s_name, b_name, phone, addr, tax, credit] = row;
+            if (!c_name) continue; 
+            
+            if (id) {
+                await client.query(`UPDATE customers SET customer_no=$1, customer_name=$2, short_name=$3, billing_name=$4, phone_number=$5, address=$6, tax_id=$7, credit_term=$8 WHERE id=$9`, 
+                [c_no, c_name, s_name, b_name, phone, addr, tax, cleanNum(credit) || 30, id]);
+            } else {
+                await client.query(`INSERT INTO customers (customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id, credit_term) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, 
+                [c_no, c_name, s_name, b_name, phone, addr, tax, cleanNum(credit) || 30]);
+            }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลลูกค้าเรียบร้อย' });
+        res.json({ success: true, message: 'บันทึกข้อมูลลูกค้าเรียบร้อย (อัปเดตแบบไร้รอยต่อ)' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
@@ -241,9 +247,19 @@ router.post('/customers', async (req, res) => {
 
 router.get('/rates', async (req, res) => {
     try {
-        // เพิ่ม job_type เข้าไปในคำสั่ง SELECT เพื่อให้ข้อมูลส่งไปยัง Frontend
-        const result = await pool.query('SELECT job_name, customer_name, origin, destination, run_type, container_count, job_type, trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash FROM rates ORDER BY id ASC');
-        res.json({ success: true, data: result.rows.map(r => [r.job_name, r.customer_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash]) });
+        const query = `
+            SELECT r.id, c.short_name, r.job_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, 
+                   r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, 
+                   r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash 
+            FROM rates r
+            LEFT JOIN customers c ON r.customer_id = c.id
+            ORDER BY r.id ASC
+        `;
+        const result = await pool.query(query);
+        res.json({ 
+            success: true, 
+            data: result.rows.map(r => [r.id, r.short_name, r.job_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash]) 
+        });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -252,14 +268,26 @@ router.post('/rates', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        await client.query('DELETE FROM rates');
+        await client.query('DELETE FROM rates'); 
         for (const r of data) {
-            if (!r[0]) continue;
-            // เพิ่ม parameter การบันทึก job_type ($7)
-            await client.query(`INSERT INTO rates (job_name, customer_name, origin, destination, run_type, container_count, job_type, trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`, [r[0], r[1], r[2], r[3], r[4], cleanNum(r[5]) || 1, r[6], cleanNum(r[7]), cleanNum(r[8]), cleanNum(r[9]), cleanNum(r[10]), cleanNum(r[11]), cleanNum(r[12]), cleanNum(r[13]), cleanNum(r[14])]);
+            const short_name = r[1];
+            if (!short_name || !r[2]) continue; 
+
+            const custRes = await client.query('SELECT id FROM customers WHERE short_name = $1 LIMIT 1', [short_name]);
+            const customer_id = custRes.rows.length > 0 ? custRes.rows[0].id : null;
+
+            await client.query(`
+                INSERT INTO rates (customer_id, job_name, origin, destination, run_type, container_count, job_type, 
+                                   trip_fee_6w, trip_fee_10w, trip_fee_12w, trip_fee_cash, 
+                                   trans_fee_6w, trans_fee_10w, trans_fee_12w, trans_fee_cash) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`, 
+                [customer_id, r[2], r[3], r[4], r[5], cleanNum(r[6]) || 1, r[7], 
+                 cleanNum(r[8]), cleanNum(r[9]), cleanNum(r[10]), cleanNum(r[11]), 
+                 cleanNum(r[12]), cleanNum(r[13]), cleanNum(r[14]), cleanNum(r[15])]
+            );
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกเรทราคาสำเร็จ' });
+        res.json({ success: true, message: 'บันทึกเรทราคาและผูกรหัสลูกค้าสำเร็จ!' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });

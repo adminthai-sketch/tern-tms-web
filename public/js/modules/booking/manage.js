@@ -106,12 +106,12 @@ async function loadContainerGridData() {
 
         if (result.success && result.data) {
             rawShipmentList = result.data.map(item => {
-                // Formatting Dates
+                // แปลงข้อมูลแบบ Object สำหรับตารางใหม่
                 item._disp_cy_date = formatShortDate(item.cy_date);
                 item._disp_load_date = formatShortDate(item.load_date);
                 item._disp_return_date = formatShortDate(item.return_date);
                 
-                // Auto-fill Drivers if missing
+                // ดึงคนขับอัตโนมัติถ้ามีทะเบียนรถ
                 if (item.leg1_plate && !item.leg1_driver) item.leg1_driver = fleetAssignments[item.leg1_plate] || '';
                 if (item.drop1_plate && !item.drop1_driver) item.drop1_driver = fleetAssignments[item.drop1_plate] || '';
                 if (item.leg2_plate && !item.leg2_driver) item.leg2_driver = fleetAssignments[item.leg2_plate] || '';
@@ -125,6 +125,7 @@ async function loadContainerGridData() {
             editedRowIndices.clear();
             updateDropdownOptions(); 
 
+            // 🌟 เช็ค URL Params ถ้ามาจากหน้าบุคกิ้ง ก็กรองให้ตรงเป๊ะ!
             const urlParams = new URLSearchParams(window.location.search);
             const selectBooking = urlParams.get('select');
             if (selectBooking) {
@@ -446,4 +447,90 @@ window.addNewContainerRow = function() {
     if (!filterBooking) { alert("⚠️ กรุณากรองเลือกเลข Booking ที่ต้องการเพิ่มตู้ในช่องค้นหาด้านบนก่อนครับ!"); return; }
 
     const templateRow = rawShipmentList.find(r => r.booking_no === filterBooking);
-    if (!templateRow)
+    if (!templateRow) { alert("❌ ไม่พบข้อมูล Booking นี้ในตารางครับ"); return; }
+
+    const timestampID = `ORD-ADD-${Date.now().toString().slice(-4)}`;
+    
+    const newRow = {
+        _checkbox: false,
+        order_id: timestampID,
+        booking_no: filterBooking,
+        customer_name: templateRow.customer_name,
+        origin: templateRow.origin,
+        destination: templateRow.destination,
+        container_size: templateRow.container_size,
+        _disp_cy_date: templateRow._disp_cy_date,
+        _disp_load_date: templateRow._disp_load_date,
+        _disp_return_date: templateRow._disp_return_date,
+        trip_fee: templateRow.trip_fee,
+        trans_fee: templateRow.trans_fee,
+        overall_status: 'รอจัดรถ'
+    };
+
+    rawShipmentList.unshift(newRow); 
+    applyFilters(); 
+    editedRowIndices.add(0);
+    updateSaveStatusBadge();
+    alert(`✅ สร้างแถวตู้ใหม่ให้ Booking: ${filterBooking} เรียบร้อยแล้วครับ!`);
+};
+
+window.deleteContainerRows = async function() {
+    if (!hotGridInstance) return;
+    const data = hotGridInstance.getData();
+    const rowsToDelete = [];
+    const idsToDelete = [];
+
+    data.forEach((row, index) => {
+        const src = hotGridInstance.getSourceDataAtRow(index);
+        if (src._checkbox === true || src._checkbox === 'true') { 
+            rowsToDelete.push(index);
+            if (src.order_id && !src.order_id.includes('ORD-ADD')) idsToDelete.push(src.order_id); 
+        }
+    });
+
+    if (rowsToDelete.length === 0) { alert('🖱️ กรุณาติ๊กถูกด้านหน้าแถวที่ต้องการจะลบตู้ก่อนครับ'); return; }
+    if (!confirm(`⚠️ ยืนยันการลบตู้จำนวน ${rowsToDelete.length} รายการทิ้งถาวร?`)) return;
+
+    if (idsToDelete.length > 0) {
+        try { 
+            const res = await fetch('/api/shipments', { 
+                method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_ids: idsToDelete }) 
+            }); 
+            const result = await res.json();
+            if(!result.success) { alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message); return; }
+        } catch (e) { alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์'); return; }
+    }
+    
+    alert(`✅ ลบตู้เสร็จสิ้น!`);
+    loadContainerGridData(); 
+};
+
+window.saveGridChanges = async function() {
+    if (!hotGridInstance || editedRowIndices.size === 0) return;
+    const btn = document.getElementById('btn-save-grid');
+    const orgText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
+
+    const dataToSave = [];
+    editedRowIndices.forEach(idx => { dataToSave.push(hotGridInstance.getSourceDataAtRow(idx)); });
+
+    try {
+        const res = await fetch('/api/shipments', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: dataToSave }) 
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert('✅ บันทึกข้อมูลตู้และคนขับสำเร็จ!');
+            editedRowIndices.clear();
+            loadContainerGridData(); 
+        } else {
+            alert('❌ ข้อผิดพลาด: ' + result.message);
+        }
+    } catch (err) {
+        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้');
+    } finally {
+        btn.innerHTML = orgText; btn.disabled = false;
+    }
+};

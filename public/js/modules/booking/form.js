@@ -1,5 +1,5 @@
 // ==========================================
-// 📝 MODULE: BOOKING FORM (Fix UI and Logic)
+// 📝 MODULE: BOOKING FORM (Enterprise 3-Tier Schema)
 // ==========================================
 
 let rateDataMap = {};
@@ -13,7 +13,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (datalist) datalist.innerHTML = '';
             
             d.data.forEach(r => {
-                // 🌟 ปรับ Index ใหม่: r[2] = job_name, r[1] = short_name
                 rateDataMap[r[2]] = {
                     customer: r[1], origin: r[3], dest: r[4], jobType: r[7],
                     trp6: r[8], trp10: r[9], trp12: r[10], trpCash: r[11],
@@ -22,7 +21,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 
                 if (datalist) {
                     const opt = document.createElement('option');
-                    opt.value = r[2]; // ใช้ชื่องานเป็น Value
+                    opt.value = r[2]; 
                     datalist.appendChild(opt);
                 }
             });
@@ -34,7 +33,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (editBookingNo) await loadBookingForEdit(editBookingNo);
 });
 
-// ฟังก์ชันดึงข้อมูลเก่ามาถมใส่ฟอร์ม
 async function loadBookingForEdit(bookingNo) {
     try {
         const res = await fetch(`/api/bookings/search?search=${bookingNo}`);
@@ -47,11 +45,19 @@ async function loadBookingForEdit(bookingNo) {
             document.getElementById('editing-badge').classList.remove('hidden');
             document.getElementById('btn-cancel-edit').classList.remove('hidden');
             
+            // ใช้ Hidden Input เก็บ ID สำหรับอ้างอิงตอนกดเซฟ
+            let idInput = document.getElementById('editingOrderId');
+            if(idInput) idInput.value = item.id;
+            
             document.getElementById('pMode').value = item.mode || '';
             toggleModeUI();
             
             document.getElementById('runDate').value = item.run_date ? item.run_date.split('T')[0] : '';
             document.getElementById('rowCount').value = item.container_count || 1;
+            
+            // 🌟 ดึงค่าขนาดตู้กลับมาแสดง
+            if (document.getElementById('containerSize')) document.getElementById('containerSize').value = item.container_size || '';
+
             document.getElementById('jobNameInput').value = item.job_name || '';
             document.getElementById('pCustomer').value = item.customer_name || '';
             document.getElementById('pOrigin').value = item.origin || '';
@@ -78,6 +84,7 @@ async function loadBookingForEdit(bookingNo) {
                 setDateTime('pCyExp', item.cy_date); setDateTime('pVgmExp', item.vgm_cutoff);
                 setDateTime('pCutoffExp', item.cutoff_time); setDateTime('pLoadExp', item.load_date);
                 setDateTime('pOpenGateExp', item.open_gate);
+                setDateTime('pCutoffReturnExp', item.cutoff_time);
             } else if (item.mode === 'IMPORT') {
                 document.getElementById('pBookingImp').value = item.booking_no || '';
                 document.getElementById('pAgentImp').value = item.agent || '';
@@ -86,6 +93,10 @@ async function loadBookingForEdit(bookingNo) {
                 setDateTime('pCyImp', item.cy_date); setDateTime('pRentImp', item.rent_cutoff);
                 setDateTime('pDemImp', item.demurrage); setDateTime('pUnloadImp', item.unload_date);
                 setDateTime('pReturnImp', item.return_date);
+            } else if (item.mode === 'TRANSFER') {
+                if (document.getElementById('pRefTrans')) {
+                    document.getElementById('pRefTrans').value = item.booking_no || '';
+                }
             }
         }
     } catch (err) { console.error('Error loading edit', err); }
@@ -106,14 +117,12 @@ window.toggleModeUI = function() {
     else document.getElementById('jobPreviewBox').classList.add('hidden');
 }
 
-// 🌟 ฟังก์ชันดึง Cutoff Auto กลับมาแล้ว 🌟
 window.syncCutoff = function() { 
     const exp = document.getElementById('pCutoffExp');
     const auto = document.getElementById('pCutoffReturnExp');
     if(exp && auto) auto.value = exp.value; 
 };
 
-// 🌟 ฟังก์ชันดึงชื่องาน/ต้นทาง/ปลายทาง 🌟
 window.previewJobData = function() {
     const val = document.getElementById('jobNameInput').value;
     if(!val || !rateDataMap[val]) return;
@@ -131,10 +140,9 @@ window.previewJobData = function() {
         document.getElementById('pPortImp').value = rate.origin || '';
         document.getElementById('pDepotImp').value = rate.dest || '';
     }
-    window.updateFeeDropdowns(); // ดึงราคาอัปเดตต่อทันที
+    window.updateFeeDropdowns();
 }
 
-// 🌟 ฟังก์ชันดึงราคาเมื่อเลือกรถ กลับมาแล้ว 🌟
 window.updateFeeDropdowns = function() {
     const val = document.getElementById('jobNameInput').value; 
     const type = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
@@ -162,33 +170,42 @@ window.submitBookingForm = async function(btn) {
     const runDate = document.getElementById('runDate').value;
     const customer = document.getElementById('pCustomer').value;
     const containerCount = document.getElementById('rowCount').value || 1;
+    
+    // 🌟 ดึงค่าขนาดตู้
+    const containerSizeVal = document.getElementById('containerSize') ? document.getElementById('containerSize').value.toUpperCase() : '';
 
     if(!mode || !runDate || !customer) {
         alert('⚠️ กรุณากรอก Mode, วันที่วิ่งงาน และชื่อลูกค้าให้ครบถ้วน'); 
         return; 
     }
 
-    let cyDate="", vgmCutoff="", cutoffTime="", loadDate="", openGate="", rentCutoff="", demurrage="", unloadDate="", returnDate="";
+    let b_no = "", agentVal = "", cyDate="", vgmCutoff="", cutoffTime="", loadDate="", openGate="", rentCutoff="", demurrage="", unloadDate="", returnDate="";
+    
     if (mode === 'EXPORT') {
+        b_no = document.getElementById('pBookingExp').value;
+        agentVal = document.getElementById('pAgentExp') ? document.getElementById('pAgentExp').value : ''; // 🌟 ดึงค่า Agent ขาออก
         cyDate = getCombinedDateTime('pCyExp'); vgmCutoff = getCombinedDateTime('pVgmExp');
         cutoffTime = getCombinedDateTime('pCutoffExp'); loadDate = getCombinedDateTime('pLoadExp');
         openGate = getCombinedDateTime('pOpenGateExp');
     } else if (mode === 'IMPORT') {
+        b_no = document.getElementById('pBookingImp').value;
+        agentVal = document.getElementById('pAgentImp') ? document.getElementById('pAgentImp').value : ''; // 🌟 ดึงค่า Agent ขาเข้า
         cyDate = getCombinedDateTime('pCyImp'); rentCutoff = getCombinedDateTime('pRentImp');
         demurrage = getCombinedDateTime('pDemImp'); unloadDate = getCombinedDateTime('pUnloadImp');
         returnDate = getCombinedDateTime('pReturnImp');
+    } else if (mode === 'TRANSFER') {
+        const trRef = document.getElementById('pRefTrans');
+        if(trRef) b_no = trRef.value;
     }
 
     const jobName = document.getElementById('jobNameInput').value.trim();
     const jobTypeVal = document.getElementById('pJobType') ? document.getElementById('pJobType').value : '';
     const priceTypeVal = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
     
-    // แปลงให้เป็นตัวเลขกันพัง
     const formatNum = (v) => v ? parseFloat(String(v).replace(/,/g, '')) : 0;
     const tripFeeVal = document.getElementById('pTripFee') ? formatNum(document.getElementById('pTripFee').value) : 0;
     const transFeeVal = document.getElementById('pTransFee') ? formatNum(document.getElementById('pTransFee').value) : 0;
 
-    // 🌟 3. ระบบ AI ตรวจจับราคางานใหม่ (แก้ไข syntax string ให้ถูกต้อง) 🌟
     if (jobName) {
         let isNewRate = !rateDataMap[jobName];
         let priceChanged = false;
@@ -220,26 +237,19 @@ window.submitBookingForm = async function(btn) {
                     trans_fee_12w: priceTypeVal === '12W*2' ? transFeeVal : null,
                     trans_fee_cash: priceTypeVal === 'เงินสด' ? transFeeVal : null,
                 };
-                try {
-                    await fetch('/api/rates/single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(singleRateData) });
-                } catch(e) { console.error(e); }
+                try { await fetch('/api/rates/single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(singleRateData) }); } catch(e) {}
             }
         }
     }
 
-    let b_no = "";
-    if (mode === 'EXPORT') b_no = document.getElementById('pBookingExp').value;
-    else if (mode === 'IMPORT') b_no = document.getElementById('pBookingImp').value;
-    else if (mode === 'TRANSFER') {
-        const trRef = document.getElementById('pRefTrans');
-        if(trRef) b_no = trRef.value;
-    }
-
+    // 🌟 ห่อข้อมูลเตรียมส่งไป Database (พร้อม Field ใหม่ครบถ้วน)
     const dataToSave = {
         mode: mode, run_date: runDate, customer_name: customer, job_name: jobName, job_type: jobTypeVal,
         origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
         container_count: containerCount,
+        container_size: containerSizeVal, // 🌟 ขนาดตู้
         booking_no: b_no,
+        agent: agentVal, // 🌟 สายเรือ
         price_type: priceTypeVal, trip_fee: tripFeeVal, trans_fee: transFeeVal,
         cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
         rent_cutoff: rentCutoff, demurrage: demurrage, unload_date: unloadDate, return_date: returnDate
@@ -250,18 +260,26 @@ window.submitBookingForm = async function(btn) {
     btn.disabled = true;
 
     try {
-        const res = await fetch('/api/bookings/header', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSave) });
-        const result = await res.json();
-        if (result.success) {
-            alert('✅ บันทึก Booking เรียบร้อย!');
-            const urlParams = new URLSearchParams(window.location.search);
-            if(urlParams.get('edit')) {
-                window.location.href = '/booking-list.html';
-            } else {
-                window.location.reload(); 
-            }
+        const urlParams = new URLSearchParams(window.location.search);
+        const editBookingNo = urlParams.get('edit');
+        
+        let res;
+        if (editBookingNo && document.getElementById('editingOrderId').value) {
+            // โหมดอัปเดต (PUT)
+            const bookingId = document.getElementById('editingOrderId').value;
+            res = await fetch(`/api/bookings/${bookingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSave) });
         } else {
-            alert('❌ เกิดข้อผิดพลาด: ' + result.message);
+            // โหมดสร้างใหม่ (POST)
+            res = await fetch('/api/bookings/header', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSave) });
+        }
+
+        const result = await res.json();
+        if (result.success || res.ok) {
+            alert('✅ บันทึก Booking เรียบร้อย!');
+            if(editBookingNo) window.location.href = '/booking-list.html';
+            else window.location.reload(); 
+        } else {
+            alert('❌ เกิดข้อผิดพลาด: ' + (result.message || 'Unknown Error'));
         }
     } catch (err) { alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้'); } 
     finally { btn.innerHTML = orgText; btn.disabled = false; }

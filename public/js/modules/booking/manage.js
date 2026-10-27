@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: DISPATCH & CONTAINER MANAGE
+// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Safe Freeze Layout)
 // ==========================================
 
 let hotGridInstance = null;
@@ -40,8 +40,48 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {}
 
     await loadFleetData(); 
+    
+    // 🌟 สร้างปุ่มควบคุมตารางด้านบน (รีเซ็ต / เลือกระยะตรึงตาราง) 🌟
+    setupGridControlButtons();
+
     await loadContainerGridData();
 });
+
+function setupGridControlButtons() {
+    const btnContainer = document.querySelector('button[onclick="saveGridSettings()"]').parentElement;
+    
+    // ปุ่มรีเซ็ตมุมมอง
+    const resetBtn = document.createElement('button');
+    resetBtn.className = "bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-3 py-1.5 rounded-lg shadow-sm border border-rose-200 transition-colors ml-2 flex items-center gap-1 text-[11px]";
+    resetBtn.innerHTML = '<i class="fa-solid fa-broom"></i> รีเซ็ตมุมมอง';
+    resetBtn.onclick = async () => {
+        if(!confirm('⚠️ ต้องการล้างการตั้งค่าตารางที่เคยบันทึกไว้ และกลับไปใช้ค่าเริ่มต้นใช่หรือไม่?')) return;
+        const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
+        if (user.id) {
+            await fetch('/api/users/grid-settings', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, gridName: 'container_manage', settings: {} })
+            });
+        }
+        location.reload();
+    };
+
+    // ปุ่มเลือกระยะตรึง (Freeze)
+    const freezeSelect = document.createElement('select');
+    freezeSelect.className = "bg-blue-50 text-blue-700 font-bold px-2 py-1.5 rounded-lg shadow-sm border border-blue-200 ml-2 outline-none text-[11px] cursor-pointer";
+    freezeSelect.innerHTML = `
+        <option value="3" ${(!userGridSettings.fixedColumns || userGridSettings.fixedColumns == 3) ? 'selected' : ''}>📌 ตรึงแค่หัวบิล</option>
+        <option value="10" ${(userGridSettings.fixedColumns == 10) ? 'selected' : ''}>📌 ตรึงจนถึง "เบอร์ตู้ 2"</option>
+    `;
+    freezeSelect.onchange = (e) => {
+        if (hotGridInstance) {
+            hotGridInstance.updateSettings({ fixedColumnsLeft: parseInt(e.target.value) });
+        }
+    };
+
+    btnContainer.appendChild(freezeSelect);
+    btnContainer.appendChild(resetBtn);
+}
 
 async function loadFleetData() {
     try {
@@ -232,7 +272,6 @@ function initContainerHandsontable(data) {
         `;
     };
 
-    // ปุ่ม Auto-fill คนขับ ย้ายมาไว้ที่ช่องเวลาของขา 1
     const leg1TimeRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         td.innerHTML = `
@@ -269,9 +308,11 @@ function initContainerHandsontable(data) {
         autoRowSize: false,
         rowHeights: 28,
         
-        // 🌟 ตั้งค่าให้ตรึงคอลัมน์ไว้ด้านซ้าย (ค่าเริ่มต้นคือ 3 คอลัมน์แรก) 🌟
+        // 🌟 ตั้งค่าให้ตรึงคอลัมน์จากที่เลือกใน Dropdown ด้านบน 🌟
         fixedColumnsLeft: userGridSettings.fixedColumns !== undefined ? parseInt(userGridSettings.fixedColumns) : 3,
-        manualColumnFreeze: true, 
+        
+        // 🌟 ปิดระบบย้ายคอลัมน์อัตโนมัติป้องกันตารางพัง! 🌟
+        manualColumnFreeze: false, 
 
         nestedHeaders: [
             [
@@ -300,7 +341,6 @@ function initContainerHandsontable(data) {
             ]
         ],
         columns: [
-            // 📋 ข้อมูลงาน
             { data: '_checkbox', type: 'checkbox', className: 'htCenter htMiddle zone-info' }, 
             { data: 'order_id', type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info', renderer: orderIdRenderer }, 
             { data: 'booking_no', type: 'text', readOnly: true, className: 'font-bold text-primary htCenter htMiddle zone-info' }, 
@@ -309,7 +349,6 @@ function initContainerHandsontable(data) {
             { data: 'origin', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             
-            // 📦 ข้อมูลตู้
             { data: 'container_size', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
             { data: 'container_1_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 'container_2_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
@@ -318,43 +357,36 @@ function initContainerHandsontable(data) {
             { data: 'tare', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
             { data: 'max_gross', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
 
-            // 🚚 ขา 1: PICK UP
             { data: 'leg1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
             { data: 'leg1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
             { data: '_disp_cy_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell bg-slate-50', renderer: leg1TimeRenderer }, 
             { data: 'leg1_is_drop', readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer }, 
             { data: 'leg1_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-leg1', renderer: statusRenderer }, 
 
-            // 🅿️ ขาฝาก 1
             { data: 'drop1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
             { data: 'drop1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
             { data: 'drop1_location', type: 'text', className: 'zone-legdrop htMiddle' },
             { data: 'drop1_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-legdrop', renderer: statusRenderer },
 
-            // 🏭 ขา 2: DELIVERY
             { data: 'leg2_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
             { data: 'leg2_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
             { data: '_disp_load_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg2_is_drop', readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer },
             { data: 'leg2_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-leg2', renderer: statusRenderer },
 
-            // 🅿️ ขาฝาก 2
             { data: 'drop2_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
             { data: 'drop2_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
             { data: 'drop2_location', type: 'text', className: 'zone-legdrop htMiddle' },
             { data: 'drop2_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-legdrop', renderer: statusRenderer },
 
-            // 🚢 ขา 3: RETURN
             { data: 'leg3_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
             { data: 'leg3_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
             { data: '_disp_return_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg3_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-leg3', renderer: statusRenderer },
 
-            // 💵 การเงิน ค่าจ้าง
             { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold bg-green-50 htRight htMiddle' }, 
             { data: 'trans_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50 htRight htMiddle' },
 
-            // 💸 เบิกจ่ายหน้าท่า/ลาน + ค่าใช้จ่ายอื่นๆ
             { data: 'port_pass_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
             { data: 'shore_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
             { data: 'lift_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
@@ -362,7 +394,6 @@ function initContainerHandsontable(data) {
             { data: 'advance_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-rose-600 font-bold bg-rose-50 htRight htMiddle' },
             { data: 'other_expense', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-rose-600 font-bold bg-rose-50 htRight htMiddle' },
             
-            // 📝 หมายเหตุ
             { data: 'remark', type: 'text', className: 'htLeft htMiddle' }
         ],
         colWidths: [
@@ -385,12 +416,9 @@ function initContainerHandsontable(data) {
             indicators: true
         },
         
-        // 🌟 เพิ่มเมนูคลิกขวา (Context Menu) แบบภาษาไทย สำหรับตรึงคอลัมน์! 🌟
+        // 🌟 ปิดเมนูตรึงคอลัมน์ทิ้งไป เพื่อป้องกัน User กดแล้วตารางรวน 🌟
         contextMenu: {
             items: {
-                "freeze_column": { name: '📌 ตรึงคอลัมน์นี้ (Freeze Column)' },
-                "unfreeze_column": { name: '🔓 ยกเลิกการตรึง (Unfreeze)' },
-                "---------": {},
                 "alignment": { name: 'จัดตำแหน่งข้อความ' },
                 "hidden_columns_hide": { name: 'ซ่อนคอลัมน์' },
                 "hidden_columns_show": { name: 'แสดงคอลัมน์ที่ซ่อน' },
@@ -561,7 +589,6 @@ function updateSaveStatusBadge() {
     }
 }
 
-// 🌟 อัปเดตฟังก์ชันเซฟมุมมอง ให้จำค่าการตรึงคอลัมน์ด้วย 🌟
 window.saveGridSettings = async function() {
     if (!hotGridInstance) return;
     const user = JSON.parse(localStorage.getItem('tms_user') || '{}');

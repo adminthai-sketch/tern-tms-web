@@ -223,13 +223,13 @@ function initContainerHandsontable(data) {
         td.innerHTML = `<div class="p-0.5 w-full h-full"><button onclick="toggleStatusRow(${row}, '${prop}')" class="w-full h-full text-[11px] font-bold border rounded flex items-center justify-center transition-all ${btnClass}">${icon}</button></div>`;
     };
 
-    const orderIdRenderer = function(instance, td, row, col, prop, value) {
+const orderIdRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         td.innerHTML = `
-            <div class="flex items-center justify-between w-full h-full px-1">
-                <span class="truncate">${value || ''}</span>
-                <button onclick="copyDriverToAllLegs(${row})" title="ก๊อปปี้รถและคนขับ ขา 1 ➡️ ไปใช้ทุกขา" class="ml-1 shrink-0 bg-blue-100 hover:bg-blue-500 text-blue-600 hover:text-white border border-blue-200 w-6 h-6 rounded flex items-center justify-center shadow-sm transition-colors">
-                    <i class="fa-solid fa-truck-fast text-[10px]"></i>
+            <div class="flex items-center justify-between w-full h-full px-1 overflow-hidden">
+                <span class="truncate pr-1 text-[10px]">${value || ''}</span>
+                <button onclick="copyDriverToAllLegs(${row})" title="ก๊อปปี้รถและคนขับ ขา 1 ➡️ ไปใช้ทุกขา" class="shrink-0 bg-blue-100 hover:bg-blue-500 text-blue-600 hover:text-white border border-blue-200 w-5 h-5 rounded flex items-center justify-center shadow-sm transition-colors">
+                    <i class="fa-solid fa-truck-fast text-[9px]"></i>
                 </button>
             </div>
         `;
@@ -254,9 +254,13 @@ function initContainerHandsontable(data) {
         }
     };
 
-    hotGridInstance = new Handsontable(container, {
+   hotGridInstance = new Handsontable(container, {
         data: data.length > 0 ? data : [{}],
+        wordWrap: false,       // 🌟 ปิดการตัดคำขึ้นบรรทัดใหม่
+        autoRowSize: false,    // 🌟 ปิดการขยายความสูงอัตโนมัติ
+        rowHeights: 28,        // 🌟 ล็อกความสูงแถวไว้ที่ 28px ให้เพรียวบาง
         nestedHeaders: [
+            // ... (โค้ดเดิมด้านล่างปล่อยไว้เหมือนเดิมครับ) ...
             [
                 { label: '📋 ข้อมูลงาน', colspan: 7 }, 
                 { label: '📦 ข้อมูลตู้', colspan: 7 }, 

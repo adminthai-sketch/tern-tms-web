@@ -106,12 +106,10 @@ async function loadContainerGridData() {
 
         if (result.success && result.data) {
             rawShipmentList = result.data.map(item => {
-                // แปลงข้อมูลแบบ Object สำหรับตารางใหม่
                 item._disp_cy_date = formatShortDate(item.cy_date);
                 item._disp_load_date = formatShortDate(item.load_date);
                 item._disp_return_date = formatShortDate(item.return_date);
                 
-                // ดึงคนขับอัตโนมัติถ้ามีทะเบียนรถ
                 if (item.leg1_plate && !item.leg1_driver) item.leg1_driver = fleetAssignments[item.leg1_plate] || '';
                 if (item.drop1_plate && !item.drop1_driver) item.drop1_driver = fleetAssignments[item.drop1_plate] || '';
                 if (item.leg2_plate && !item.leg2_driver) item.leg2_driver = fleetAssignments[item.leg2_plate] || '';
@@ -125,7 +123,6 @@ async function loadContainerGridData() {
             editedRowIndices.clear();
             updateDropdownOptions(); 
 
-            // 🌟 เช็ค URL Params ถ้ามาจากหน้าบุคกิ้ง ก็กรองให้ตรงเป๊ะ!
             const urlParams = new URLSearchParams(window.location.search);
             const selectBooking = urlParams.get('select');
             if (selectBooking) {
@@ -197,10 +194,10 @@ window.setQuickFilter = function(type) {
 
     if (type === 'pending') {
         btnPending.classList.add('bg-blue-50', 'text-blue-600');
-        filteredList = rawShipmentList.filter(item => !item.container_no || item.container_no.trim() === '');
+        filteredList = rawShipmentList.filter(item => !item.container_1_no || item.container_1_no.trim() === '');
     } else {
         btnFilled.classList.add('bg-blue-50', 'text-blue-600');
-        filteredList = rawShipmentList.filter(item => item.container_no && item.container_no.trim() !== '');
+        filteredList = rawShipmentList.filter(item => item.container_1_no && item.container_1_no.trim() !== '');
     }
     initContainerHandsontable(filteredList);
 };
@@ -223,7 +220,7 @@ function initContainerHandsontable(data) {
         nestedHeaders: [
             [
                 { label: '📋 ข้อมูลงาน', colspan: 6 },
-                { label: '📦 ข้อมูลตู้', colspan: 6 },
+                { label: '📦 ข้อมูลตู้', colspan: 7 }, 
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
                 { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ)', colspan: 5 }, 
@@ -233,7 +230,7 @@ function initContainerHandsontable(data) {
             ],
             [
                 '✔', 'Order ID', 'Booking', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
-                'ขนาดตู้', 'เบอร์ตู้', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
+                'ขนาดตู้', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅',
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', 
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', 
@@ -243,7 +240,7 @@ function initContainerHandsontable(data) {
             ]
         ],
         columns: [
-            // 📋 ข้อมูลงาน
+            // 📋 ข้อมูลงาน (6 คอลัมน์)
             { data: '_checkbox', type: 'checkbox', className: 'htCenter htMiddle zone-info' }, 
             { data: 'order_id', type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info' }, 
             { data: 'booking_no', type: 'text', readOnly: true, className: 'font-bold text-primary htCenter htMiddle zone-info' }, 
@@ -251,53 +248,54 @@ function initContainerHandsontable(data) {
             { data: 'origin', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             
-            // 📦 ข้อมูลตู้
+            // 📦 ข้อมูลตู้ (7 คอลัมน์)
             { data: 'container_size', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
-            { data: 'container_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
+            { data: 'container_1_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
+            { data: 'container_2_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 'seal_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 'pop_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 'tare', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
             { data: 'max_gross', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
 
-            // 🚚 ขา 1: PICK UP
+            // 🚚 ขา 1: PICK UP (5 คอลัมน์)
             { data: 'leg1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
             { data: 'leg1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
             { data: '_disp_cy_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg1_is_drop', readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer }, 
             { data: 'leg1_completed', type: 'checkbox', className: 'htCenter htMiddle zone-leg1' }, 
 
-            // 🅿️ ขาฝาก 1
+            // 🅿️ ขาฝาก 1 (4 คอลัมน์)
             { data: 'drop1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
             { data: 'drop1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
             { data: 'drop1_location', type: 'text', className: 'zone-legdrop htMiddle' },
             { data: 'drop1_completed', type: 'checkbox', className: 'htCenter htMiddle zone-legdrop' },
 
-            // 🏭 ขา 2: DELIVERY
+            // 🏭 ขา 2: DELIVERY (5 คอลัมน์)
             { data: 'leg2_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
             { data: 'leg2_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
             { data: '_disp_load_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg2_is_drop', readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer },
             { data: 'leg2_completed', type: 'checkbox', className: 'htCenter htMiddle zone-leg2' },
 
-            // 🅿️ ขาฝาก 2
+            // 🅿️ ขาฝาก 2 (4 คอลัมน์)
             { data: 'drop2_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
             { data: 'drop2_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
             { data: 'drop2_location', type: 'text', className: 'zone-legdrop htMiddle' },
             { data: 'drop2_completed', type: 'checkbox', className: 'htCenter htMiddle zone-legdrop' },
 
-            // 🚢 ขา 3: RETURN
+            // 🚢 ขา 3: RETURN (4 คอลัมน์)
             { data: 'leg3_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
             { data: 'leg3_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
             { data: '_disp_return_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg3_completed', type: 'checkbox', className: 'htCenter htMiddle zone-leg3' },
 
-            // 💵 การเงิน
+            // 💵 การเงิน (2 คอลัมน์)
             { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold bg-green-50 htRight htMiddle' }, 
             { data: 'trans_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50 htRight htMiddle' }
         ],
         colWidths: [
             30, 110, 100, 100, 80, 80, // Info 
-            60, 100, 100, 90, 80, 70, // Container 
+            60, 100, 100, 100, 90, 80, 70, // Container 
             90, 110, 110, 110, 40, // Leg 1 
             90, 110, 110, 40, // Drop 1 
             90, 110, 110, 110, 40, // Leg 2 
@@ -309,7 +307,7 @@ function initContainerHandsontable(data) {
         manualColumnResize: true, manualColumnMove: true,
         
         hiddenColumns: {
-            columns: isDropYardsHidden ? [17, 18, 19, 20, 26, 27, 28, 29] : [], 
+            columns: isDropYardsHidden ? [18, 19, 20, 21, 27, 28, 29, 30] : [], 
             indicators: true
         },
         contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'copy'],
@@ -320,7 +318,7 @@ function initContainerHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== '_checkbox') editedRowIndices.add(row);
                 
-                if (['container_no', 'seal_no', 'pop_no'].includes(prop) && newVal && typeof newVal === 'string') {
+                if (['container_1_no', 'container_2_no', 'seal_no', 'pop_no'].includes(prop) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
                     if (cleanVal !== newVal) this.setDataAtRowProp(row, prop, cleanVal, 'auto');
                 }
@@ -395,12 +393,12 @@ window.toggleDropYards = function() {
         btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้`;
         btn.classList.replace('bg-purple-600', 'bg-purple-50');
         btn.classList.replace('text-white', 'text-purple-700');
-        hotGridInstance.getPlugin('hiddenColumns').hideColumns([17, 18, 19, 20, 26, 27, 28, 29]);
+        hotGridInstance.getPlugin('hiddenColumns').hideColumns([18, 19, 20, 21, 27, 28, 29, 30]);
     } else {
         btn.innerHTML = `<i class="fa-solid fa-eye"></i> ซ่อนลานฝากตู้`;
         btn.classList.replace('bg-purple-50', 'bg-purple-600');
         btn.classList.replace('text-purple-700', 'text-white');
-        hotGridInstance.getPlugin('hiddenColumns').showColumns([17, 18, 19, 20, 26, 27, 28, 29]);
+        hotGridInstance.getPlugin('hiddenColumns').showColumns([18, 19, 20, 21, 27, 28, 29, 30]);
     }
     hotGridInstance.render();
 };

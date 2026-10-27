@@ -238,19 +238,19 @@ router.post('/shipments', async (req, res) => {
                 await client.query(`UPDATE bookings SET container_count = container_count + 1 WHERE booking_no = $1`, [row.booking_no]);
             }
 
-            // อัปเดตข้อมูลตู้
+          // อัปเดตข้อมูลตู้
             await client.query(`
                 UPDATE shipment_operations SET
-                    container_no=$1, seal_no=$2, pop_no=$3, tare=$4, max_gross=$5,
-                    leg1_plate=$6, leg1_driver=$7, leg1_appointment=$8, leg1_is_drop=$9, leg1_completed=$10,
-                    drop1_plate=$11, drop1_driver=$12, drop1_location=$13, drop1_completed=$14,
-                    leg2_plate=$15, leg2_driver=$16, leg2_appointment=$17, leg2_is_drop=$18, leg2_completed=$19,
-                    drop2_plate=$20, drop2_driver=$21, drop2_location=$22, drop2_completed=$23,
-                    leg3_plate=$24, leg3_driver=$25, leg3_appointment=$26, leg3_completed=$27,
-                    overall_status=$28, updated_at = CURRENT_TIMESTAMP
-                WHERE order_id=$29
+                    container_1_no=$1, container_2_no=$2, seal_no=$3, pop_no=$4, tare=$5, max_gross=$6,
+                    leg1_plate=$7, leg1_driver=$8, leg1_appointment=$9, leg1_is_drop=$10, leg1_completed=$11,
+                    drop1_plate=$12, drop1_driver=$13, drop1_location=$14, drop1_completed=$15,
+                    leg2_plate=$16, leg2_driver=$17, leg2_appointment=$18, leg2_is_drop=$19, leg2_completed=$20,
+                    drop2_plate=$21, drop2_driver=$22, drop2_location=$23, drop2_completed=$24,
+                    leg3_plate=$25, leg3_driver=$26, leg3_appointment=$27, leg3_completed=$28,
+                    overall_status=$29, updated_at = CURRENT_TIMESTAMP
+                WHERE order_id=$30
             `, [
-                cleanVal(row.container_no), cleanVal(row.seal_no), cleanVal(row.pop_no), cleanNum(row.tare), cleanNum(row.max_gross),
+                cleanVal(row.container_1_no), cleanVal(row.container_2_no), cleanVal(row.seal_no), cleanVal(row.pop_no), cleanNum(row.tare), cleanNum(row.max_gross),
                 cleanVal(row.leg1_plate), cleanVal(row.leg1_driver), cleanVal(row.leg1_appointment), !!row.leg1_is_drop, !!row.leg1_completed,
                 cleanVal(row.drop1_plate), cleanVal(row.drop1_driver), cleanVal(row.drop1_location), !!row.drop1_completed,
                 cleanVal(row.leg2_plate), cleanVal(row.leg2_driver), cleanVal(row.leg2_appointment), !!row.leg2_is_drop, !!row.leg2_completed,

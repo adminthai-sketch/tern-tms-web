@@ -194,7 +194,7 @@
         let currentMasterType = 'users';
         let hotMasterInstance = null;
         let originalTableData = []; 
-        let deletedIdsList = []; // 🌟 เพิ่มตัวแปรเก็บ ID ที่ถูกลบ
+        let deletedIdsList = []; // 🌟 เก็บ ID ที่ถูกลบ
         let globalRolesList = ['Admin', 'User', 'Operation']; 
         let globalTruckList = [];
         let globalDriverList = [];
@@ -205,7 +205,7 @@
                 title: 'จัดการผู้ใช้งานระบบ (Users)', icon: 'fa-users', endpoint: '/api/users',
                 headers: ['ID', 'Username', 'ชื่อ-นามสกุล', 'อีเมล', 'กลุ่มสิทธิ์ (Role)', 'สถานะ'],
                 columns: [
-                    { readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
+                    { readOnly: true, className: 'bg-slate-50 htCenter' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
                     { type: 'dropdown', source: function(query, process) { process(globalRolesList); } }, 
                     { type: 'dropdown', source: ['ACTIVE', 'INACTIVE'] }
                 ]
@@ -214,7 +214,7 @@
                 title: 'จัดการกลุ่มสิทธิ์ (Roles)', icon: 'fa-user-shield', endpoint: '/api/roles',
                 headers: ['ID', 'ชื่อกลุ่มสิทธิ์', '💻 เข้ามอนิเตอร์', '📦 สร้างบุคกิ้ง', '🚛 จัดคนขับ', '📄 วางบิล', '⚙️ แอดมิน'],
                 columns: [ 
-                    { readOnly: true }, { type: 'text' }, { type: 'checkbox', className: 'htCenter htMiddle' }, 
+                    { readOnly: true, className: 'bg-slate-50 htCenter' }, { type: 'text' }, { type: 'checkbox', className: 'htCenter htMiddle' }, 
                     { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' }, 
                     { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' } 
                 ]
@@ -236,7 +236,7 @@
                 title: 'จัดการพนักงานขับรถ (Drivers)', icon: 'fa-id-card', endpoint: '/api/driver_info',
                 headers: ['ID', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'เบอร์โทรศัพท์', 'สถานะ'],
                 columns: [
-                    { readOnly: true }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
+                    { readOnly: true, className: 'bg-slate-50 htCenter' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, 
                     { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'RESIGNED'] }
                 ]
             },
@@ -244,10 +244,12 @@
                 title: 'จับคู่รถและคนขับประจำคัน (Assignments)', icon: 'fa-link', endpoint: '/api/truck_assignments',
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'ประเภทรถ', 'คนขับประจำคัน'],
                 columns: [
-                    { readOnly: true }, 
-                    { type: 'autocomplete', strict: false, filter: false, source: function(query, process) { process(globalTruckList); } }, 
+                    { readOnly: true, className: 'bg-slate-50 htCenter' }, 
+                    // 🌟 บังคับเลือก Dropdown จากรถที่มีอยู่เท่านั้น ห้ามพิมพ์มั่ว
+                    { type: 'dropdown', strict: true, source: function(query, process) { process(globalTruckList); }, className: 'font-bold text-primary' }, 
                     { type: 'text', readOnly: true, className: 'htMiddle bg-slate-50' }, 
-                    { type: 'autocomplete', strict: false, filter: false, source: function(query, process) { process(globalDriverList); } }  
+                    // 🌟 บังคับเลือก Dropdown จากคนขับที่มีอยู่เท่านั้น
+                    { type: 'dropdown', strict: true, source: function(query, process) { process(globalDriverList); } }  
                 ]
             },
             customers: {
@@ -450,11 +452,10 @@
             closeAddModal();
         }
 
-       // --- 🗑️ DELETE (แก้บั๊กรับค่า ID ไม่ให้ส่งช่องว่างไปหา DB) ---
+        // --- 🗑️ DELETE (ดึง ID จากช่องโดยตรง กัน Error ข้อมูลว่างเปล่า) ---
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
             if (confirm(`⚠️ ยืนยันการลบข้อมูลแถวนี้ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อลบออกจากฐานข้อมูลจริง)`)) {
-                // 🌟 อ่านค่าจาก Cell (ช่องแรกสุดคือ ID) 
                 const idVal = hotMasterInstance.getDataAtCell(row, 0);
                 if (idVal && String(idVal).trim() !== '') deletedIdsList.push(idVal); 
 
@@ -471,7 +472,6 @@
                 const endRow = Math.max(selected[0][0], selected[0][2]);
                 const amount = endRow - startRow + 1;
                 if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" เพื่อลบจริง)`)) {
-                    // 🌟 วนลูปอ่านค่า ID ทีละแถว
                     for (let i = startRow; i <= endRow; i++) {
                         const idVal = hotMasterInstance.getDataAtCell(i, 0);
                         if (idVal && String(idVal).trim() !== '') deletedIdsList.push(idVal);
@@ -481,6 +481,7 @@
                 }
             } else { alert('🖱️ ลากคลุมแถวในตารางที่ต้องการลบก่อนครับ'); }
         }
+
         // --- 💾 SAVE ---
         async function saveCurrentMaster() {
             if (!hotMasterInstance) return;
@@ -495,7 +496,6 @@
                 const response = await fetch(cfg.endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // 🌟 ส่งข้อมูลที่แก้/เพิ่ม + ส่ง ID ที่จะลบทิ้งไปให้หลังบ้าน
                     body: JSON.stringify({ data: cleanData, deletedIds: deletedIdsList }) 
                 });
                 const result = await response.json();

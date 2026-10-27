@@ -58,7 +58,6 @@ router.post('/users', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
         const idsToDelete = getValidIds(deletedIds);
         if (idsToDelete.length > 0) {
             await client.query('DELETE FROM users WHERE id = ANY($1::int[])', [idsToDelete]);
@@ -104,7 +103,6 @@ router.post('/roles', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
         const idsToDelete = getValidIds(deletedIds);
         if (idsToDelete.length > 0) {
             await client.query('DELETE FROM roles WHERE id = ANY($1::int[])', [idsToDelete]);
@@ -124,17 +122,16 @@ router.post('/roles', async (req, res) => {
         res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลกลุ่มสิทธิ์เรียบร้อยแล้ว' });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: 'ไม่สามารถลบ Role ได้เนื่องจากมี User ใช้งานอยู่' });
+        res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
 
 // ==========================================
-// 🚚 Fleet (รถ / คนขับ) 
+// 🚚 Fleet (รถ / คนขับ) - โครงสร้างใหม่แบบ Enterprise
 // ==========================================
 router.get('/trucks', async (req, res) => {
     try {
-        const query = `SELECT id, plate_number, vehicle_type, status, brand, model FROM trucks ORDER BY id ASC`;
-        const result = await pool.query(query);
+        const result = await pool.query(`SELECT id, plate_number, vehicle_type, status, brand, model FROM trucks ORDER BY id ASC`);
         res.json({ success: true, data: result.rows.map(r => [r.id, r.plate_number, r.vehicle_type, r.status, r.brand, r.model]) });
     } catch (err) { res.json({ success: true, data: [] }); }
 });
@@ -143,10 +140,8 @@ router.post('/trucks', async (req, res) => {
     const { data, deletedIds } = req.body;
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false });
     const client = await pool.connect();
-    
     try {
         await client.query('BEGIN');
-        
         const idsToDelete = getValidIds(deletedIds);
         if (idsToDelete.length > 0) {
             await client.query('DELETE FROM trucks WHERE id = ANY($1::int[])', [idsToDelete]);
@@ -157,18 +152,18 @@ router.post('/trucks', async (req, res) => {
             if (!plate_number) continue;
 
             if (id) {
-                const updateQuery = `UPDATE trucks SET plate_number=$1, vehicle_type=$2, status=$3, brand=$4, model=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`;
-                await client.query(updateQuery, [plate_number, vehicle_type, status || 'ACTIVE', brand || '', model || '', id]);
+                await client.query(`UPDATE trucks SET plate_number=$1, vehicle_type=$2, status=$3, brand=$4, model=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`, 
+                [plate_number, vehicle_type, status || 'ACTIVE', brand || '', model || '', id]);
             } else {
-                const insertQuery = `INSERT INTO trucks (plate_number, vehicle_type, status, brand, model) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`;
-                await client.query(insertQuery, [plate_number, vehicle_type, status || 'ACTIVE', brand || '', model || '']);
+                await client.query(`INSERT INTO trucks (plate_number, vehicle_type, status, brand, model) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (plate_number) DO UPDATE SET vehicle_type=EXCLUDED.vehicle_type, status=EXCLUDED.status`, 
+                [plate_number, vehicle_type, status || 'ACTIVE', brand || '', model || '']);
             }
         }
         await client.query('COMMIT');
         res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลรถเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: 'ลบไม่ได้: รถคันนี้อาจถูกใช้งานในระบบงานอยู่' });
+        res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
 
@@ -185,7 +180,6 @@ router.post('/driver_info', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
         const idsToDelete = getValidIds(deletedIds);
         if (idsToDelete.length > 0) {
             await client.query('DELETE FROM drivers WHERE id = ANY($1::int[])', [idsToDelete]);
@@ -195,16 +189,18 @@ router.post('/driver_info', async (req, res) => {
             const [id, driver_name, nickname, phone_number, status] = row;
             if (!driver_name) continue;
             if (id) {
-                await client.query(`UPDATE drivers SET driver_name = $1, nickname = $2, phone_number = $3, status = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5`, [driver_name, nickname, phone_number, status || 'ACTIVE', id]);
+                await client.query(`UPDATE drivers SET driver_name=$1, nickname=$2, phone_number=$3, status=$4, updated_at=CURRENT_TIMESTAMP WHERE id=$5`, 
+                [driver_name, nickname, phone_number, status || 'ACTIVE', id]);
             } else {
-                await client.query(`INSERT INTO drivers (driver_name, nickname, phone_number, status) VALUES ($1, $2, $3, $4)`, [driver_name, nickname, phone_number, status || 'ACTIVE']);
+                await client.query(`INSERT INTO drivers (driver_name, nickname, phone_number, status) VALUES ($1, $2, $3, $4) ON CONFLICT (driver_name) DO UPDATE SET phone_number=EXCLUDED.phone_number, status=EXCLUDED.status`, 
+                [driver_name, nickname, phone_number, status || 'ACTIVE']);
             }
         }
         await client.query('COMMIT');
         res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลคนขับเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: 'ลบไม่ได้: พนักงานรายนี้อาจถูกใช้งานในระบบงานอยู่' });
+        res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
 
@@ -273,7 +269,6 @@ router.post('/customers', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
         const idsToDelete = getValidIds(deletedIds);
         if (idsToDelete.length > 0) {
             await client.query('DELETE FROM customers WHERE id = ANY($1::int[])', [idsToDelete]);
@@ -295,7 +290,7 @@ router.post('/customers', async (req, res) => {
         res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลลูกค้าเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: 'ลบไม่ได้: ลูกค้ารายนี้อาจมีการผูกใบสั่งงาน (Booking) ค้างอยู่' });
+        res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
 

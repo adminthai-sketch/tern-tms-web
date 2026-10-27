@@ -223,7 +223,16 @@ function initContainerHandsontable(data) {
         td.innerHTML = `<div class="p-0.5 w-full h-full"><button onclick="toggleStatusRow(${row}, '${prop}')" class="w-full h-full text-[11px] font-bold border rounded flex items-center justify-center transition-all ${btnClass}">${icon}</button></div>`;
     };
 
-    // 🌟 ย้ายปุ่มรถซิ่ง (Auto-fill) มาไว้ตรงช่อง "เวลานัด" ของขาที่ 1 🌟
+    const orderIdRenderer = function(instance, td, row, col, prop, value) {
+        Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+        td.innerHTML = `
+            <div class="flex items-center justify-between w-full h-full px-1 overflow-hidden">
+                <span class="truncate pr-1 text-[10px]">${value || ''}</span>
+            </div>
+        `;
+    };
+
+    // ปุ่ม Auto-fill คนขับ ย้ายมาไว้ที่ช่องเวลาของขา 1
     const leg1TimeRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         td.innerHTML = `
@@ -259,6 +268,11 @@ function initContainerHandsontable(data) {
         wordWrap: false,
         autoRowSize: false,
         rowHeights: 28,
+        
+        // 🌟 ตั้งค่าให้ตรึงคอลัมน์ไว้ด้านซ้าย (ค่าเริ่มต้นคือ 3 คอลัมน์แรก) 🌟
+        fixedColumnsLeft: userGridSettings.fixedColumns !== undefined ? parseInt(userGridSettings.fixedColumns) : 3,
+        manualColumnFreeze: true, 
+
         nestedHeaders: [
             [
                 { label: '📋 ข้อมูลงาน', colspan: 7 }, 
@@ -269,7 +283,7 @@ function initContainerHandsontable(data) {
                 { label: '🅿️ ขาฝาก 2 (DROP 2)', colspan: 4 }, 
                 { label: '🚢 ขา 3: RETURN (คืนตู้) <button onclick="copyLegToAllRows(\'leg2\', \'leg3\')" class="ml-1 bg-blue-100 text-blue-700 border border-blue-300 px-1 py-0.5 rounded shadow-sm hover:bg-blue-600 hover:text-white transition-colors text-[10px]" title="ดึงทะเบียนรถและคนขับจาก ขา 2 มาใส่ ขา 3 ทั้งหมด"><i class="fa-solid fa-angles-right"></i> ดึงรถขา 2</button>', colspan: 4 }, 
                 { label: '💵 ค่าจ้างขนส่ง', colspan: 2 },
-                { label: '💸 เบิกจ่ายหน้าท่า/ลาน และอื่นๆ', colspan: 6 }, // เพิ่มเป็น 6 คอลัมน์
+                { label: '💸 เบิกจ่ายหน้าท่า/ลาน และอื่นๆ', colspan: 6 }, 
                 { label: '📝 หมายเหตุ', colspan: 1 } 
             ],
             [
@@ -288,7 +302,7 @@ function initContainerHandsontable(data) {
         columns: [
             // 📋 ข้อมูลงาน
             { data: '_checkbox', type: 'checkbox', className: 'htCenter htMiddle zone-info' }, 
-            { data: 'order_id', type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info' }, 
+            { data: 'order_id', type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info', renderer: orderIdRenderer }, 
             { data: 'booking_no', type: 'text', readOnly: true, className: 'font-bold text-primary htCenter htMiddle zone-info' }, 
             { data: 'mode', type: 'text', readOnly: true, className: 'htCenter htMiddle font-bold text-slate-500 zone-info' }, 
             { data: 'customer_name', type: 'text', readOnly: true, className: 'text-slate-700 font-bold htMiddle zone-info' }, 
@@ -304,7 +318,7 @@ function initContainerHandsontable(data) {
             { data: 'tare', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
             { data: 'max_gross', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
 
-            // 🚚 ขา 1: PICK UP (ปุ่ม Auto-fill อยู่ตรงช่อง _disp_cy_date)
+            // 🚚 ขา 1: PICK UP
             { data: 'leg1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
             { data: 'leg1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
             { data: '_disp_cy_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell bg-slate-50', renderer: leg1TimeRenderer }, 
@@ -354,14 +368,14 @@ function initContainerHandsontable(data) {
         colWidths: [
             30, 110, 100, 75, 100, 80, 80, 
             60, 100, 100, 100, 90, 80, 70, 
-            90, 110, 120, 110, 45, // Leg 1 (ขยายช่องเวลาเผื่อปุ่ม Auto-fill)
+            90, 110, 120, 110, 45, 
             90, 110, 110, 45, 
             90, 110, 110, 110, 45, 
             90, 110, 110, 45, 
             90, 110, 110, 45, 
             70, 70, 
-            75, 75, 75, 75, 80, 85, // Expenses
-            130 // Remark
+            75, 75, 75, 75, 80, 85, 
+            130 
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
@@ -370,7 +384,19 @@ function initContainerHandsontable(data) {
             columns: isDropYardsHidden ? [19, 20, 21, 22, 28, 29, 30, 31] : [], 
             indicators: true
         },
-        contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'copy'],
+        
+        // 🌟 เพิ่มเมนูคลิกขวา (Context Menu) แบบภาษาไทย สำหรับตรึงคอลัมน์! 🌟
+        contextMenu: {
+            items: {
+                "freeze_column": { name: '📌 ตรึงคอลัมน์นี้ (Freeze Column)' },
+                "unfreeze_column": { name: '🔓 ยกเลิกการตรึง (Unfreeze)' },
+                "---------": {},
+                "alignment": { name: 'จัดตำแหน่งข้อความ' },
+                "hidden_columns_hide": { name: 'ซ่อนคอลัมน์' },
+                "hidden_columns_show": { name: 'แสดงคอลัมน์ที่ซ่อน' },
+                "copy": { name: 'คัดลอก (Copy)' }
+            }
+        },
         licenseKey: 'non-commercial-and-evaluation',
 
         afterChange: function(changes, source) {
@@ -535,6 +561,7 @@ function updateSaveStatusBadge() {
     }
 }
 
+// 🌟 อัปเดตฟังก์ชันเซฟมุมมอง ให้จำค่าการตรึงคอลัมน์ด้วย 🌟
 window.saveGridSettings = async function() {
     if (!hotGridInstance) return;
     const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
@@ -549,13 +576,15 @@ window.saveGridSettings = async function() {
     if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') {
         positions = movePlugin.columnsMapper.getIndexesSequence();
     }
+    
+    const fixedCols = hotGridInstance.getSettings().fixedColumnsLeft || 0;
 
     try {
         await fetch('/api/users/grid-settings', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, gridName: 'container_manage', settings: { columnWidths: widths, columnPositions: positions } })
+            body: JSON.stringify({ userId: user.id, gridName: 'container_manage', settings: { columnWidths: widths, columnPositions: positions, fixedColumns: fixedCols } })
         });
-        alert('✅ บันทึกมุมมองตารางลงเบอร์ตู้เรียบร้อยแล้ว!');
+        alert('✅ บันทึกมุมมองตาราง (ขนาด, ตำแหน่ง, และการตรึงคอลัมน์) เรียบร้อยแล้ว!');
     } catch (err) {}
 };
 

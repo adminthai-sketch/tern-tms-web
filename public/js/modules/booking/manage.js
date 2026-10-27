@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Safe Freeze Layout)
+// 📦 MODULE: DISPATCH & CONTAINER MANAGE (VGM Blinker Edition)
 // ==========================================
 
 let hotGridInstance = null;
@@ -40,17 +40,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {}
 
     await loadFleetData(); 
-    
-    // 🌟 สร้างปุ่มควบคุมตารางด้านบน (รีเซ็ต / เลือกระยะตรึงตาราง) 🌟
     setupGridControlButtons();
-
     await loadContainerGridData();
 });
 
 function setupGridControlButtons() {
     const btnContainer = document.querySelector('button[onclick="saveGridSettings()"]').parentElement;
     
-    // ปุ่มรีเซ็ตมุมมอง
     const resetBtn = document.createElement('button');
     resetBtn.className = "bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-3 py-1.5 rounded-lg shadow-sm border border-rose-200 transition-colors ml-2 flex items-center gap-1 text-[11px]";
     resetBtn.innerHTML = '<i class="fa-solid fa-broom"></i> รีเซ็ตมุมมอง';
@@ -66,7 +62,6 @@ function setupGridControlButtons() {
         location.reload();
     };
 
-    // ปุ่มเลือกระยะตรึง (Freeze)
     const freezeSelect = document.createElement('select');
     freezeSelect.className = "bg-blue-50 text-blue-700 font-bold px-2 py-1.5 rounded-lg shadow-sm border border-blue-200 ml-2 outline-none text-[11px] cursor-pointer";
     freezeSelect.innerHTML = `
@@ -122,6 +117,14 @@ function applyZebraStripingCSS() {
             .handsontable tbody tr:hover td { filter: brightness(0.96); transition: all 0.2s; }
             .ht-edited-row { border-left: 3px solid #f59e0b !important; }
             .unsaved-id-cell { color: #dc2626 !important; font-weight: 800 !important; background-color: #fde047 !important; }
+
+            /* 🌟 อนิเมชั่นไฟกระพริบเตือน VGM Cutoff 🌟 */
+            @keyframes vgm-blink {
+                0% { background-color: #fef2f2; color: #dc2626; box-shadow: inset 0 0 5px #ef4444; }
+                50% { background-color: #fca5a5; color: #7f1d1d; box-shadow: inset 0 0 15px #dc2626; }
+                100% { background-color: #fef2f2; color: #dc2626; box-shadow: inset 0 0 5px #ef4444; }
+            }
+            .vgm-warning-blink { animation: vgm-blink 1s infinite !important; font-weight: 800 !important; }
         `;
         document.head.appendChild(style);
     }
@@ -302,22 +305,50 @@ function initContainerHandsontable(data) {
         }
     };
 
+    // 🌟 ระบบกระพริบเตือนลงเบอร์ตู้ (VGM Blinker) 🌟
+    const vgmWarningRenderer = function(instance, td, row, col, prop, value, cellProperties) {
+        Handsontable.renderers.TextRenderer.apply(this, arguments);
+        td.style.fontWeight = '700';
+        td.style.textAlign = 'center';
+        td.style.verticalAlign = 'middle';
+        td.style.textTransform = 'uppercase';
+        
+        const srcData = instance.getSourceDataAtRow(row);
+        const mode = srcData.mode;
+        const vgmCutoff = srcData.vgm_cutoff;
+        
+        if (mode === 'EXPORT' && !value && vgmCutoff) {
+            const now = new Date();
+            const vgmDate = new Date(vgmCutoff);
+            const diffHours = (vgmDate - now) / (1000 * 60 * 60);
+            
+            // เตือนล่วงหน้า 24 ชั่วโมง หรือเลยเวลาไปแล้ว
+            if (diffHours < 24) {
+                td.classList.add('vgm-warning-blink');
+                td.title = `🚨 ใกล้ถึงหรือเลยเวลา VGM Cutoff (${formatShortDate(vgmCutoff)}) รีบใส่เบอร์ตู้ด่วน!`;
+            } else {
+                td.classList.remove('vgm-warning-blink');
+                td.style.color = '#1d4ed8'; 
+            }
+        } else {
+            td.classList.remove('vgm-warning-blink');
+            td.style.color = '#1d4ed8'; 
+        }
+    };
+
     hotGridInstance = new Handsontable(container, {
         data: data.length > 0 ? data : [{}],
         wordWrap: false,
         autoRowSize: false,
         rowHeights: 28,
         
-        // 🌟 ตั้งค่าให้ตรึงคอลัมน์จากที่เลือกใน Dropdown ด้านบน 🌟
         fixedColumnsLeft: userGridSettings.fixedColumns !== undefined ? parseInt(userGridSettings.fixedColumns) : 3,
-        
-        // 🌟 ปิดระบบย้ายคอลัมน์อัตโนมัติป้องกันตารางพัง! 🌟
         manualColumnFreeze: false, 
 
         nestedHeaders: [
             [
                 { label: '📋 ข้อมูลงาน', colspan: 7 }, 
-                { label: '📦 ข้อมูลตู้', colspan: 7 }, 
+                { label: '📦 ข้อมูลตู้ (🚨 สีแดง = เตือน VGM Cutoff)', colspan: 7 }, 
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
                 { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ) <button onclick="copyLegToAllRows(\'leg1\', \'leg2\')" class="ml-1 bg-blue-100 text-blue-700 border border-blue-300 px-1 py-0.5 rounded shadow-sm hover:bg-blue-600 hover:text-white transition-colors text-[10px]" title="ดึงทะเบียนรถและคนขับจาก ขา 1 มาใส่ ขา 2 ทั้งหมด"><i class="fa-solid fa-angles-right"></i> ดึงรถขา 1</button>', colspan: 5 }, 
@@ -350,8 +381,11 @@ function initContainerHandsontable(data) {
             { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             
             { data: 'container_size', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
-            { data: 'container_1_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
-            { data: 'container_2_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
+            
+            // 🚨 เรียกใช้ฟังก์ชัน VGM Blinker ตรงช่องเบอร์ตู้ 1 และ 2 🚨
+            { data: 'container_1_no', type: 'text', renderer: vgmWarningRenderer },
+            { data: 'container_2_no', type: 'text', renderer: vgmWarningRenderer },
+            
             { data: 'seal_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 'pop_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 'tare', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
@@ -416,7 +450,6 @@ function initContainerHandsontable(data) {
             indicators: true
         },
         
-        // 🌟 ปิดเมนูตรึงคอลัมน์ทิ้งไป เพื่อป้องกัน User กดแล้วตารางรวน 🌟
         contextMenu: {
             items: {
                 "alignment": { name: 'จัดตำแหน่งข้อความ' },

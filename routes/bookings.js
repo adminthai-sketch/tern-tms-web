@@ -150,7 +150,7 @@ router.put('/bookings/:id', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 🌟 3. GET /api/shipments (โหลดข้อมูลดึง 4 ค่าใช้จ่ายมาด้วย)
+// 🌟 3. GET /api/shipments (โหลดข้อมูลหน้าจัดรถ) 🌟
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -171,7 +171,7 @@ router.get('/shipments', async (req, res) => {
                 s.*,
                 b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
                 b.origin, b.destination, b.container_size, b.job_type, b.agent,
-                b.cy_date, b.load_date, b.return_date,
+                b.cy_date, b.load_date, b.unload_date, b.return_date, b.open_gate,
                 f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee
             FROM shipment_operations s
             JOIN bookings b ON s.booking_no = b.booking_no
@@ -188,7 +188,6 @@ router.get('/shipments', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
-
 // 🌟 4. POST /api/shipments (บันทึกข้อมูล พร้อม 4 ค่าใช้จ่าย)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;

@@ -105,9 +105,11 @@ async function loadContainerGridData() {
 
         if (result.success && result.data) {
             rawShipmentList = result.data.map(item => {
-                item._disp_cy_date = formatShortDate(item.cy_date);
-                item._disp_load_date = formatShortDate(item.load_date);
-                item._disp_return_date = formatShortDate(item.return_date);
+                
+                // 🌟 ระบบดึงเวลาอัจฉริยะ (แยกตาม IMPORT / EXPORT อัตโนมัติ) 🌟
+                item._disp_cy_date = formatShortDate(item.cy_date); 
+                item._disp_load_date = formatShortDate(item.mode === 'IMPORT' ? item.unload_date : item.load_date);
+                item._disp_return_date = formatShortDate(item.mode === 'IMPORT' ? item.return_date : item.open_gate);
                 
                 if (item.leg1_plate && !item.leg1_driver) item.leg1_driver = fleetAssignments[item.leg1_plate] || '';
                 if (item.drop1_plate && !item.drop1_driver) item.drop1_driver = fleetAssignments[item.drop1_plate] || '';
@@ -128,6 +130,7 @@ async function loadContainerGridData() {
                 document.getElementById('filter-booking-no').value = selectBooking;
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
+            
             applyFilters();
         } else {
             rawShipmentList = []; applyFilters();

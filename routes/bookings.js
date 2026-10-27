@@ -141,36 +141,59 @@ router.post('/bookings/header', async (req, res) => {
     } finally { client.release(); }
 });
 
-// PUT /api/bookings/:id (อัปเดตจากหน้ากริด)
+// PUT /api/bookings/:id (อัปเดตข้อมูลจากตาราง Booking List)
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
-    const b = req.body;
+    const {
+        mode, run_date, customer_name, agent, job_name, job_type, origin, destination,
+        container_count, container_size, price_type, trip_fee, trans_fee,
+        cy_date, vgm_cutoff, cutoff_time, rent_cutoff, demurrage,
+        load_date, unload_date, open_gate, return_date
+    } = req.body;
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const customer_id = await getCustomerId(client, b.customer_name);
 
-        await client.query(`
-            UPDATE bookings SET 
-                mode=$1, run_date=$2, customer_id=$3, job_name=$4, origin=$5, destination=$6, container_count=$7,
-                price_type=$8, trip_fee=$9, trans_fee=$10, cy_date=$11, vgm_cutoff=$12, cutoff_time=$13, rent_cutoff=$14, 
-                demurrage=$15, load_date=$16, unload_date=$17, open_gate=$18, return_date=$19, updated_at=NOW()
-            WHERE id=$20
-        `, [
-            cleanVal(b.mode), b.run_date, customer_id, b.job_name || '', b.origin || '', b.destination || '', b.container_count || 1,
-            cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.rent_cutoff),
-            cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), cleanVal(b.open_gate), cleanVal(b.return_date), id
-        ]);
+        // 1. อัปเดตตารางหัวบุคกิ้ง (Bookings) - เพิ่ม agent, job_type, container_size ให้ครบ!
+        const updateBookingQuery = `
+            UPDATE bookings 
+            SET mode = $1, run_date = $2, customer_name = $3, agent = $4, job_name = $5, job_type = $6, 
+                origin = $7, destination = $8, container_count = $9, container_size = $10, price_type = $11, 
+                trip_fee = $12, trans_fee = $13, cy_date = $14, vgm_cutoff = $15, cutoff_time = $16, 
+                rent_cutoff = $17, demurrage = $18, load_date = $19, unload_date = $20, 
+                open_gate = $21, return_date = $22, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $23
+            RETURNING booking_no;
+        `;
+        const bookingValues = [
+            mode, run_date, customer_name, agent, job_name, job_type, 
+            origin, destination, container_count, container_size, price_type, 
+            cleanNum(trip_fee), cleanNum(trans_fee), cleanVal(cy_date), cleanVal(vgm_cutoff), cleanVal(cutoff_time), 
+            cleanVal(rent_cutoff), cleanVal(demurrage), cleanVal(load_date), cleanVal(unload_date), 
+            cleanVal(open_gate), cleanVal(return_date), id
+        ];
         
-        await syncShipments(client, b, customer_id);
-        
+        const bResult = await client.query(updateBookingQuery, bookingValues);
+
+        // 2. ถ้าแก้ขนาดตู้ หรือชื่อลูกค้า ให้ไปอัปเดตตารางลูก (Shipments) ด้วย เพื่อให้หน้าจัดรถอัปเดตตาม
+        if (bResult.rows.length > 0) {
+            const bNo = bResult.rows[0].booking_no;
+            await client.query(`
+                UPDATE shipments 
+                SET customer_name = $1, container_size = $2, job_title = $3
+                WHERE booking_no = $4
+            `, [customer_name, container_size, job_name, bNo]);
+        }
+
         await client.query('COMMIT');
-        res.json({ success: true, message: 'อัปเดตและซิงค์ตู้สำเร็จ' });
+        res.json({ success: true, message: 'อัปเดตข้อมูลสำเร็จ 100%' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
-    } finally { client.release(); }
+    } finally {
+        client.release();
+    }
 });
 
 router.get('/shipments', async (req, res) => {

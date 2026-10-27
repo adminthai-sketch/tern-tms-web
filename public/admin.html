@@ -194,10 +194,11 @@
         let currentMasterType = 'users';
         let hotMasterInstance = null;
         let originalTableData = []; 
+        let deletedIdsList = []; // 🌟 เพิ่มตัวแปรเก็บ ID ที่ถูกลบ
         let globalRolesList = ['Admin', 'User', 'Operation']; 
         let globalTruckList = [];
         let globalDriverList = [];
-        let globalCustomersList = []; // 🌟 เก็บรายชื่อลูกค้าไว้ทำ Dropdown ให้ตารางเรท
+        let globalCustomersList = []; 
 
         const masterConfigs = {
             users: {
@@ -218,7 +219,7 @@
                     { type: 'checkbox', className: 'htCenter htMiddle' }, { type: 'checkbox', className: 'htCenter htMiddle' } 
                 ]
             },
-          trucks: {
+            trucks: {
                 title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck', endpoint: '/api/trucks',
                 headers: [
                     'ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ', 'ยี่ห้อรถ (Brand)', 'รุ่น (Model)'
@@ -228,12 +229,10 @@
                     { type: 'text', className: 'font-bold text-primary' }, 
                     { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'], className: 'htCenter' }, 
                     { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'], className: 'htCenter font-bold' },
-                    { type: 'text' }, 
-                    { type: 'text' }
+                    { type: 'text' }, { type: 'text' }
                 ]
             },
             driver_info: {
-                 
                 title: 'จัดการพนักงานขับรถ (Drivers)', icon: 'fa-id-card', endpoint: '/api/driver_info',
                 headers: ['ID', 'ชื่อ-นามสกุล', 'ชื่อเล่น', 'เบอร์โทรศัพท์', 'สถานะ'],
                 columns: [
@@ -253,7 +252,6 @@
             },
             customers: {
                 title: 'จัดการข้อมูลลูกค้า (Customers)', icon: 'fa-building', endpoint: '/api/customers',
-                // 🌟 อัปเดตคอลัมน์ใหม่ทั้งหมด
                 headers: ['ID', 'รหัสลูกค้า (No.)', 'ชื่อบริษัทเต็ม', 'ชื่อย่อ (ใช้ค้นหา)', 'ชื่อเปิดบิล (Billing)', 'เบอร์ติดต่อ', 'ที่อยู่', 'เลขผู้เสียภาษี', 'เครดิต (วัน)'],
                 columns: [
                     { readOnly: true, className: 'bg-slate-50 htCenter' }, { type: 'text' }, { type: 'text' }, { type: 'text', className: 'font-bold text-primary' }, 
@@ -270,7 +268,6 @@
                 ],
                 columns: [
                     { readOnly: true, className: 'bg-slate-50 htCenter' }, 
-                    // 🌟 เปลี่ยนคอลัมน์ลูกค้าเป็น Autocomplete ที่ดึงข้อมูลจากตารางลูกค้า
                     { type: 'autocomplete', strict: true, filter: true, source: function(query, process) { process(globalCustomersList); }, className: 'font-bold text-primary' }, 
                     { type: 'text', className: 'font-bold' }, { type: 'text' }, { type: 'text' }, { type: 'text' }, { type: 'numeric', className: 'htCenter' },
                     { type: 'dropdown', source: ['Domestic', 'CONTAINER'], className: 'htCenter' }, 
@@ -302,6 +299,7 @@
         async function switchMasterTab(type) {
             currentMasterType = type;
             const cfg = masterConfigs[type];
+            deletedIdsList = []; // 🌟 ล้างค่า ID ที่เตรียมลบทุกครั้งที่เปลี่ยนหน้าจอ
 
             document.getElementById('table-title').innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.title}`;
             document.getElementById('global-search').value = ''; 
@@ -313,13 +311,12 @@
             const activeBtn = document.getElementById('menu-' + type);
             if(activeBtn) activeBtn.classList.add('bg-emerald-50', 'text-emerald-700', 'border-r-4', 'border-emerald-600', 'font-semibold');
 
-            // 🌟 ดึงข้อมูลลูกค้าแบบ Real-time ก่อนเปิดหน้าเรทราคา
             if (type === 'rates') {
                 try {
                     const custRes = await fetch('/api/customers');
                     const custResult = await custRes.json();
                     if (custResult.success && custResult.data) {
-                        globalCustomersList = custResult.data.map(c => c[3]).filter(Boolean); // ดึงคอลัมน์ชื่อย่อ
+                        globalCustomersList = custResult.data.map(c => c[3]).filter(Boolean); 
                     }
                 } catch(e) {}
             }
@@ -337,8 +334,6 @@
                         if (result.truckList) globalTruckList = result.truckList;
                         if (result.driverList) globalDriverList = result.driverList;
                     }
-                } else {
-                    console.error("Fetch API Failed with status:", response.status);
                 }
 
                 let safeData = (rawRows && rawRows.length > 0) ? rawRows : [new Array(cfg.headers.length).fill("")];
@@ -395,10 +390,9 @@
                     },
                     afterColumnResize: function() { saveUIState('master_' + currentMasterType, { colWidths: this.getPlugin('manualColumnResize').manualColumnWidths }); }
                 });
-            } catch (err) { alert('❌ โหลดข้อมูลไม่สำเร็จ: ' + err.message); }
+            } catch (err) {}
         }
 
-        // --- 🔍 Global Search ---
         document.getElementById('global-search').addEventListener('input', function(e) {
             if (!hotMasterInstance) return;
             const query = e.target.value.toLowerCase().trim();
@@ -407,7 +401,6 @@
             hotMasterInstance.loadData(filtered.length > 0 ? filtered : [new Array(masterConfigs[currentMasterType].headers.length).fill("")]);
         });
 
-        // --- 📝 Add (Row / Popup) ---
         function addNewRow() {
             if (!hotMasterInstance) return;
             document.getElementById('global-search').value = ''; 
@@ -457,10 +450,14 @@
             closeAddModal();
         }
 
-        // --- 🗑️ DELETE ---
+        // --- 🗑️ DELETE (ปรับให้เก็บ ID ที่จะลบ) ---
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
-            if (confirm(`⚠️ ยืนยันการลบข้อมูลแถวนี้ใช่หรือไม่?`)) {
+            if (confirm(`⚠️ ยืนยันการลบข้อมูลแถวนี้ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อลบออกจากฐานข้อมูลจริง)`)) {
+                // 🌟 เก็บ ID ก่อนลบทิ้งจากหน้าจอ
+                const rowData = hotMasterInstance.getSourceDataAtRow(row);
+                if (rowData && rowData[0]) deletedIdsList.push(rowData[0]); 
+
                 hotMasterInstance.alter('remove_row', row, 1);
                 originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
             }
@@ -473,7 +470,13 @@
                 const startRow = Math.min(selected[0][0], selected[0][2]);
                 const endRow = Math.max(selected[0][0], selected[0][2]);
                 const amount = endRow - startRow + 1;
-                if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?`)) {
+                if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" เพื่อลบจริง)`)) {
+                    // 🌟 เก็บ ID ของทุกแถวที่ถูกลากคลุม
+                    for (let i = startRow; i <= endRow; i++) {
+                        const rowData = hotMasterInstance.getSourceDataAtRow(i);
+                        if (rowData && rowData[0]) deletedIdsList.push(rowData[0]);
+                    }
+
                     hotMasterInstance.alter('remove_row', startRow, amount);
                     originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
                 }
@@ -488,19 +491,19 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...'; btn.disabled = true;
 
             const cfg = masterConfigs[currentMasterType];
-            
             const cleanData = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
 
             try {
                 const response = await fetch(cfg.endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: cleanData })
+                    // 🌟 ส่งข้อมูลที่แก้/เพิ่ม + ส่ง ID ที่จะลบทิ้งไปให้หลังบ้าน
+                    body: JSON.stringify({ data: cleanData, deletedIds: deletedIdsList }) 
                 });
                 const result = await response.json();
                 if (result.success) {
                     alert('✅ ' + result.message);
-                    switchMasterTab(currentMasterType);
+                    switchMasterTab(currentMasterType); // รีเฟรชหน้าจอใหม่
                 } else { alert('❌ เกิดข้อผิดพลาด: ' + result.message); }
             } catch (err) { alert('❌ บันทึกข้อมูลไม่สำเร็จ: ' + err.message); } 
             finally { btn.innerHTML = originalText; btn.disabled = false; }

@@ -47,11 +47,17 @@ router.get('/users', async (req, res) => {
 });
 
 router.post('/users', async (req, res) => {
-    const { data } = req.body;
+    const { data, deletedIds } = req.body; // 🌟 รับ deletedIds
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        // 🌟 ถ้ามีการลบ ให้ลบจาก Database ก่อน
+        if (deletedIds && deletedIds.length > 0) {
+            await client.query('DELETE FROM users WHERE id = ANY($1::int[])', [deletedIds]);
+        }
+
         for (let row of data) {
             const [id, username, full_name, email, role_name, status] = row;
             if (!username) continue;
@@ -68,7 +74,7 @@ router.post('/users', async (req, res) => {
             }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลผู้ใช้งานเรียบร้อยแล้ว' });
+        res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลผู้ใช้งานเรียบร้อยแล้ว' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
@@ -87,11 +93,16 @@ router.get('/roles', async (req, res) => {
 });
 
 router.post('/roles', async (req, res) => {
-    const { data } = req.body;
+    const { data, deletedIds } = req.body;
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        if (deletedIds && deletedIds.length > 0) {
+            await client.query('DELETE FROM roles WHERE id = ANY($1::int[])', [deletedIds]);
+        }
+
         for (let row of data) {
             const [id, role_name, p_monitor, p_booking, p_dispatch, p_billing, p_admin] = row;
             if (!role_name) continue;
@@ -103,66 +114,56 @@ router.post('/roles', async (req, res) => {
             }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลกลุ่มสิทธิ์เรียบร้อยแล้ว' });
+        res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลกลุ่มสิทธิ์เรียบร้อยแล้ว' });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ success: false, message: 'ไม่สามารถลบ Role ได้เนื่องจากมี User ใช้งานอยู่' });
     } finally { client.release(); }
 });
 
 // ==========================================
-// 🚚 Fleet (รถ / คนขับ) - โครงสร้างใหม่ 3 ตาราง
+// 🚚 Fleet (รถ / คนขับ) 
 // ==========================================
-
-// --- ตารางที่ 1: ข้อมูลรถ (Trucks) ---
 router.get('/trucks', async (req, res) => {
     try {
         const query = `SELECT id, plate_number, vehicle_type, status, brand, model FROM trucks ORDER BY id ASC`;
         const result = await pool.query(query);
-        res.json({ success: true, data: result.rows.map(r => [
-            r.id, r.plate_number, r.vehicle_type, r.status, r.brand, r.model
-        ]) });
+        res.json({ success: true, data: result.rows.map(r => [r.id, r.plate_number, r.vehicle_type, r.status, r.brand, r.model]) });
     } catch (err) { res.json({ success: true, data: [] }); }
 });
 
 router.post('/trucks', async (req, res) => {
-    const { data } = req.body;
+    const { data, deletedIds } = req.body;
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false });
     const client = await pool.connect();
     
     try {
         await client.query('BEGIN');
+        
+        if (deletedIds && deletedIds.length > 0) {
+            await client.query('DELETE FROM trucks WHERE id = ANY($1::int[])', [deletedIds]);
+        }
+
         for (const row of data) {
             const [id, plate_number, vehicle_type, status, brand, model] = row;
             if (!plate_number) continue;
 
             if (id) {
-                const updateQuery = `
-                    UPDATE trucks SET 
-                        plate_number=$1, vehicle_type=$2, status=$3, brand=$4, model=$5,
-                        updated_at=CURRENT_TIMESTAMP 
-                    WHERE id=$6
-                `;
+                const updateQuery = `UPDATE trucks SET plate_number=$1, vehicle_type=$2, status=$3, brand=$4, model=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`;
                 await client.query(updateQuery, [plate_number, vehicle_type, status || 'ACTIVE', brand || '', model || '', id]);
             } else {
-                const insertQuery = `
-                    INSERT INTO trucks (
-                        plate_number, vehicle_type, status, brand, model
-                    ) VALUES ($1, $2, $3, $4, $5)
-                    ON CONFLICT DO NOTHING
-                `;
+                const insertQuery = `INSERT INTO trucks (plate_number, vehicle_type, status, brand, model) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`;
                 await client.query(insertQuery, [plate_number, vehicle_type, status || 'ACTIVE', brand || '', model || '']);
             }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลรถเรียบร้อย' });
+        res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลรถเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ success: false, message: 'ลบไม่ได้: รถคันนี้อาจถูกใช้งานในระบบงานอยู่' });
     } finally { client.release(); }
 });
 
-// --- ตารางที่ 2: พนักงานขับรถ (Drivers) ---
 router.get('/driver_info', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, driver_name, nickname, phone_number, status FROM drivers ORDER BY id ASC');
@@ -171,11 +172,16 @@ router.get('/driver_info', async (req, res) => {
 });
 
 router.post('/driver_info', async (req, res) => {
-    const { data } = req.body;
+    const { data, deletedIds } = req.body;
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false });
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        if (deletedIds && deletedIds.length > 0) {
+            await client.query('DELETE FROM drivers WHERE id = ANY($1::int[])', [deletedIds]);
+        }
+
         for (const row of data) {
             const [id, driver_name, nickname, phone_number, status] = row;
             if (!driver_name) continue;
@@ -186,22 +192,18 @@ router.post('/driver_info', async (req, res) => {
             }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลคนขับเรียบร้อย' });
+        res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลคนขับเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ success: false, message: 'ลบไม่ได้: พนักงานรายนี้อาจถูกใช้งานในระบบงานอยู่' });
     } finally { client.release(); }
 });
 
-// --- ตารางที่ 3: จับคู่รถและคนขับ (Truck Assignments) ---
 router.get('/truck_assignments', async (req, res) => {
     try {
         const query = `
             SELECT ta.id, t.plate_number, t.vehicle_type, d.driver_name 
-            FROM truck_assignments ta
-            JOIN trucks t ON ta.truck_id = t.id
-            LEFT JOIN drivers d ON ta.driver_id = d.id
-            ORDER BY ta.id ASC
+            FROM truck_assignments ta JOIN trucks t ON ta.truck_id = t.id LEFT JOIN drivers d ON ta.driver_id = d.id ORDER BY ta.id ASC
         `;
         const result = await pool.query(query);
         const trucks = await pool.query("SELECT plate_number FROM trucks WHERE status = 'ACTIVE'");
@@ -221,7 +223,7 @@ router.post('/truck_assignments', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        await client.query('DELETE FROM truck_assignments'); // ล้างข้อมูลเก่าและเขียนใหม่ ป้องกันข้อมูลซ้ำซ้อน
+        await client.query('DELETE FROM truck_assignments'); // ล้างข้อมูลเก่าและเขียนใหม่
 
         for (const row of data) {
             const [id, plate_number, dummy, driver_name] = row;
@@ -237,10 +239,7 @@ router.post('/truck_assignments', async (req, res) => {
                 if (dRes.rows.length > 0) driver_id = dRes.rows[0].id;
             }
 
-            await client.query(`
-                INSERT INTO truck_assignments (truck_id, driver_id) VALUES ($1, $2)
-                ON CONFLICT (truck_id) DO UPDATE SET driver_id = EXCLUDED.driver_id, updated_at = CURRENT_TIMESTAMP
-            `, [truck_id, driver_id]);
+            await client.query(`INSERT INTO truck_assignments (truck_id, driver_id) VALUES ($1, $2) ON CONFLICT (truck_id) DO UPDATE SET driver_id = EXCLUDED.driver_id, updated_at = CURRENT_TIMESTAMP`, [truck_id, driver_id]);
         }
         await client.query('COMMIT');
         res.json({ success: true, message: 'บันทึกการจับคู่รถ-คนขับ สำเร็จ 100%' });
@@ -256,18 +255,20 @@ router.post('/truck_assignments', async (req, res) => {
 router.get('/customers', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, customer_no, customer_name, short_name, billing_name, phone_number, address, tax_id, credit_term FROM customers ORDER BY id ASC');
-        res.json({ 
-            success: true, 
-            data: result.rows.map(r => [r.id, r.customer_no, r.customer_name, r.short_name, r.billing_name, r.phone_number, r.address, r.tax_id, r.credit_term]) 
-        });
+        res.json({ success: true, data: result.rows.map(r => [r.id, r.customer_no, r.customer_name, r.short_name, r.billing_name, r.phone_number, r.address, r.tax_id, r.credit_term]) });
     } catch (err) { res.json({ success: true, data: [] }); }
 });
 
 router.post('/customers', async (req, res) => {
-    const { data } = req.body;
+    const { data, deletedIds } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        if (deletedIds && deletedIds.length > 0) {
+            await client.query('DELETE FROM customers WHERE id = ANY($1::int[])', [deletedIds]);
+        }
+
         for (const row of data) {
             const [id, c_no, c_name, s_name, b_name, phone, addr, tax, credit] = row;
             if (!c_name) continue; 
@@ -281,10 +282,10 @@ router.post('/customers', async (req, res) => {
             }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลลูกค้าเรียบร้อย (อัปเดตแบบไร้รอยต่อ)' });
+        res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลลูกค้าเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ success: false, message: 'ลบไม่ได้: ลูกค้ารายนี้อาจมีการผูกใบสั่งงาน (Booking) ค้างอยู่' });
     } finally { client.release(); }
 });
 
@@ -294,15 +295,10 @@ router.get('/rates', async (req, res) => {
             SELECT r.id, c.short_name, r.job_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, 
                    r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, 
                    r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash 
-            FROM rates r
-            LEFT JOIN customers c ON r.customer_id = c.id
-            ORDER BY r.id ASC
+            FROM rates r LEFT JOIN customers c ON r.customer_id = c.id ORDER BY r.id ASC
         `;
         const result = await pool.query(query);
-        res.json({ 
-            success: true, 
-            data: result.rows.map(r => [r.id, r.short_name, r.job_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash]) 
-        });
+        res.json({ success: true, data: result.rows.map(r => [r.id, r.short_name, r.job_name, r.origin, r.destination, r.run_type, r.container_count, r.job_type, r.trip_fee_6w, r.trip_fee_10w, r.trip_fee_12w, r.trip_fee_cash, r.trans_fee_6w, r.trans_fee_10w, r.trans_fee_12w, r.trans_fee_cash]) });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

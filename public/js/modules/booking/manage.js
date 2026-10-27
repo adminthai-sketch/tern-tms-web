@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: DISPATCH & CONTAINER MANAGE (VGM Blinker Edition)
+// 📦 MODULE: DISPATCH & CONTAINER MANAGE
 // ==========================================
 
 let hotGridInstance = null;
@@ -118,13 +118,13 @@ function applyZebraStripingCSS() {
             .ht-edited-row { border-left: 3px solid #f59e0b !important; }
             .unsaved-id-cell { color: #dc2626 !important; font-weight: 800 !important; background-color: #fde047 !important; }
 
-            /* 🌟 อนิเมชั่นไฟกระพริบเตือน VGM Cutoff 🌟 */
-            @keyframes vgm-blink {
-                0% { background-color: #fef2f2; color: #dc2626; box-shadow: inset 0 0 5px #ef4444; }
-                50% { background-color: #fca5a5; color: #7f1d1d; box-shadow: inset 0 0 15px #dc2626; }
-                100% { background-color: #fef2f2; color: #dc2626; box-shadow: inset 0 0 5px #ef4444; }
+            /* 🌟 อนิเมชั่นไฟกระพริบที่ตัวหนังสือเวลา 🌟 */
+            @keyframes vgm-text-blink {
+                0% { opacity: 1; color: #ef4444; }
+                50% { opacity: 0.3; color: #991b1b; transform: scale(1.05); }
+                100% { opacity: 1; color: #ef4444; }
             }
-            .vgm-warning-blink { animation: vgm-blink 1s infinite !important; font-weight: 800 !important; }
+            .vgm-text-blink { animation: vgm-text-blink 1s infinite; font-weight: 800 !important; }
         `;
         document.head.appendChild(style);
     }
@@ -305,9 +305,10 @@ function initContainerHandsontable(data) {
         }
     };
 
-    // 🌟 ระบบกระพริบเตือนลงเบอร์ตู้ (VGM Blinker) 🌟
+    // 🌟 ระบบกระพริบเตือนลงเบอร์ตู้ เป็นตัวหนังสือ HTML 🌟
     const vgmWarningRenderer = function(instance, td, row, col, prop, value, cellProperties) {
-        Handsontable.renderers.TextRenderer.apply(this, arguments);
+        // ใช้ HtmlRenderer เพื่อให้ใส่ Tag HTML ตัวหนังสือเล็กๆ ได้
+        Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         td.style.fontWeight = '700';
         td.style.textAlign = 'center';
         td.style.verticalAlign = 'middle';
@@ -324,14 +325,18 @@ function initContainerHandsontable(data) {
             
             // เตือนล่วงหน้า 24 ชั่วโมง หรือเลยเวลาไปแล้ว
             if (diffHours < 24) {
-                td.classList.add('vgm-warning-blink');
+                td.style.backgroundColor = '#fef2f2'; // พื้นหลังแดงอ่อนๆ
+                // ใส่เวลาเข้าไปเป็น HTML ในช่องที่ยังว่างอยู่
+                td.innerHTML = `<div class="vgm-text-blink text-[9px] text-red-500 leading-[1.1]"><i class="fa-solid fa-clock"></i> CUTOFF<br>${formatShortDate(vgmCutoff)}</div>`;
                 td.title = `🚨 ใกล้ถึงหรือเลยเวลา VGM Cutoff (${formatShortDate(vgmCutoff)}) รีบใส่เบอร์ตู้ด่วน!`;
             } else {
-                td.classList.remove('vgm-warning-blink');
-                td.style.color = '#1d4ed8'; 
+                td.style.backgroundColor = '';
+                td.innerHTML = '';
             }
         } else {
-            td.classList.remove('vgm-warning-blink');
+            // ถ้ากรอกเบอร์ตู้แล้ว หรือไม่เข้าเงื่อนไข ก็โชว์เบอร์ตู้ปกติสีน้ำเงิน
+            td.style.backgroundColor = '';
+            td.innerHTML = value ? value : '';
             td.style.color = '#1d4ed8'; 
         }
     };
@@ -348,7 +353,7 @@ function initContainerHandsontable(data) {
         nestedHeaders: [
             [
                 { label: '📋 ข้อมูลงาน', colspan: 7 }, 
-                { label: '📦 ข้อมูลตู้ (🚨 สีแดง = เตือน VGM Cutoff)', colspan: 7 }, 
+                { label: '📦 ข้อมูลตู้', colspan: 7 }, 
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
                 { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ) <button onclick="copyLegToAllRows(\'leg1\', \'leg2\')" class="ml-1 bg-blue-100 text-blue-700 border border-blue-300 px-1 py-0.5 rounded shadow-sm hover:bg-blue-600 hover:text-white transition-colors text-[10px]" title="ดึงทะเบียนรถและคนขับจาก ขา 1 มาใส่ ขา 2 ทั้งหมด"><i class="fa-solid fa-angles-right"></i> ดึงรถขา 1</button>', colspan: 5 }, 
@@ -382,7 +387,7 @@ function initContainerHandsontable(data) {
             
             { data: 'container_size', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
             
-            // 🚨 เรียกใช้ฟังก์ชัน VGM Blinker ตรงช่องเบอร์ตู้ 1 และ 2 🚨
+            // 🚨 ติดตั้ง Renderer ไฟกระพริบ ตรงช่องเบอร์ตู้ 1 และ 2 🚨
             { data: 'container_1_no', type: 'text', renderer: vgmWarningRenderer },
             { data: 'container_2_no', type: 'text', renderer: vgmWarningRenderer },
             

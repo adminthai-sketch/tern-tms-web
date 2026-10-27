@@ -89,8 +89,7 @@ function applyZebraStripingCSS() {
 
 function formatShortDate(dt) {
     if (!dt || String(dt).trim() === 'NaN' || String(dt).trim() === 'null') return '';
-    const s = String(dt).replace('T', ' ').substring(5, 16); 
-    return s || '';
+    return String(dt).replace('T', ' ').substring(5, 16); 
 }
 
 async function loadContainerGridData() {
@@ -129,7 +128,6 @@ async function loadContainerGridData() {
                 document.getElementById('filter-booking-no').value = selectBooking;
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-            
             applyFilters();
         } else {
             rawShipmentList = []; applyFilters();
@@ -215,40 +213,63 @@ function initContainerHandsontable(data) {
         td.innerHTML = `<div class="p-1 w-full h-full"><button onclick="toggleDropRow(${row}, '${prop}')" class="w-full h-full text-[10px] font-bold border rounded shadow-sm flex items-center justify-center gap-1 transition-colors ${btnClass}">${icon}</button></div>`;
     };
 
+    // 🌟 ระบบไฮไลท์สีบอกใบ้ว่าต้องกรอกช่องไหนตาม MODE 🌟
+    const feeRenderer = function(instance, td, row, col, prop, value, cellProperties) {
+        Handsontable.renderers.NumericRenderer.apply(this, arguments);
+        const mode = instance.getDataAtRowProp(row, 'mode');
+        td.style.fontWeight = '700';
+        td.style.verticalAlign = 'middle';
+        
+        if (mode === 'IMPORT') {
+            if (prop === 'port_pass_fee') { td.style.backgroundColor = '#e0f2fe'; td.style.color = '#0369a1'; td.title = 'เก็บตอนเริ่มรับตู้ที่ท่าเรือ (IMPORT)'; }
+            else if (prop === 'deposit_fee' || prop === 'lift_fee') { td.style.backgroundColor = '#e0f2fe'; td.style.color = '#0369a1'; td.title = 'เก็บตอนจบคืนตู้ที่ลานตู้ (IMPORT)'; }
+            else { td.style.backgroundColor = '#f1f5f9'; td.style.color = '#cbd5e1'; }
+        } else if (mode === 'EXPORT') {
+            if (prop === 'shore_fee' || prop === 'port_pass_fee') { td.style.backgroundColor = '#fef3c7'; td.style.color = '#b45309'; td.title = 'เก็บตอนจบคืนตู้โหลดลงเรือ (EXPORT)'; }
+            else if (prop === 'lift_fee') { td.style.backgroundColor = '#fef3c7'; td.style.color = '#b45309'; td.title = 'เก็บตอนเริ่มรับตู้เปล่าที่ลาน (EXPORT)'; }
+            else { td.style.backgroundColor = '#f1f5f9'; td.style.color = '#cbd5e1'; }
+        } else {
+            td.style.backgroundColor = '#f8fafc';
+        }
+    };
+
     hotGridInstance = new Handsontable(container, {
         data: data.length > 0 ? data : [{}],
         nestedHeaders: [
             [
-                { label: '📋 ข้อมูลงาน', colspan: 6 },
+                { label: '📋 ข้อมูลงาน', colspan: 7 }, // เพิ่ม MODE
                 { label: '📦 ข้อมูลตู้', colspan: 7 }, 
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
                 { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 2 (DROP 2)', colspan: 4 }, 
                 { label: '🚢 ขา 3: RETURN (คืนตู้)', colspan: 4 }, 
-                { label: '💵 การเงิน', colspan: 2 }
+                { label: '💵 ค่าจ้างขนส่ง', colspan: 2 },
+                { label: '💸 เบิกจ่ายค่าท่า/ลาน', colspan: 4 } // กลุ่มค่าใช้จ่ายหน้าท่า 4 ช่อง
             ],
             [
-                '✔', 'Order ID', 'Booking', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
+                '✔', 'Order ID', 'Booking', 'MODE', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
                 'ขนาดตู้', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅',
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', 
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', 
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅',
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', '✅', 
-                'ค่าเที่ยว', 'ค่าขนส่ง'
+                'ค่าเที่ยว', 'ค่าขนส่ง',
+                'ค่าผ่านท่า', 'ค่าชอร์', 'ค่ายกตู้', 'ค่าฝากลาน'
             ]
         ],
         columns: [
-            // 📋 ข้อมูลงาน (6 คอลัมน์)
+            // 📋 ข้อมูลงาน
             { data: '_checkbox', type: 'checkbox', className: 'htCenter htMiddle zone-info' }, 
             { data: 'order_id', type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info' }, 
             { data: 'booking_no', type: 'text', readOnly: true, className: 'font-bold text-primary htCenter htMiddle zone-info' }, 
+            { data: 'mode', type: 'text', readOnly: true, className: 'htCenter htMiddle font-bold text-slate-500 zone-info' }, 
             { data: 'customer_name', type: 'text', readOnly: true, className: 'text-slate-700 font-bold htMiddle zone-info' }, 
             { data: 'origin', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             
-            // 📦 ข้อมูลตู้ (7 คอลัมน์)
+            // 📦 ข้อมูลตู้
             { data: 'container_size', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
             { data: 'container_1_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 'container_2_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
@@ -257,57 +278,64 @@ function initContainerHandsontable(data) {
             { data: 'tare', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
             { data: 'max_gross', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
 
-            // 🚚 ขา 1: PICK UP (5 คอลัมน์)
+            // 🚚 ขา 1: PICK UP
             { data: 'leg1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
             { data: 'leg1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
             { data: '_disp_cy_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg1_is_drop', readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer }, 
             { data: 'leg1_completed', type: 'checkbox', className: 'htCenter htMiddle zone-leg1' }, 
 
-            // 🅿️ ขาฝาก 1 (4 คอลัมน์)
+            // 🅿️ ขาฝาก 1 (19-22)
             { data: 'drop1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
             { data: 'drop1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
             { data: 'drop1_location', type: 'text', className: 'zone-legdrop htMiddle' },
             { data: 'drop1_completed', type: 'checkbox', className: 'htCenter htMiddle zone-legdrop' },
 
-            // 🏭 ขา 2: DELIVERY (5 คอลัมน์)
+            // 🏭 ขา 2: DELIVERY
             { data: 'leg2_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
             { data: 'leg2_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
             { data: '_disp_load_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg2_is_drop', readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer },
             { data: 'leg2_completed', type: 'checkbox', className: 'htCenter htMiddle zone-leg2' },
 
-            // 🅿️ ขาฝาก 2 (4 คอลัมน์)
+            // 🅿️ ขาฝาก 2 (28-31)
             { data: 'drop2_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
             { data: 'drop2_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
             { data: 'drop2_location', type: 'text', className: 'zone-legdrop htMiddle' },
             { data: 'drop2_completed', type: 'checkbox', className: 'htCenter htMiddle zone-legdrop' },
 
-            // 🚢 ขา 3: RETURN (4 คอลัมน์)
+            // 🚢 ขา 3: RETURN
             { data: 'leg3_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
             { data: 'leg3_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
             { data: '_disp_return_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg3_completed', type: 'checkbox', className: 'htCenter htMiddle zone-leg3' },
 
-            // 💵 การเงิน (2 คอลัมน์)
+            // 💵 การเงิน ค่าจ้างขนส่ง
             { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold bg-green-50 htRight htMiddle' }, 
-            { data: 'trans_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50 htRight htMiddle' }
+            { data: 'trans_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50 htRight htMiddle' },
+
+            // 💸 เบิกจ่ายหน้าท่า/ลาน (ใช้ Renderer แบบฉลาดแยกสีตาม Mode)
+            { data: 'port_pass_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
+            { data: 'shore_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
+            { data: 'lift_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
+            { data: 'deposit_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }
         ],
         colWidths: [
-            30, 110, 100, 100, 80, 80, // Info 
+            30, 110, 100, 75, 100, 80, 80, // Info 
             60, 100, 100, 100, 90, 80, 70, // Container 
             90, 110, 110, 110, 40, // Leg 1 
             90, 110, 110, 40, // Drop 1 
             90, 110, 110, 110, 40, // Leg 2 
             90, 110, 110, 40, // Drop 2 
             90, 110, 110, 40, // Leg 3 
-            70, 70 // Finance 
+            70, 70, // Finance 
+            75, 75, 75, 75 // Port Fees
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
         
         hiddenColumns: {
-            columns: isDropYardsHidden ? [18, 19, 20, 21, 27, 28, 29, 30] : [], 
+            columns: isDropYardsHidden ? [19, 20, 21, 22, 28, 29, 30, 31] : [], 
             indicators: true
         },
         contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'copy'],
@@ -323,7 +351,6 @@ function initContainerHandsontable(data) {
                     if (cleanVal !== newVal) this.setDataAtRowProp(row, prop, cleanVal, 'auto');
                 }
 
-                // 🌟 เลือกรถ -> ดึงคนขับออโต้
                 if (['leg1_plate', 'drop1_plate', 'leg2_plate', 'drop2_plate', 'leg3_plate'].includes(prop) && newVal) {
                     if (fleetAssignments[newVal]) {
                         const driverCol = prop.replace('_plate', '_driver');
@@ -331,7 +358,6 @@ function initContainerHandsontable(data) {
                     }
                 }
                 
-                // 🌟 เลือกคนขับ -> ดึงรถออโต้
                 if (['leg1_driver', 'drop1_driver', 'leg2_driver', 'drop2_driver', 'leg3_driver'].includes(prop) && newVal) {
                     if (driverAssignments[newVal]) {
                         const plateCol = prop.replace('_driver', '_plate');
@@ -357,7 +383,6 @@ function initContainerHandsontable(data) {
     }
 }
 
-// 🌟 ระบบสลับเส้นทาง: แวะลานฝาก
 window.toggleDropRow = function(row, prop) {
     let isDrop = hotGridInstance.getDataAtRowProp(row, prop);
     if (typeof isDrop === 'string') isDrop = (isDrop === 'true');
@@ -393,12 +418,12 @@ window.toggleDropYards = function() {
         btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้`;
         btn.classList.replace('bg-purple-600', 'bg-purple-50');
         btn.classList.replace('text-white', 'text-purple-700');
-        hotGridInstance.getPlugin('hiddenColumns').hideColumns([18, 19, 20, 21, 27, 28, 29, 30]);
+        hotGridInstance.getPlugin('hiddenColumns').hideColumns([19, 20, 21, 22, 28, 29, 30, 31]);
     } else {
         btn.innerHTML = `<i class="fa-solid fa-eye"></i> ซ่อนลานฝากตู้`;
         btn.classList.replace('bg-purple-50', 'bg-purple-600');
         btn.classList.replace('text-purple-700', 'text-white');
-        hotGridInstance.getPlugin('hiddenColumns').showColumns([18, 19, 20, 21, 27, 28, 29, 30]);
+        hotGridInstance.getPlugin('hiddenColumns').showColumns([19, 20, 21, 22, 28, 29, 30, 31]);
     }
     hotGridInstance.render();
 };
@@ -453,6 +478,7 @@ window.addNewContainerRow = function() {
         _checkbox: false,
         order_id: timestampID,
         booking_no: filterBooking,
+        mode: templateRow.mode,
         customer_name: templateRow.customer_name,
         origin: templateRow.origin,
         destination: templateRow.destination,
@@ -462,6 +488,10 @@ window.addNewContainerRow = function() {
         _disp_return_date: templateRow._disp_return_date,
         trip_fee: templateRow.trip_fee,
         trans_fee: templateRow.trans_fee,
+        port_pass_fee: 0,
+        shore_fee: 0,
+        lift_fee: 0,
+        deposit_fee: 0,
         overall_status: 'รอจัดรถ'
     };
 
@@ -520,7 +550,7 @@ window.saveGridChanges = async function() {
         });
         const result = await res.json();
         if (result.success) {
-            alert('✅ บันทึกข้อมูลตู้และคนขับสำเร็จ!');
+            alert('✅ บันทึกข้อมูลตู้และค่าใช้จ่ายสำเร็จ!');
             editedRowIndices.clear();
             loadContainerGridData(); 
         } else {

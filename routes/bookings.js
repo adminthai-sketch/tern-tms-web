@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 
-// ฟังก์ชันแปลงค่า ป้องกัน Error
 const cleanVal = (val) => (!val || val === '' || val === 'NaN') ? null : String(val).trim();
 const cleanNum = (val) => {
     if (!val) return 0;
@@ -10,14 +9,12 @@ const cleanNum = (val) => {
     return isNaN(num) ? 0 : num;
 };
 
-// 🌟 ฟังก์ชันหา ID ลูกค้าจากชื่อ
 async function getCustomerId(client, customerName) {
     if (!customerName) return null;
     const res = await client.query('SELECT id FROM customers WHERE short_name = $1 OR customer_name = $1 LIMIT 1', [customerName]);
     return res.rows.length > 0 ? res.rows[0].id : null;
 }
 
-// 🌟 ฟังก์ชันฮีโร่: ซิงค์เวลาลงตู้ย่อย (เพิ่ม/ลดตู้ อัตโนมัติ) 🌟
 async function syncShipments(client, b) {
     if (!b.booking_no) return; 
     
@@ -26,7 +23,6 @@ async function syncShipments(client, b) {
     const current_count = current_shipments.length;
     const target_count = parseInt(b.container_count || 1);
     
-    // สร้างเพิ่มถ้าตู้น้อยกว่าที่ระบุ
     if (current_count < target_count) {
         const to_create = target_count - current_count;
         const dateObj = b.run_date ? new Date(b.run_date) : new Date();
@@ -56,7 +52,6 @@ async function syncShipments(client, b) {
             `, [new_order_id, cleanNum(b.trip_fee), cleanNum(b.trans_fee)]);
         }
     } 
-    // ลบตู้ที่เกินทิ้ง
     else if (current_count > target_count) {
         const ids_to_delete = [];
         for (let i = current_count - 1; i >= target_count; i--) ids_to_delete.push(current_shipments[i].order_id);
@@ -67,7 +62,7 @@ async function syncShipments(client, b) {
     }
 }
 
-// 🌟 1. POST /api/bookings/header (สร้าง Booking ใหม่)
+// 🌟 1. POST /api/bookings/header
 router.post('/bookings/header', async (req, res) => {
     const b = req.body;
     if (!b.mode || !b.run_date) return res.status(400).json({ success: false, message: 'กรุณากรอก Mode และวันที่วิ่งงาน' });
@@ -103,7 +98,7 @@ router.post('/bookings/header', async (req, res) => {
         ];
         
         await client.query(query, values);
-        await syncShipments(client, b); // ซิงค์ตู้
+        await syncShipments(client, b); 
         
         await client.query('COMMIT');
         res.json({ success: true, message: `บันทึกหัวบุคกิ้งเลข ${b.booking_no} เรียบร้อย!` });
@@ -113,7 +108,7 @@ router.post('/bookings/header', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 🌟 2. PUT /api/bookings/:id (อัปเดต Booking และซิงค์ตู้)
+// 🌟 2. PUT /api/bookings/:id
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const b = req.body;
@@ -144,7 +139,7 @@ router.put('/bookings/:id', async (req, res) => {
 
         if (bResult.rows.length > 0) {
             b.booking_no = bResult.rows[0].booking_no; 
-            await syncShipments(client, b); // ซิงค์ตู้หลังจากแก้จำนวน
+            await syncShipments(client, b); 
         }
 
         await client.query('COMMIT');
@@ -155,7 +150,7 @@ router.put('/bookings/:id', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 🌟 3. GET /api/shipments (โหลดข้อมูลหน้าจัดรถ + ตรวจสอบสร้างตู้อัตโนมัติถ้ายอดตู้ไม่ครบ) 🌟
+// 🌟 3. GET /api/shipments (โหลดข้อมูลดึง 4 ค่าใช้จ่ายมาด้วย)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -163,29 +158,21 @@ router.get('/shipments', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
-        // ตรวจสอบว่า Booking ของเดือนนั้นๆ มีตู้ครบหรือยัง ถ้ายังให้สร้างให้ครบอัตโนมัติ
         const bookingsRes = await client.query(`
             SELECT booking_no, run_date, container_count, trip_fee, trans_fee 
-            FROM bookings 
-            WHERE EXTRACT(MONTH FROM run_date) = $1::INTEGER 
-              AND EXTRACT(YEAR FROM run_date) = $2::INTEGER
+            FROM bookings WHERE EXTRACT(MONTH FROM run_date) = $1::INTEGER AND EXTRACT(YEAR FROM run_date) = $2::INTEGER
         `, [month, year]);
 
-        for (const b of bookingsRes.rows) {
-            await syncShipments(client, b);
-        }
-
+        for (const b of bookingsRes.rows) { await syncShipments(client, b); }
         await client.query('COMMIT');
 
-        // ดึงข้อมูลส่งกลับให้หน้าเว็บ
         const result = await pool.query(`
             SELECT 
                 s.*,
-                b.run_date, b.customer_id, c.short_name AS customer_name,
+                b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
                 b.origin, b.destination, b.container_size, b.job_type, b.agent,
                 b.cy_date, b.load_date, b.return_date,
-                f.trip_fee, f.trans_fee
+                f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee
             FROM shipment_operations s
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
@@ -199,12 +186,10 @@ router.get('/shipments', async (req, res) => {
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });
-    } finally {
-        client.release();
-    }
+    } finally { client.release(); }
 });
 
-// 🌟 4. POST /api/shipments (เซฟข้อมูลจากตารางจัดรถ)
+// 🌟 4. POST /api/shipments (บันทึกข้อมูล พร้อม 4 ค่าใช้จ่าย)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลสำหรับบันทึก' });
@@ -214,7 +199,6 @@ router.post('/shipments', async (req, res) => {
         await client.query('BEGIN');
         for (const row of data) {
             
-            // กรณีเป็นตู้ใหม่ (ปุ่ม + เพิ่มตู้)
             let final_order_id = row.order_id;
             if (final_order_id && final_order_id.includes('ORD-ADD-')) {
                 const dateObj = new Date();
@@ -232,13 +216,16 @@ router.post('/shipments', async (req, res) => {
                 final_order_id = `${prefix}${String(start_num).padStart(3, '0')}`;
                 
                 await client.query(`INSERT INTO shipment_operations (order_id, booking_no) VALUES ($1, $2)`, [final_order_id, row.booking_no]);
-                await client.query(`INSERT INTO financials (order_id, trip_fee, trans_fee) VALUES ($1, $2, $3)`, [final_order_id, cleanNum(row.trip_fee), cleanNum(row.trans_fee)]);
                 
-                // อัปเดตยอดรวมตู้ใน Booking
+                // แทรกข้อมูลการเงินตอนตู้ใหม่
+                await client.query(`
+                    INSERT INTO financials (order_id, trip_fee, trans_fee, port_pass_fee, shore_fee, lift_fee, deposit_fee) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                `, [final_order_id, cleanNum(row.trip_fee), cleanNum(row.trans_fee), cleanNum(row.port_pass_fee), cleanNum(row.shore_fee), cleanNum(row.lift_fee), cleanNum(row.deposit_fee)]);
+                
                 await client.query(`UPDATE bookings SET container_count = container_count + 1 WHERE booking_no = $1`, [row.booking_no]);
             }
 
-          // อัปเดตข้อมูลตู้
             await client.query(`
                 UPDATE shipment_operations SET
                     container_1_no=$1, container_2_no=$2, seal_no=$3, pop_no=$4, tare=$5, max_gross=$6,
@@ -259,8 +246,16 @@ router.post('/shipments', async (req, res) => {
                 cleanVal(row.overall_status) || 'รอจัดรถ', final_order_id
             ]);
             
-            // อัปเดตค่าเที่ยว
-            await client.query(`UPDATE financials SET trip_fee=$1, trans_fee=$2 WHERE order_id=$3`, [cleanNum(row.trip_fee), cleanNum(row.trans_fee), final_order_id]);
+            // 🌟 อัปเดตข้อมูลการเงินและค่าใช้จ่าย 4 ตัว
+            await client.query(`
+                UPDATE financials SET 
+                    trip_fee=$1, trans_fee=$2, port_pass_fee=$3, shore_fee=$4, lift_fee=$5, deposit_fee=$6 
+                WHERE order_id=$7
+            `, [
+                cleanNum(row.trip_fee), cleanNum(row.trans_fee), 
+                cleanNum(row.port_pass_fee), cleanNum(row.shore_fee), cleanNum(row.lift_fee), cleanNum(row.deposit_fee),
+                final_order_id
+            ]);
         }
         await client.query('COMMIT');
         res.json({ success: true, message: 'บันทึกสำเร็จ' });
@@ -270,16 +265,13 @@ router.post('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 🌟 5. DELETE /api/shipments (ลบตู้จากตารางจัดรถ)
 router.delete('/shipments', async (req, res) => {
     const { order_ids } = req.body;
     if (!order_ids || order_ids.length === 0) return res.json({ success: true, message: 'ไม่มีรายการลบ' });
-    
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const placeholders = order_ids.map((_, i) => `$${i + 1}`).join(',');
-        
         for(let oid of order_ids) {
             const bRes = await client.query(`SELECT booking_no FROM shipment_operations WHERE order_id = $1`, [oid]);
             if(bRes.rows.length > 0) {
@@ -287,7 +279,6 @@ router.delete('/shipments', async (req, res) => {
             }
         }
         await client.query(`DELETE FROM shipment_operations WHERE order_id IN (${placeholders})`, order_ids);
-        
         await client.query('COMMIT');
         res.json({ success: true, message: 'ลบรายการสำเร็จ' });
     } catch (err) { 
@@ -296,22 +287,18 @@ router.delete('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 🌟 6. หมวดอื่นๆ (ดึงรายการ, ลบบุคกิ้ง, เรทราคา)
 router.get('/bookings/search', async (req, res) => {
     try {
         const { start_date, end_date, search, customer } = req.query;
         let query = `
             SELECT b.*, c.short_name AS customer_name 
-            FROM bookings b 
-            LEFT JOIN customers c ON b.customer_id = c.id 
-            WHERE 1=1
+            FROM bookings b LEFT JOIN customers c ON b.customer_id = c.id WHERE 1=1
         `;
         let params = []; let paramIndex = 1;
         if (start_date && end_date) { query += ` AND b.run_date BETWEEN $${paramIndex++} AND $${paramIndex++}`; params.push(start_date, end_date); }
         if (customer) { query += ` AND c.short_name = $${paramIndex++}`; params.push(customer); }
         if (search) { query += ` AND (b.booking_no ILIKE $${paramIndex} OR b.job_name ILIKE $${paramIndex})`; params.push(`%${search}%`); paramIndex++; }
         query += ` ORDER BY b.run_date DESC, b.id DESC LIMIT 100`;
-        
         const result = await pool.query(query, params);
         res.json({ success: true, data: result.rows });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }

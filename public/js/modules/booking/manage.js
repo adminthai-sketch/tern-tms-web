@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Smart Dispatch & Compact Mode)
+// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Grid Mode - Perfect UX)
 // ==========================================
 
 let hotGridInstance = null;
@@ -13,7 +13,7 @@ let globalDriverList = [];
 let fleetAssignments = {}; // แมป ทะเบียนรถ -> คนขับ
 let driverAssignments = {}; // แมป คนขับ -> ทะเบียนรถ
 let globalContainerSizes = ['20', '40', '40HC', '45HC'];
-let isCompactMode = true; // 🌟 เปิดโหมดตารางสะอาดตาเป็นค่าเริ่มต้น
+let isDropYardsHidden = true; // 🌟 ซ่อนลานฝากเป็นค่าเริ่มต้นเพื่อให้ตารางดูง่าย
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
@@ -54,7 +54,7 @@ async function loadFleetData() {
                 result.data.forEach(item => {
                     if (item[1] && item[3]) {
                         fleetAssignments[item[1]] = item[3]; 
-                        driverAssignments[item[3]] = item[1]; // 🌟 เก็บข้อมูลกลับด้าน (คนขับ -> รถ)
+                        driverAssignments[item[3]] = item[1]; 
                     }
                 });
             }
@@ -72,7 +72,6 @@ function applyZebraStripingCSS() {
             
             .zone-info { background-color: #f8fafc !important; color: #475569; }
             .zone-container { background-color: #f0f9ff !important; } 
-            .zone-dispatch { background-color: #ecfdf5 !important; }
             .zone-leg1 { background-color: #fdf4ff !important; } 
             .zone-legdrop { background-color: #f3f4f6 !important; } 
             .zone-leg2 { background-color: #fffbeb !important; } 
@@ -137,15 +136,23 @@ async function loadContainerGridData() {
                     fullRow[10] = bookingsMap[bNo].origin; 
                     fullRow[11] = bookingsMap[bNo].destination; 
                     
-                    fullRow[28] = formatShortDate(bookingsMap[bNo].time_pickup); // leg1 time
-                    fullRow[37] = formatShortDate(bookingsMap[bNo].time_delivery); // leg2 time
-                    fullRow[46] = formatShortDate(bookingsMap[bNo].time_return); // leg3 time
+                    fullRow[29] = formatShortDate(bookingsMap[bNo].time_pickup); 
+                    fullRow[40] = formatShortDate(bookingsMap[bNo].time_delivery); 
+                    fullRow[50] = formatShortDate(bookingsMap[bNo].time_return); 
 
                     const currentTrip = parseFloat(String(fullRow[56]).replace(/,/g, '')) || 0;
                     const currentTrans = parseFloat(String(fullRow[57]).replace(/,/g, '')) || 0;
                     if (currentTrip === 0) fullRow[56] = bookingsMap[bNo].trip_fee;
                     if (currentTrans === 0) fullRow[57] = bookingsMap[bNo].trans_fee;
                 }
+                
+                // 🌟 โหลดคนขับขึ้นมาเติมให้อัตโนมัติตอนดึงข้อมูลมาแสดง (Virtual Column 70-74)
+                if (fullRow[28]) fullRow[70] = fleetAssignments[fullRow[28]] || ''; // Leg 1 Driver
+                if (fullRow[34]) fullRow[71] = fleetAssignments[fullRow[34]] || ''; // Drop 1 Driver
+                if (fullRow[39]) fullRow[72] = fleetAssignments[fullRow[39]] || ''; // Leg 2 Driver
+                if (fullRow[44]) fullRow[73] = fleetAssignments[fullRow[44]] || ''; // Drop 2 Driver
+                if (fullRow[49]) fullRow[74] = fleetAssignments[fullRow[49]] || ''; // Leg 3 Driver
+
                 return fullRow;
             }).filter(row => row[1] !== null && row[1] !== undefined && String(row[1]).trim() !== '');
 
@@ -234,7 +241,7 @@ function initContainerHandsontable(data) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         const isDrop = (value === true || value === 'true');
         const btnClass = isDrop ? 'bg-purple-200 text-purple-800 border-purple-400' : 'bg-white text-slate-500 border-slate-300 hover:bg-purple-50 hover:text-purple-600';
-        const icon = isDrop ? '<i class="fa-solid fa-anchor"></i> แวะลานพัก (รอง)' : '<i class="fa-solid fa-route"></i> ตรงไปที่หมาย (หลัก)';
+        const icon = isDrop ? '<i class="fa-solid fa-anchor"></i> แวะลานพัก' : '<i class="fa-solid fa-route"></i> ตรงไปที่หมาย';
         td.innerHTML = `<div class="p-1 w-full h-full"><button onclick="toggleDropRow(${row}, ${prop})" class="w-full h-full text-[10px] font-bold border rounded shadow-sm flex items-center justify-center gap-1 transition-colors ${btnClass}">${icon}</button></div>`;
     };
 
@@ -244,28 +251,26 @@ function initContainerHandsontable(data) {
             [
                 { label: '📋 ข้อมูลงาน', colspan: 6 },
                 { label: '📦 ข้อมูลตู้', colspan: 7 },
-                { label: '🚚 จัดคิวรถ', colspan: 1 }, 
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
                 { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 2 (DROP 2)', colspan: 4 }, 
-                { label: '🚢 ขา 3: RETURN (คืนตู้)', colspan: 5 }, 
+                { label: '🚢 ขา 3: RETURN (คืนตู้)', colspan: 4 }, 
                 { label: '💵 การเงิน', colspan: 2 }
             ],
             [
                 '✔', 'Order ID', 'Booking', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
                 'ขนาดตู้', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
-                'ปุ่มจัดรถ',
-                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', // 14-18
-                'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', // 19-22
-                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', // 23-27
-                'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', // 28-31
-                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', // 32-36
-                'ค่าเที่ยว', 'ค่าขนส่ง' // 37-38
+                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅',
+                'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', 
+                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', 
+                'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅',
+                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', '✅', 
+                'ค่าเที่ยว', 'ค่าขนส่ง'
             ]
         ],
         columns: [
-            // 📋 0-5
+            // 📋 ข้อมูลงาน (0-5)
             { data: 0, type: 'checkbox', className: 'htCenter htMiddle zone-info' }, 
             { data: 1, type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info' }, 
             { data: 7, type: 'text', readOnly: true, className: 'font-bold text-primary htCenter htMiddle zone-info' }, 
@@ -273,78 +278,67 @@ function initContainerHandsontable(data) {
             { data: 10, type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             { data: 11, type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             
-            // 📦 6-12 (Data 12,8,9,78,79,76,77)
+            // 📦 ข้อมูลตู้ (6-12) -> ใช้ Index เดิมของระบบ เพื่อไม่ให้พัง
             { data: 12, type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
             { data: 8, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 9, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
-            { data: 78, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
-            { data: 79, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
-            { data: 76, type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
-            { data: 77, type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
+            { data: 60, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
+            { data: 61, type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
+            { data: 62, type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
+            { data: 63, type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
 
-            // 🚚 13 Modal Button
-            { 
-                data: 'dispatch_btn', readOnly: true, className: 'htCenter htMiddle zone-dispatch',
-                renderer: function(instance, td, row) {
-                    td.innerHTML = `<button onclick="openDispatchModal(${row})" class="bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1 rounded shadow-sm text-xs font-bold hover:bg-emerald-200 transition"><i class="fa-solid fa-truck-fast"></i> จัดคิวรถ</button>`;
-                    return td;
-                }
-            },
+            // 🚚 ขา 1: PICK UP (13-17)
+            { data: 28, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' }, // ทะเบียน
+            { data: 70, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' }, // คนขับ
+            { data: 29, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' }, // เวลา
+            { data: 30, readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer }, // เส้นทาง
+            { data: 31, type: 'checkbox', className: 'htCenter htMiddle zone-leg1' }, // เสร็จสิ้น
 
-            // 🚚 14-18 ขา 1: PICK UP (Data 26, 27, 28, 29, 30)
-            { data: 26, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
-            { data: 27, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
-            { data: 28, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' },
-            { data: 29, readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer },
-            { data: 30, type: 'checkbox', className: 'htCenter htMiddle zone-leg1' },
+            // 🅿️ ขาฝาก 1 (18-21)
+            { data: 34, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
+            { data: 71, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
+            { data: 35, type: 'text', className: 'zone-legdrop htMiddle' },
+            { data: 36, type: 'checkbox', className: 'htCenter htMiddle zone-legdrop' },
 
-            // 🅿️ 19-22 ขาฝาก 1 (Data 31, 32, 33, 34)
-            { data: 31, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
-            { data: 32, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
-            { data: 33, type: 'text', className: 'zone-legdrop htMiddle' },
-            { data: 34, type: 'checkbox', className: 'htCenter htMiddle zone-legdrop' },
+            // 🏭 ขา 2: DELIVERY (22-26)
+            { data: 39, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
+            { data: 72, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
+            { data: 40, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' }, 
+            { data: 41, readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer },
+            { data: 42, type: 'checkbox', className: 'htCenter htMiddle zone-leg2' },
 
-            // 🏭 23-27 ขา 2: DELIVERY (Data 35, 36, 37, 38, 39)
-            { data: 35, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
-            { data: 36, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
-            { data: 37, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' }, 
-            { data: 38, readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer },
-            { data: 39, type: 'checkbox', className: 'htCenter htMiddle zone-leg2' },
+            // 🅿️ ขาฝาก 2 (27-30)
+            { data: 44, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
+            { data: 73, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
+            { data: 45, type: 'text', className: 'zone-legdrop htMiddle' },
+            { data: 46, type: 'checkbox', className: 'htCenter htMiddle zone-legdrop' },
 
-            // 🅿️ 28-31 ขาฝาก 2 (Data 40, 41, 42, 43)
-            { data: 40, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
-            { data: 41, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
-            { data: 42, type: 'text', className: 'zone-legdrop htMiddle' },
-            { data: 43, type: 'checkbox', className: 'htCenter htMiddle zone-legdrop' },
+            // 🚢 ขา 3: RETURN (31-34)
+            { data: 49, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
+            { data: 74, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
+            { data: 50, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' }, 
+            { data: 52, type: 'checkbox', className: 'htCenter htMiddle zone-leg3' },
 
-            // 🚢 32-36 ขา 3: RETURN (Data 44, 45, 46, 47, 48)
-            { data: 44, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
-            { data: 45, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
-            { data: 46, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' }, 
-            { data: 47, readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer },
-            { data: 48, type: 'checkbox', className: 'htCenter htMiddle zone-leg3' },
-
-            // 💵 37-38 การเงิน (Data 56, 57)
+            // 💵 การเงิน (35-36)
             { data: 56, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold bg-green-50 htRight htMiddle' }, 
             { data: 57, type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50 htRight htMiddle' }
         ],
         colWidths: [
             30, 110, 100, 100, 80, 80, // Info 
             60, 100, 100, 90, 80, 70, 80, // Container 
-            90, // Dispatch Button
             90, 110, 110, 110, 40, // Leg 1 
             90, 110, 110, 40, // Drop 1 
             90, 110, 110, 110, 40, // Leg 2 
             90, 110, 110, 40, // Drop 2 
-            90, 110, 110, 110, 40, // Leg 3 
+            90, 110, 110, 40, // Leg 3 
             70, 70 // Finance 
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
         
         hiddenColumns: {
-            // 🌟 ซ่อนรายละเอียดรถและตารางฝาก (โชว์แค่ปุ่มเส้นทางหลัก-รอง ให้ดูง่ายๆ)
-            columns: isCompactMode ? [14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34] : [], 
+            // 🌟 ซ่อนคอลัมน์ลานฝากเป็นค่าเริ่มต้น
+            columns: isDropYardsHidden ? [18, 19, 20, 21, 27, 28, 29, 30] : [], 
             indicators: true
         },
         contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'copy'],
@@ -355,24 +349,24 @@ function initContainerHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== 0) editedRowIndices.add(row);
                 
-                if ([8, 9, 78, 79].includes(prop) && newVal && typeof newVal === 'string') {
+                if ([8, 9, 60, 61].includes(prop) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
                     if (cleanVal !== newVal) this.setDataAtCell(row, this.propToCol(prop), cleanVal, 'auto');
                 }
 
-                // 🌟 เลือกรถ -> ดึงคนขับออโต้ (ไปข้างหน้า)
-                if ([26, 31, 35, 40, 44].includes(prop) && newVal) {
+                // 🌟 เลือกรถ -> ดึงคนขับออโต้
+                if ([28, 34, 39, 44, 49].includes(prop) && newVal) {
                     if (fleetAssignments[newVal]) {
-                        const colIdx = this.propToCol(prop);
-                        this.setDataAtCell(row, colIdx + 1, fleetAssignments[newVal], 'auto');
+                        const driverCol = (prop === 28) ? 70 : (prop === 34) ? 71 : (prop === 39) ? 72 : (prop === 44) ? 73 : 74;
+                        this.setDataAtCell(row, this.propToCol(driverCol), fleetAssignments[newVal], 'auto');
                     }
                 }
                 
-                // 🌟 เลือกคนขับ -> ดึงรถออโต้ (ย้อนกลับ)
-                if ([27, 32, 36, 41, 45].includes(prop) && newVal) {
+                // 🌟 เลือกคนขับ -> ดึงรถออโต้
+                if ([70, 71, 72, 73, 74].includes(prop) && newVal) {
                     if (driverAssignments[newVal]) {
-                        const colIdx = this.propToCol(prop);
-                        this.setDataAtCell(row, colIdx - 1, driverAssignments[newVal], 'auto');
+                        const plateCol = (prop === 70) ? 28 : (prop === 71) ? 34 : (prop === 72) ? 39 : (prop === 73) ? 44 : 49;
+                        this.setDataAtCell(row, this.propToCol(plateCol), driverAssignments[newVal], 'auto');
                     }
                 }
             });
@@ -394,32 +388,49 @@ function initContainerHandsontable(data) {
     }
 }
 
-// 🌟 สลับสถานะ เส้นทางหลัก-รอง ในตาราง (คลิกปุ่มเส้นทาง)
+// 🌟 ระบบสลับเส้นทาง: กด "แวะลานฝาก" แล้วดึงรถและคนขับตามไปให้อัตโนมัติ!
 window.toggleDropRow = function(row, prop) {
     const isDrop = hotGridInstance.getDataAtRowProp(row, prop);
-    hotGridInstance.setDataAtRowProp(row, prop, !isDrop);
+    const newIsDrop = !isDrop;
+    hotGridInstance.setDataAtRowProp(row, prop, newIsDrop);
+    
+    // ถ้ากด "แวะลานฝาก" (true) ให้ดึงรถและคนขับมาเติมช่อง Drop ให้เลย
+    if (newIsDrop) {
+        if (prop === 30) { // ขา 1
+            const p = hotGridInstance.getDataAtRowProp(row, 28);
+            const d = hotGridInstance.getDataAtRowProp(row, 70);
+            if(p) hotGridInstance.setDataAtRowProp(row, 34, p, 'auto');
+            if(d) hotGridInstance.setDataAtRowProp(row, 71, d, 'auto');
+        }
+        if (prop === 41) { // ขา 2
+            const p = hotGridInstance.getDataAtRowProp(row, 39);
+            const d = hotGridInstance.getDataAtRowProp(row, 72);
+            if(p) hotGridInstance.setDataAtRowProp(row, 44, p, 'auto');
+            if(d) hotGridInstance.setDataAtRowProp(row, 73, d, 'auto');
+        }
+        
+        // ถ้าคอลัมน์ลานฝากโดนซ่อนอยู่ ให้โชว์ขึ้นมาเพื่อให้เห็นว่าข้อมูลเข้าแล้ว
+        if (isDropYardsHidden) toggleDropYards();
+    }
+
     editedRowIndices.add(row);
     updateSaveStatusBadge();
 };
 
-// 🌟 สลับโหมดตาราง (Compact / Full Detail)
 window.toggleDropYards = function() {
-    isCompactMode = !isCompactMode;
+    isDropYardsHidden = !isDropYardsHidden;
     const btn = document.getElementById('btn-toggle-drops');
     
-    // คอลัมน์ที่ต้องการซ่อนในโหมด Clean (ทะเบียน, คนขับ, เวลา, ลานฝาก)
-    const detailCols = [14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34];
-    
-    if (isCompactMode) {
-        btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> ซ่อนรายละเอียดจัดรถ`;
+    if (isDropYardsHidden) {
+        btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้`;
         btn.classList.replace('bg-purple-600', 'bg-purple-50');
         btn.classList.replace('text-white', 'text-purple-700');
-        hotGridInstance.getPlugin('hiddenColumns').hideColumns(detailCols);
+        hotGridInstance.getPlugin('hiddenColumns').hideColumns([18, 19, 20, 21, 27, 28, 29, 30]);
     } else {
-        btn.innerHTML = `<i class="fa-solid fa-eye"></i> แสดงรายละเอียดทั้งหมด`;
+        btn.innerHTML = `<i class="fa-solid fa-eye"></i> ซ่อนลานฝากตู้`;
         btn.classList.replace('bg-purple-50', 'bg-purple-600');
         btn.classList.replace('text-purple-700', 'text-white');
-        hotGridInstance.getPlugin('hiddenColumns').showColumns(detailCols);
+        hotGridInstance.getPlugin('hiddenColumns').showColumns([18, 19, 20, 21, 27, 28, 29, 30]);
     }
     hotGridInstance.render();
 };
@@ -475,9 +486,9 @@ window.addNewContainerRow = function() {
     newRow[2] = templateRow[2]; newRow[6] = templateRow[6]; newRow[10] = templateRow[10]; newRow[11] = templateRow[11]; 
     newRow[12] = templateRow[12]; 
     
-    newRow[28] = templateRow[28]; 
-    newRow[37] = templateRow[37]; 
-    newRow[46] = templateRow[46]; 
+    newRow[29] = templateRow[29]; 
+    newRow[40] = templateRow[40]; 
+    newRow[50] = templateRow[50]; 
     
     newRow[56] = templateRow[56]; newRow[57] = templateRow[57]; 
 
@@ -543,74 +554,4 @@ window.saveGridChanges = async function() {
     } finally {
         btn.innerHTML = orgText; btn.disabled = false;
     }
-};
-
-// ==========================================
-// 🌟 SMART DISPATCH MODAL LOGIC (ดึงข้อมูลเข้า-ออก หน้าต่างป๊อปอัป)
-// ==========================================
-let currentDispatchRow = -1;
-
-window.openDispatchModal = function(row) {
-    currentDispatchRow = row;
-    document.getElementById('modal-row-display').innerText = row + 1;
-
-    // ผูก Event ให้ Modal ออโต้ฟิล ไป-กลับ ได้ด้วย
-    [1, 2, 3].forEach(leg => {
-        document.getElementById(`modal-leg${leg}-plate`).onchange = () => handleModalTruckChange(leg);
-        document.getElementById(`modal-leg${leg}-driver`).onchange = () => handleModalDriverChange(leg);
-    });
-
-    [1, 2, 3].forEach(leg => {
-        let plateCol = (leg === 1) ? 26 : (leg === 2) ? 35 : 44;
-        let driverCol = plateCol + 1;
-        let timeCol = plateCol + 2;
-        let checkCol = plateCol + 4;
-
-        document.getElementById(`modal-leg${leg}-plate`).value = hotGridInstance.getDataAtRowProp(row, plateCol) || '';
-        document.getElementById(`modal-leg${leg}-driver`).value = hotGridInstance.getDataAtRowProp(row, driverCol) || '';
-        document.getElementById(`modal-leg${leg}-check`).checked = !!hotGridInstance.getDataAtRowProp(row, checkCol);
-        
-        let timeVal = hotGridInstance.getDataAtRowProp(row, timeCol) || '';
-        document.getElementById(`modal-leg${leg}-time`).value = String(timeVal).replace(' ', 'T').slice(0, 16);
-    });
-
-    document.getElementById('dispatch-modal').classList.remove('hidden');
-};
-
-// เลือกรถ -> ออโต้ฟิล คนขับ
-window.handleModalTruckChange = function(leg) {
-    const plate = document.getElementById(`modal-leg${leg}-plate`).value;
-    if (plate && fleetAssignments[plate]) {
-        document.getElementById(`modal-leg${leg}-driver`).value = fleetAssignments[plate];
-    }
-};
-
-// เลือกคนขับ -> ออโต้ฟิล รถ
-window.handleModalDriverChange = function(leg) {
-    const driver = document.getElementById(`modal-leg${leg}-driver`).value;
-    if (driver && driverAssignments[driver]) {
-        document.getElementById(`modal-leg${leg}-plate`).value = driverAssignments[driver];
-    }
-};
-
-window.saveDispatchModal = function() {
-    if (currentDispatchRow < 0) return;
-    
-    let changes = [];
-    [1, 2, 3].forEach(leg => {
-        let plateCol = (leg === 1) ? 26 : (leg === 2) ? 35 : 44;
-        let driverCol = plateCol + 1;
-        let timeCol = plateCol + 2;
-        let checkCol = plateCol + 4;
-
-        let timeInput = document.getElementById(`modal-leg${leg}-time`).value.replace('T', ' '); 
-
-        changes.push([currentDispatchRow, plateCol, document.getElementById(`modal-leg${leg}-plate`).value]);
-        changes.push([currentDispatchRow, driverCol, document.getElementById(`modal-leg${leg}-driver`).value]);
-        changes.push([currentDispatchRow, timeCol, timeInput]);
-        changes.push([currentDispatchRow, checkCol, document.getElementById(`modal-leg${leg}-check`).checked]);
-    });
-
-    hotGridInstance.setDataAtCell(changes); 
-    document.getElementById('dispatch-modal').classList.add('hidden');
 };

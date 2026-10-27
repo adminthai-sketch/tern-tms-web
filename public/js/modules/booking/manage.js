@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Drop Yard Idea A + Time Display)
+// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Smart Dispatch Modal)
 // ==========================================
 
 let hotGridInstance = null;
@@ -68,6 +68,7 @@ function applyZebraStripingCSS() {
             
             .zone-info { background-color: #f8fafc !important; color: #475569; }
             .zone-container { background-color: #f0f9ff !important; } 
+            .zone-dispatch { background-color: #ecfdf5 !important; }
             .zone-leg1 { background-color: #fdf4ff !important; } 
             .zone-legdrop { background-color: #f3f4f6 !important; } 
             .zone-leg2 { background-color: #fffbeb !important; } 
@@ -236,6 +237,7 @@ function initContainerHandsontable(data) {
             [
                 { label: '📋 ข้อมูลงาน', colspan: 6 },
                 { label: '📦 ข้อมูลตู้ (พิมพ์ข้อมูลตอนหน้างานแจ้งมา)', colspan: 7 },
+                { label: '🚚 จัดคิวรถ', colspan: 1 }, 
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
                 { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ)', colspan: 4 }, 
@@ -246,6 +248,7 @@ function initContainerHandsontable(data) {
             [
                 '✔', 'Order ID', 'Booking', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
                 'ขนาดตู้', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
+                'ปุ่มจัดรถ',
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅',
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', 
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', '✅', 
@@ -272,10 +275,19 @@ function initContainerHandsontable(data) {
             { data: 76, type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
             { data: 77, type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
 
+            // 🚚 ปุ่มจัดคิวรถ (Modal Button)
+            { 
+                data: 'dispatch_btn', readOnly: true, className: 'htCenter htMiddle zone-dispatch',
+                renderer: function(instance, td, row) {
+                    td.innerHTML = `<button onclick="openDispatchModal(${row})" class="bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1 rounded shadow-sm text-xs font-bold hover:bg-emerald-200 transition"><i class="fa-solid fa-truck-fast"></i> จัดคิวรถ</button>`;
+                    return td;
+                }
+            },
+
             // 🚚 ขา 1: PICK UP
             { data: 28, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
             { data: 27, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
-            { data: 29, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' },
+            { data: 29, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' },
             { 
                 data: 36, 
                 readOnly: true, className: 'htCenter htMiddle bg-purple-50/20',
@@ -298,7 +310,7 @@ function initContainerHandsontable(data) {
             // 🏭 ขา 2: DELIVERY
             { data: 39, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
             { data: 38, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
-            { data: 40, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
+            { data: 40, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' }, 
             { data: 42, type: 'checkbox', className: 'htCenter htMiddle zone-leg2' },
 
             // 🅿️ ขาฝาก 2 (DROP 2)
@@ -310,7 +322,7 @@ function initContainerHandsontable(data) {
             // 🚢 ขา 3: RETURN
             { data: 49, type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
             { data: 48, type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
-            { data: 50, type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
+            { data: 50, type: 'date', dateFormat: 'YYYY-MM-DD HH:mm', className: 'htCenter htMiddle time-cell' }, 
             { data: 52, type: 'checkbox', className: 'htCenter htMiddle zone-leg3' },
 
             // 💵 การเงิน
@@ -320,18 +332,20 @@ function initContainerHandsontable(data) {
         colWidths: [
             30, 110, 100, 100, 80, 80, // Info 
             60, 100, 100, 90, 80, 70, 80, // Container 
-            90, 110, 75, 110, 40, // Leg 1 
+            90, // Dispatch Button
+            90, 110, 110, 110, 40, // Leg 1 
             90, 110, 110, 40, // Drop 1 
-            90, 110, 75, 40, // Leg 2 
+            90, 110, 110, 40, // Leg 2 
             90, 110, 110, 40, // Drop 2 
-            90, 110, 75, 40, // Leg 3 
+            90, 110, 110, 40, // Leg 3 
             70, 70 // Finance 
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
         
         hiddenColumns: {
-            columns: isDropYardsHidden ? [18, 19, 20, 21, 26, 27, 28, 29] : [], 
+            // ซ่อนคอลัมน์ทะเบียนคนขับขาต่างๆ ในตารางไปเลย เพราะย้ายไปกรอกใน Modal แล้ว!
+            columns: isDropYardsHidden ? [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34] : [], 
             indicators: true
         },
         contextMenu: ['alignment', 'hidden_columns_hide', 'hidden_columns_show', 'copy'],
@@ -391,12 +405,12 @@ window.toggleDropYards = function() {
         btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้`;
         btn.classList.replace('bg-purple-600', 'bg-purple-50');
         btn.classList.replace('text-white', 'text-purple-700');
-        hotGridInstance.getPlugin('hiddenColumns').hideColumns([18, 19, 20, 21, 26, 27, 28, 29]);
+        hotGridInstance.getPlugin('hiddenColumns').hideColumns([14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34]);
     } else {
         btn.innerHTML = `<i class="fa-solid fa-eye"></i> ซ่อนลานฝากตู้`;
         btn.classList.replace('bg-purple-50', 'bg-purple-600');
         btn.classList.replace('text-purple-700', 'text-white');
-        hotGridInstance.getPlugin('hiddenColumns').showColumns([18, 19, 20, 21, 26, 27, 28, 29]);
+        hotGridInstance.getPlugin('hiddenColumns').showColumns([14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34]);
     }
     hotGridInstance.render();
 };
@@ -520,4 +534,75 @@ window.saveGridChanges = async function() {
     } finally {
         btn.innerHTML = orgText; btn.disabled = false;
     }
+};
+
+// ==========================================
+// 🌟 SMART DISPATCH MODAL LOGIC 🌟
+// ==========================================
+let currentDispatchRow = -1;
+
+window.openDispatchModal = async function(row) {
+    currentDispatchRow = row;
+    document.getElementById('modal-row-display').innerText = row + 1;
+
+    try {
+        const res = await fetch('/api/truck_assignments');
+        const data = await res.json();
+        if(data.success) {
+            const truckOptions = '<option value="">-- เลือกรถ --</option>' + (data.truckList || []).map(t => `<option value="${t}">${t}</option>`).join('');
+            const driverOptions = '<option value="">-- เลือกคนขับ --</option>' + (data.driverList || []).map(d => `<option value="${d}">${d}</option>`).join('');
+            
+            data.data.forEach(r => { fleetAssignments[r[1]] = r[3]; }); 
+
+            [1, 2, 3].forEach(leg => {
+                document.getElementById(`modal-leg${leg}-plate`).innerHTML = truckOptions;
+                document.getElementById(`modal-leg${leg}-driver`).innerHTML = driverOptions;
+            });
+        }
+    } catch(e) {}
+
+    [1, 2, 3].forEach(leg => {
+        let plateCol = (leg === 1) ? 28 : (leg === 2) ? 39 : 49;
+        let driverCol = plateCol - 1;
+        let timeCol = plateCol + 1;
+        let checkCol = plateCol + 3;
+
+        document.getElementById(`modal-leg${leg}-plate`).value = hotGridInstance.getDataAtRowProp(row, plateCol) || '';
+        document.getElementById(`modal-leg${leg}-driver`).value = hotGridInstance.getDataAtRowProp(row, driverCol) || '';
+        document.getElementById(`modal-leg${leg}-check`).checked = !!hotGridInstance.getDataAtRowProp(row, checkCol);
+        
+        let timeVal = hotGridInstance.getDataAtRowProp(row, timeCol) || '';
+        document.getElementById(`modal-leg${leg}-time`).value = String(timeVal).replace(' ', 'T').slice(0, 16);
+    });
+
+    document.getElementById('dispatch-modal').classList.remove('hidden');
+};
+
+window.handleModalTruckChange = function(leg) {
+    const plate = document.getElementById(`modal-leg${leg}-plate`).value;
+    if (plate && fleetAssignments[plate]) {
+        document.getElementById(`modal-leg${leg}-driver`).value = fleetAssignments[plate];
+    }
+};
+
+window.saveDispatchModal = function() {
+    if (currentDispatchRow < 0) return;
+    
+    let changes = [];
+    [1, 2, 3].forEach(leg => {
+        let plateCol = (leg === 1) ? 28 : (leg === 2) ? 39 : 49;
+        let driverCol = plateCol - 1;
+        let timeCol = plateCol + 1;
+        let checkCol = plateCol + 3;
+
+        let timeInput = document.getElementById(`modal-leg${leg}-time`).value.replace('T', ' '); 
+
+        changes.push([currentDispatchRow, plateCol, document.getElementById(`modal-leg${leg}-plate`).value]);
+        changes.push([currentDispatchRow, driverCol, document.getElementById(`modal-leg${leg}-driver`).value]);
+        changes.push([currentDispatchRow, timeCol, timeInput]);
+        changes.push([currentDispatchRow, checkCol, document.getElementById(`modal-leg${leg}-check`).checked]);
+    });
+
+    hotGridInstance.setDataAtCell(changes); 
+    document.getElementById('dispatch-modal').classList.add('hidden');
 };

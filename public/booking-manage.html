@@ -66,7 +66,6 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <!-- 🌟 ปุ่มเปิด-ปิด ลานฝากตู้ (Idea A) 🌟 -->
                     <button id="btn-toggle-drops" onclick="toggleDropYards()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-purple-200 h-8 shadow-sm transition-colors">
                         <i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้
                     </button>
@@ -103,6 +102,114 @@
             <div id="container-grid-container" class="absolute inset-0 z-0"></div>
         </div>
     </main>
+
+    <!-- 🌟 SMART DISPATCH MODAL (หน้าต่างจัดรถแบบใหม่) 🌟 -->
+    <div id="dispatch-modal" class="hidden absolute inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity">
+        <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+            
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-emerald-600 text-white shadow-sm">
+                <div class="flex items-center gap-4">
+                    <div class="bg-white/20 p-2.5 rounded-xl shadow-inner"><i class="fa-solid fa-truck-fast text-2xl"></i></div>
+                    <div>
+                        <h3 class="font-bold text-xl leading-tight tracking-wide">จัดการคิวรถและคนขับ (Dispatch)</h3>
+                        <p class="text-sm text-emerald-100 mt-0.5">กำลังจัดการข้อมูลตู้ของแถวที่: <span id="modal-row-display" class="font-bold text-white bg-emerald-800 px-2 py-0.5 rounded text-xs ml-1"></span></p>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('dispatch-modal').classList.add('hidden')" class="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-colors"><i class="fa-solid fa-xmark text-2xl"></i></button>
+            </div>
+
+            <!-- Body : Grid 3 ขา -->
+            <div class="p-6 bg-slate-50 overflow-y-auto max-h-[75vh]">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    
+                    <!-- 🚚 LEG 1 -->
+                    <div class="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                        <div class="bg-gradient-to-r from-blue-50 to-white border-b border-blue-100 px-4 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="bg-blue-100 text-blue-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-1"></i></div>
+                                <span class="font-bold text-blue-800">PICK UP (รับตู้)</span>
+                            </div>
+                            <input type="checkbox" id="modal-leg1-check" class="w-4 h-4 accent-blue-600 rounded cursor-pointer" title="วิ่งงานเสร็จแล้ว">
+                        </div>
+                        <div class="p-5 flex flex-col gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-truck"></i> ทะเบียนรถ</label>
+                                <select id="modal-leg1-plate" onchange="handleModalTruckChange(1)" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-id-badge"></i> พนักงานขับรถ</label>
+                                <select id="modal-leg1-driver" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-regular fa-clock"></i> วัน-เวลานัดหมาย</label>
+                                <input type="datetime-local" id="modal-leg1-time" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 🚛 LEG 2 -->
+                    <div class="bg-white rounded-xl border border-orange-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                        <div class="bg-gradient-to-r from-orange-50 to-white border-b border-orange-100 px-4 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="bg-orange-100 text-orange-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-2"></i></div>
+                                <span class="font-bold text-orange-800">DELIVERY (เข้าบรรจุ)</span>
+                            </div>
+                            <input type="checkbox" id="modal-leg2-check" class="w-4 h-4 accent-orange-600 rounded cursor-pointer" title="วิ่งงานเสร็จแล้ว">
+                        </div>
+                        <div class="p-5 flex flex-col gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-truck"></i> ทะเบียนรถ</label>
+                                <select id="modal-leg2-plate" onchange="handleModalTruckChange(2)" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-id-badge"></i> พนักงานขับรถ</label>
+                                <select id="modal-leg2-driver" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-regular fa-clock"></i> วัน-เวลานัดหมาย</label>
+                                <input type="datetime-local" id="modal-leg2-time" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ⚓ LEG 3 -->
+                    <div class="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                        <div class="bg-gradient-to-r from-purple-50 to-white border-b border-purple-100 px-4 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="bg-purple-100 text-purple-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-3"></i></div>
+                                <span class="font-bold text-purple-800">RETURN (คืนตู้)</span>
+                            </div>
+                            <input type="checkbox" id="modal-leg3-check" class="w-4 h-4 accent-purple-600 rounded cursor-pointer" title="วิ่งงานเสร็จแล้ว">
+                        </div>
+                        <div class="p-5 flex flex-col gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-truck"></i> ทะเบียนรถ</label>
+                                <select id="modal-leg3-plate" onchange="handleModalTruckChange(3)" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-id-badge"></i> พนักงานขับรถ</label>
+                                <select id="modal-leg3-driver" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-regular fa-clock"></i> วัน-เวลานัดหมาย</label>
+                                <input type="datetime-local" id="modal-leg3-time" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-5 border-t border-slate-200 bg-white flex justify-end gap-3 rounded-b-2xl">
+                <button onclick="document.getElementById('dispatch-modal').classList.add('hidden')" class="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors">ยกเลิก</button>
+                <button onclick="saveDispatchModal()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-200 transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-check"></i> ยืนยันการจัดรถ
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script src="js/modules/booking/manage.js"></script>
     <script>

@@ -484,7 +484,7 @@ function updateSaveStatusBadge() {
 window.saveGridChanges = async function() {
     if (!hotGridInstance || editedRowIndices.size === 0) return;
     const btn = document.getElementById('btn-save-grid'); const orgText = btn.innerHTML; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
-    const data = hotGridInstance.getData(); let successCount = 0;
+    const data = hotGridInstance.getData(); let successCount = 0; let lastError = "";
 
     for (let rowIndex of editedRowIndices) {
         const row = data[rowIndex]; if (!row[3]) continue; const item = filteredList.find(i => i.booking_no === row[3]);
@@ -496,20 +496,23 @@ window.saveGridChanges = async function() {
         };
         try {
             const res = await fetch(`/api/bookings/${row[2]}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
-            if (res.ok) successCount++;
-        } catch (err) {}
+            const resData = await res.json();
+            if (res.ok && resData.success) {
+                successCount++;
+            } else {
+                lastError = resData.message || "เกิดข้อผิดพลาดไม่ทราบสาเหตุ";
+            }
+        } catch (err) { lastError = err.message; }
     }
+    
     btn.innerHTML = orgText; btn.disabled = false;
-    if (successCount > 0) { alert(`✅ บันทึกข้อมูลสำเร็จ ${successCount} รายการ`); editedRowIndices.clear(); loadBookingGridData(); }
-};
-
-window.deleteSelectedRows = async function() {
-    if (!hotGridInstance) return; const data = hotGridInstance.getData(); const idsToDelete = new Set();
-    data.forEach((row, index) => { if (row[0] === true) { const rowData = hotGridInstance.getSourceDataAtRow(index); if (rowData && rowData[2]) idsToDelete.add(rowData[2]); } });
-    const idsArray = Array.from(idsToDelete);
-    if (idsArray.length === 0) { alert('🖱️ กรุณาติ๊กถูกหน้าแถว ที่ต้องการจะลบก่อนครับ'); return; }
-    if (!confirm(`⚠️ ยืนยันการลบทิ้ง ${idsArray.length} บุคกิ้ง?\n\n(ตู้ทั้งหมดที่อยู่ในบุคกิ้งเหล่านี้จะถูกลบทิ้งไปด้วยอัตโนมัติ)`)) return;
-    let successCount = 0;
-    for (let id of idsArray) { try { const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' }); if(res.ok) successCount++; } catch (err) {} }
-    if (successCount > 0) { alert(`✅ ลบรายการสำเร็จ ${successCount} บุคกิ้ง`); editedRowIndices.clear(); updateSaveStatusBadge(); loadBookingGridData(); } else { alert(`❌ ไม่สามารถลบข้อมูลได้ หรือเชื่อมต่อเซิร์ฟเวอร์ไม่ได้`); }
+    
+    // แจ้งเตือนสถานะชัดเจน
+    if (successCount > 0) { 
+        alert(`✅ บันทึกข้อมูลสำเร็จ ${successCount} รายการ`); 
+        editedRowIndices.clear(); 
+        loadBookingGridData(); 
+    } else {
+        alert(`❌ ไม่สามารถบันทึกข้อมูลได้: ${lastError}`);
+    }
 };

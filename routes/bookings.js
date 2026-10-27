@@ -151,11 +151,15 @@ router.put('/bookings/:id', async (req, res) => {
         load_date, unload_date, open_gate, return_date
     } = req.body;
 
+    // ฟังก์ชันแปลงค่า ป้องกัน Error 
+    const cleanNumInline = (val) => isNaN(parseFloat(String(val).replace(/,/g, ''))) ? 0 : parseFloat(String(val).replace(/,/g, ''));
+    const cleanValInline = (val) => (!val || val === '' || val === 'NaN') ? null : String(val).trim();
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // 1. อัปเดตตารางหัวบุคกิ้ง (Bookings) - เพิ่ม agent, job_type, container_size ให้ครบ!
+        // 1. อัปเดตตารางหัวบุคกิ้ง
         const updateBookingQuery = `
             UPDATE bookings 
             SET mode = $1, run_date = $2, customer_name = $3, agent = $4, job_name = $5, job_type = $6, 
@@ -167,29 +171,32 @@ router.put('/bookings/:id', async (req, res) => {
             RETURNING booking_no;
         `;
         const bookingValues = [
-            mode, run_date, customer_name, agent, job_name, job_type, 
-            origin, destination, container_count, container_size, price_type, 
-            cleanNum(trip_fee), cleanNum(trans_fee), cleanVal(cy_date), cleanVal(vgm_cutoff), cleanVal(cutoff_time), 
-            cleanVal(rent_cutoff), cleanVal(demurrage), cleanVal(load_date), cleanVal(unload_date), 
-            cleanVal(open_gate), cleanVal(return_date), id
+            mode, run_date, customer_name, cleanValInline(agent), job_name, cleanValInline(job_type), 
+            origin, destination, container_count, cleanValInline(container_size), price_type, 
+            cleanNumInline(trip_fee), cleanNumInline(trans_fee), 
+            cleanValInline(cy_date), cleanValInline(vgm_cutoff), cleanValInline(cutoff_time), 
+            cleanValInline(rent_cutoff), cleanValInline(demurrage), 
+            cleanValInline(load_date), cleanValInline(unload_date), 
+            cleanValInline(open_gate), cleanValInline(return_date), id
         ];
         
         const bResult = await client.query(updateBookingQuery, bookingValues);
 
-        // 2. ถ้าแก้ขนาดตู้ หรือชื่อลูกค้า ให้ไปอัปเดตตารางลูก (Shipments) ด้วย เพื่อให้หน้าจัดรถอัปเดตตาม
+        // 2. อัปเดตตารางลูก (Shipments) ซิงค์ข้อมูลให้ตรงกัน
         if (bResult.rows.length > 0) {
             const bNo = bResult.rows[0].booking_no;
             await client.query(`
                 UPDATE shipments 
                 SET customer_name = $1, container_size = $2, job_title = $3
                 WHERE booking_no = $4
-            `, [customer_name, container_size, job_name, bNo]);
+            `, [customer_name, cleanValInline(container_size), job_name, bNo]);
         }
 
         await client.query('COMMIT');
         res.json({ success: true, message: 'อัปเดตข้อมูลสำเร็จ 100%' });
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error("Booking Update Error:", err.message);
         res.status(500).json({ success: false, message: err.message });
     } finally {
         client.release();

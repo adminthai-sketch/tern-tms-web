@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Supercharged UI & Bug Fixed)
+// 📦 MODULE: DISPATCH & CONTAINER MANAGE
 // ==========================================
 
 let hotGridInstance = null;
@@ -223,12 +223,13 @@ function initContainerHandsontable(data) {
         td.innerHTML = `<div class="p-0.5 w-full h-full"><button onclick="toggleStatusRow(${row}, '${prop}')" class="w-full h-full text-[11px] font-bold border rounded flex items-center justify-center transition-all ${btnClass}">${icon}</button></div>`;
     };
 
-const orderIdRenderer = function(instance, td, row, col, prop, value) {
+    // 🌟 ย้ายปุ่มรถซิ่ง (Auto-fill) มาไว้ตรงช่อง "เวลานัด" ของขาที่ 1 🌟
+    const leg1TimeRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         td.innerHTML = `
             <div class="flex items-center justify-between w-full h-full px-1 overflow-hidden">
-                <span class="truncate pr-1 text-[10px]">${value || ''}</span>
-                <button onclick="copyDriverToAllLegs(${row})" title="ก๊อปปี้รถและคนขับ ขา 1 ➡️ ไปใช้ทุกขา" class="shrink-0 bg-blue-100 hover:bg-blue-500 text-blue-600 hover:text-white border border-blue-200 w-5 h-5 rounded flex items-center justify-center shadow-sm transition-colors">
+                <span class="truncate text-[10px] pr-1">${value || ''}</span>
+                <button onclick="copyDriverToAllLegs(${row})" title="ดึงทะเบียนรถและคนขับจากขา 1 ส่งให้ทุกขา" class="shrink-0 bg-blue-100 hover:bg-blue-500 text-blue-600 hover:text-white border border-blue-200 w-5 h-5 rounded flex items-center justify-center shadow-sm transition-colors">
                     <i class="fa-solid fa-truck-fast text-[9px]"></i>
                 </button>
             </div>
@@ -238,8 +239,7 @@ const orderIdRenderer = function(instance, td, row, col, prop, value) {
     const feeRenderer = function(instance, td, row, col, prop, value, cellProperties) {
         Handsontable.renderers.NumericRenderer.apply(this, arguments);
         const mode = instance.getDataAtRowProp(row, 'mode');
-        td.style.fontWeight = '700';
-        td.style.verticalAlign = 'middle';
+        td.style.fontWeight = '700'; td.style.verticalAlign = 'middle';
         
         if (mode === 'IMPORT') {
             if (prop === 'port_pass_fee') { td.style.backgroundColor = '#e0f2fe'; td.style.color = '#0369a1'; td.title = 'เก็บตอนเริ่มรับตู้ที่ท่าเรือ (IMPORT)'; }
@@ -254,51 +254,48 @@ const orderIdRenderer = function(instance, td, row, col, prop, value) {
         }
     };
 
-   hotGridInstance = new Handsontable(container, {
+    hotGridInstance = new Handsontable(container, {
         data: data.length > 0 ? data : [{}],
-        wordWrap: false,       // 🌟 ปิดการตัดคำขึ้นบรรทัดใหม่
-        autoRowSize: false,    // 🌟 ปิดการขยายความสูงอัตโนมัติ
-        rowHeights: 28,        // 🌟 ล็อกความสูงแถวไว้ที่ 28px ให้เพรียวบาง
+        wordWrap: false,
+        autoRowSize: false,
+        rowHeights: 28,
         nestedHeaders: [
-            // ... (โค้ดเดิมด้านล่างปล่อยไว้เหมือนเดิมครับ) ...
             [
                 { label: '📋 ข้อมูลงาน', colspan: 7 }, 
                 { label: '📦 ข้อมูลตู้', colspan: 7 }, 
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
-                
-                // 🌟 เพิ่มปุ่มก๊อปปี้คนขับตรงหัวตาราง (ดึงจากขา 1 ➡️ ไปขา 2 ทั้งหมด) 🌟
                 { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ) <button onclick="copyLegToAllRows(\'leg1\', \'leg2\')" class="ml-1 bg-blue-100 text-blue-700 border border-blue-300 px-1 py-0.5 rounded shadow-sm hover:bg-blue-600 hover:text-white transition-colors text-[10px]" title="ดึงทะเบียนรถและคนขับจาก ขา 1 มาใส่ ขา 2 ทั้งหมด"><i class="fa-solid fa-angles-right"></i> ดึงรถขา 1</button>', colspan: 5 }, 
-                
                 { label: '🅿️ ขาฝาก 2 (DROP 2)', colspan: 4 }, 
-                
-                // 🌟 เพิ่มปุ่มก๊อปปี้คนขับตรงหัวตาราง (ดึงจากขา 2 ➡️ ไปขา 3 ทั้งหมด) 🌟
                 { label: '🚢 ขา 3: RETURN (คืนตู้) <button onclick="copyLegToAllRows(\'leg2\', \'leg3\')" class="ml-1 bg-blue-100 text-blue-700 border border-blue-300 px-1 py-0.5 rounded shadow-sm hover:bg-blue-600 hover:text-white transition-colors text-[10px]" title="ดึงทะเบียนรถและคนขับจาก ขา 2 มาใส่ ขา 3 ทั้งหมด"><i class="fa-solid fa-angles-right"></i> ดึงรถขา 2</button>', colspan: 4 }, 
-                
                 { label: '💵 ค่าจ้างขนส่ง', colspan: 2 },
-                { label: '💸 เบิกจ่ายค่าท่า/ลาน', colspan: 4 } 
+                { label: '💸 เบิกจ่ายหน้าท่า/ลาน และอื่นๆ', colspan: 6 }, // เพิ่มเป็น 6 คอลัมน์
+                { label: '📝 หมายเหตุ', colspan: 1 } 
             ],
             [
-                '✔', 'Order ID (🚚 Auto-Fill)', 'Booking', 'MODE', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
+                '✔', 'Order ID', 'Booking', 'MODE', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
                 'ขนาดตู้', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
-                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅',
+                'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด (🚚 Auto-Fill)', 'เส้นทาง', '✅',
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', 
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', 
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅',
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', '✅', 
                 'ค่าเที่ยว', 'ค่าขนส่ง',
-                'ค่าผ่านท่า', 'ค่าชอร์', 'ค่ายกตู้', 'ค่าฝากลาน'
+                'ค่าผ่านท่า', 'ค่าชอร์', 'ค่ายกตู้', 'ค่าฝากลาน', 'เบิกค่าใช้จ่าย', 'ค่าใช้จ่ายอื่นๆ',
+                'หมายเหตุ'
             ]
         ],
         columns: [
+            // 📋 ข้อมูลงาน
             { data: '_checkbox', type: 'checkbox', className: 'htCenter htMiddle zone-info' }, 
-            { data: 'order_id', type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info', renderer: orderIdRenderer }, 
+            { data: 'order_id', type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-info' }, 
             { data: 'booking_no', type: 'text', readOnly: true, className: 'font-bold text-primary htCenter htMiddle zone-info' }, 
             { data: 'mode', type: 'text', readOnly: true, className: 'htCenter htMiddle font-bold text-slate-500 zone-info' }, 
             { data: 'customer_name', type: 'text', readOnly: true, className: 'text-slate-700 font-bold htMiddle zone-info' }, 
             { data: 'origin', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             
+            // 📦 ข้อมูลตู้
             { data: 'container_size', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
             { data: 'container_1_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
             { data: 'container_2_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
@@ -307,51 +304,64 @@ const orderIdRenderer = function(instance, td, row, col, prop, value) {
             { data: 'tare', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
             { data: 'max_gross', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
 
+            // 🚚 ขา 1: PICK UP (ปุ่ม Auto-fill อยู่ตรงช่อง _disp_cy_date)
             { data: 'leg1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
             { data: 'leg1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg1 htMiddle font-bold text-emerald-700' },
-            { data: '_disp_cy_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
+            { data: '_disp_cy_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell bg-slate-50', renderer: leg1TimeRenderer }, 
             { data: 'leg1_is_drop', readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer }, 
             { data: 'leg1_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-leg1', renderer: statusRenderer }, 
 
+            // 🅿️ ขาฝาก 1
             { data: 'drop1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
             { data: 'drop1_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
             { data: 'drop1_location', type: 'text', className: 'zone-legdrop htMiddle' },
             { data: 'drop1_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-legdrop', renderer: statusRenderer },
 
+            // 🏭 ขา 2: DELIVERY
             { data: 'leg2_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg2 font-bold htCenter htMiddle text-amber-700' },
             { data: 'leg2_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg2 htMiddle font-bold text-amber-700' },
             { data: '_disp_load_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg2_is_drop', readOnly: true, className: 'htCenter htMiddle bg-purple-50/20', renderer: routeRenderer },
             { data: 'leg2_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-leg2', renderer: statusRenderer },
 
+            // 🅿️ ขาฝาก 2
             { data: 'drop2_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-legdrop font-bold htCenter htMiddle text-purple-700' },
             { data: 'drop2_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-legdrop htMiddle font-bold text-purple-700' },
             { data: 'drop2_location', type: 'text', className: 'zone-legdrop htMiddle' },
             { data: 'drop2_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-legdrop', renderer: statusRenderer },
 
+            // 🚢 ขา 3: RETURN
             { data: 'leg3_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg3 font-bold htCenter htMiddle text-slate-700' },
             { data: 'leg3_driver', type: 'autocomplete', source: globalDriverList, strict: false, className: 'zone-leg3 htMiddle font-bold text-slate-700' },
             { data: '_disp_return_date', type: 'text', readOnly: true, className: 'htCenter htMiddle time-cell' }, 
             { data: 'leg3_completed', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-leg3', renderer: statusRenderer },
 
+            // 💵 การเงิน ค่าจ้าง
             { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-emerald-700 font-bold bg-green-50 htRight htMiddle' }, 
             { data: 'trans_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-blue-700 font-bold bg-blue-50 htRight htMiddle' },
 
+            // 💸 เบิกจ่ายหน้าท่า/ลาน + ค่าใช้จ่ายอื่นๆ
             { data: 'port_pass_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
             { data: 'shore_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
             { data: 'lift_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }, 
-            { data: 'deposit_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer }
+            { data: 'deposit_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, renderer: feeRenderer },
+            { data: 'advance_fee', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-rose-600 font-bold bg-rose-50 htRight htMiddle' },
+            { data: 'other_expense', type: 'numeric', numericFormat: { pattern: '0,0' }, className: 'text-rose-600 font-bold bg-rose-50 htRight htMiddle' },
+            
+            // 📝 หมายเหตุ
+            { data: 'remark', type: 'text', className: 'htLeft htMiddle' }
         ],
         colWidths: [
-            30, 130, 100, 75, 100, 80, 80, 
+            30, 110, 100, 75, 100, 80, 80, 
             60, 100, 100, 100, 90, 80, 70, 
-            90, 110, 110, 110, 45, 
+            90, 110, 120, 110, 45, // Leg 1 (ขยายช่องเวลาเผื่อปุ่ม Auto-fill)
             90, 110, 110, 45, 
             90, 110, 110, 110, 45, 
             90, 110, 110, 45, 
             90, 110, 110, 45, 
             70, 70, 
-            75, 75, 75, 75 
+            75, 75, 75, 75, 80, 85, // Expenses
+            130 // Remark
         ],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
@@ -364,13 +374,11 @@ const orderIdRenderer = function(instance, td, row, col, prop, value) {
         licenseKey: 'non-commercial-and-evaluation',
 
         afterChange: function(changes, source) {
-            // 🌟 ป้องกัน Loop ค้าง โดยการกรอง source === 'auto' ทิ้ง 🌟
             if (source === 'loadData' || source === 'auto' || !changes) return;
             
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== '_checkbox') editedRowIndices.add(row);
                 
-                // 🌟 ใช้ setTimeout เพื่อให้ Handsontable โฟกัสเสร็จก่อน ค่อยเติมข้อมูล (แก้บั๊กกดไม่ได้) 🌟
                 if (['container_1_no', 'container_2_no', 'seal_no', 'pop_no'].includes(prop) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
                     if (cleanVal !== newVal) {
@@ -409,7 +417,6 @@ const orderIdRenderer = function(instance, td, row, col, prop, value) {
     }
 }
 
-// 🌟 ระบบกดปุ่มก๊อปปี้คนขับ "บนหัวตาราง" (ดึงจากขา 1 -> ไปขา 2 ทุกแถว) 🌟
 window.copyLegToAllRows = function(fromPrefix, toPrefix) {
     if (!hotGridInstance) return;
     const count = hotGridInstance.countRows();
@@ -426,8 +433,7 @@ window.copyLegToAllRows = function(fromPrefix, toPrefix) {
     }
     if (copied) {
         updateSaveStatusBadge();
-        // เล่นลูกเล่นแจ้งเตือนชิคๆ นิดนึง
-        alert(`✅ ดึงรถและคนขับจาก ${fromPrefix.toUpperCase()} มาใส่ ${toPrefix.toUpperCase()} เรียบร้อยแล้วครับ!`);
+        alert(`✅ ดึงป้ายทะเบียนและคนขับจาก ${fromPrefix.toUpperCase()} มาใส่ ${toPrefix.toUpperCase()} ครบทุกบรรทัดแล้วครับ!`);
     }
 };
 
@@ -436,7 +442,7 @@ window.copyDriverToAllLegs = function(row) {
     const driver = hotGridInstance.getDataAtRowProp(row, 'leg1_driver');
     
     if (!plate && !driver) {
-        alert("⚠️ กรุณาเลือกทะเบียนรถในช่อง 'ขา 1: PICK UP' ก่อนก๊อปปี้ครับ");
+        alert("⚠️ กรุณาเลือกทะเบียนรถในช่อง 'ขา 1' ก่อนกดก๊อปปี้ครับ");
         return;
     }
     
@@ -580,6 +586,9 @@ window.addNewContainerRow = function() {
         shore_fee: 0,
         lift_fee: 0,
         deposit_fee: 0,
+        advance_fee: 0,
+        other_expense: 0,
+        remark: '',
         overall_status: 'รอจัดรถ'
     };
 

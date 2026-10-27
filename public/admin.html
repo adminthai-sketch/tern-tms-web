@@ -221,11 +221,17 @@
           trucks: {
                 title: 'จัดการข้อมูลรถ (Trucks)', icon: 'fa-truck', endpoint: '/api/trucks',
                 headers: [
-                    'ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ', 
-                    'ยี่ห้อรถ', 'รุ่น (Model)', 'เลขตัวถัง', 'เลขเครื่องยนต์', 'เชื้อเพลิง', 
-                    'หมดอายุภาษี', 'หมดอายุประกัน', 'หมดอายุ พ.ร.บ.', 
-                    'เลขไมล์ปัจจุบัน', 'ไมล์เข้าศูนย์รอบหน้า', 'วันที่ซ่อมล่าสุด'
+                    'ID', 'ป้ายทะเบียน', 'ประเภทรถ', 'สถานะ', 'ยี่ห้อรถ (Brand)', 'รุ่น (Model)'
                 ],
+                columns: [
+                    { readOnly: true, className: 'bg-slate-50 htCenter' }, 
+                    { type: 'text', className: 'font-bold text-primary' }, 
+                    { type: 'dropdown', source: ['6W', '10W', '12W*2', 'เงินสด'], className: 'htCenter' }, 
+                    { type: 'dropdown', source: ['ACTIVE', 'INACTIVE', 'MAINTENANCE'], className: 'htCenter font-bold' },
+                    { type: 'text' }, 
+                    { type: 'text' }
+                ]
+            },
                 columns: [
                     { readOnly: true, className: 'bg-slate-50 htCenter' }, 
                     { type: 'text', className: 'font-bold text-primary' }, 

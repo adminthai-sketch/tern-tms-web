@@ -117,21 +117,10 @@ router.post('/roles', async (req, res) => {
 // --- ตารางที่ 1: ข้อมูลรถ (Trucks) ---
 router.get('/trucks', async (req, res) => {
     try {
-        const query = `
-            SELECT id, plate_number, vehicle_type, status, brand, model, chassis_no, engine_no, fuel_type, 
-                   TO_CHAR(tax_expire_date, 'YYYY-MM-DD') as tax_expire_date, 
-                   TO_CHAR(insurance_expire_date, 'YYYY-MM-DD') as insurance_expire_date, 
-                   TO_CHAR(act_expire_date, 'YYYY-MM-DD') as act_expire_date, 
-                   current_mileage, next_service_mileage, 
-                   TO_CHAR(last_maintenance_date, 'YYYY-MM-DD') as last_maintenance_date
-            FROM trucks ORDER BY id ASC
-        `;
+        const query = `SELECT id, plate_number, vehicle_type, status, brand, model FROM trucks ORDER BY id ASC`;
         const result = await pool.query(query);
         res.json({ success: true, data: result.rows.map(r => [
-            r.id, r.plate_number, r.vehicle_type, r.status, 
-            r.brand, r.model, r.chassis_no, r.engine_no, r.fuel_type,
-            r.tax_expire_date, r.insurance_expire_date, r.act_expire_date,
-            r.current_mileage, r.next_service_mileage, r.last_maintenance_date
+            r.id, r.plate_number, r.vehicle_type, r.status, r.brand, r.model
         ]) });
     } catch (err) { res.json({ success: true, data: [] }); }
 });
@@ -141,51 +130,32 @@ router.post('/trucks', async (req, res) => {
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false });
     const client = await pool.connect();
     
-    // ฟังก์ชันช่วยทำความสะอาดวันที่และตัวเลข (กัน error ถ้าช่องว่าง)
-    const cleanDate = (val) => (!val || String(val).trim() === '') ? null : val;
-    const cleanNum = (val) => (!val || isNaN(parseInt(String(val).replace(/,/g, '')))) ? 0 : parseInt(String(val).replace(/,/g, ''));
-
     try {
         await client.query('BEGIN');
         for (const row of data) {
-            const [
-                id, plate_number, vehicle_type, status, 
-                brand, model, chassis_no, engine_no, fuel_type,
-                tax_expire_date, insurance_expire_date, act_expire_date,
-                current_mileage, next_service_mileage, last_maintenance_date
-            ] = row;
-            
+            const [id, plate_number, vehicle_type, status, brand, model] = row;
             if (!plate_number) continue;
-
-            const values = [
-                plate_number, vehicle_type, status || 'ACTIVE',
-                brand || '', model || '', chassis_no || '', engine_no || '', fuel_type || '',
-                cleanDate(tax_expire_date), cleanDate(insurance_expire_date), cleanDate(act_expire_date),
-                cleanNum(current_mileage), cleanNum(next_service_mileage), cleanDate(last_maintenance_date)
-            ];
 
             if (id) {
                 const updateQuery = `
                     UPDATE trucks SET 
-                        plate_number=$1, vehicle_type=$2, status=$3, brand=$4, model=$5, chassis_no=$6, engine_no=$7, fuel_type=$8,
-                        tax_expire_date=$9, insurance_expire_date=$10, act_expire_date=$11, current_mileage=$12, next_service_mileage=$13, last_maintenance_date=$14,
+                        plate_number=$1, vehicle_type=$2, status=$3, brand=$4, model=$5,
                         updated_at=CURRENT_TIMESTAMP 
-                    WHERE id=$15
+                    WHERE id=$6
                 `;
-                await client.query(updateQuery, [...values, id]);
+                await client.query(updateQuery, [plate_number, vehicle_type, status || 'ACTIVE', brand || '', model || '', id]);
             } else {
                 const insertQuery = `
                     INSERT INTO trucks (
-                        plate_number, vehicle_type, status, brand, model, chassis_no, engine_no, fuel_type,
-                        tax_expire_date, insurance_expire_date, act_expire_date, current_mileage, next_service_mileage, last_maintenance_date
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                        plate_number, vehicle_type, status, brand, model
+                    ) VALUES ($1, $2, $3, $4, $5)
                     ON CONFLICT DO NOTHING
                 `;
-                await client.query(insertQuery, values);
+                await client.query(insertQuery, [plate_number, vehicle_type, status || 'ACTIVE', brand || '', model || '']);
             }
         }
         await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกข้อมูลรถ (และประวัติซ่อมบำรุง) เรียบร้อย' });
+        res.json({ success: true, message: 'บันทึกข้อมูลรถเรียบร้อย' });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ success: false, message: err.message });

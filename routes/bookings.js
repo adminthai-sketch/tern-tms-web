@@ -155,11 +155,31 @@ router.put('/bookings/:id', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 🌟 3. GET /api/shipments (โหลดข้อมูลไปตารางจัดการรถ)
+// 🌟 3. GET /api/shipments (โหลดข้อมูลหน้าจัดรถ + ตรวจสอบสร้างตู้อัตโนมัติถ้ายอดตู้ไม่ครบ) 🌟
 router.get('/shipments', async (req, res) => {
+    const { year, month } = req.query;
+    if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
+
+    const client = await pool.connect();
     try {
-        const { year, month } = req.query;
-        let query = `
+        await client.query('BEGIN');
+
+        // ตรวจสอบว่า Booking ของเดือนนั้นๆ มีตู้ครบหรือยัง ถ้ายังให้สร้างให้ครบอัตโนมัติ
+        const bookingsRes = await client.query(`
+            SELECT booking_no, run_date, container_count, trip_fee, trans_fee 
+            FROM bookings 
+            WHERE EXTRACT(MONTH FROM run_date) = $1::INTEGER 
+              AND EXTRACT(YEAR FROM run_date) = $2::INTEGER
+        `, [month, year]);
+
+        for (const b of bookingsRes.rows) {
+            await syncShipments(client, b);
+        }
+
+        await client.query('COMMIT');
+
+        // ดึงข้อมูลส่งกลับให้หน้าเว็บ
+        const result = await pool.query(`
             SELECT 
                 s.*,
                 b.run_date, b.customer_id, c.short_name AS customer_name,
@@ -170,12 +190,18 @@ router.get('/shipments', async (req, res) => {
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
-            WHERE EXTRACT(MONTH FROM b.run_date) = $1::INTEGER AND EXTRACT(YEAR FROM b.run_date) = $2::INTEGER
+            WHERE EXTRACT(MONTH FROM b.run_date) = $1::INTEGER 
+              AND EXTRACT(YEAR FROM b.run_date) = $2::INTEGER
             ORDER BY s.order_id ASC
-        `;
-        const result = await pool.query(query, [month, year]);
+        `, [month, year]);
+
         res.json({ success: true, data: result.rows });
-    } catch(err) { res.status(500).json({ success: false, message: err.message }); }
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: err.message });
+    } finally {
+        client.release();
+    }
 });
 
 // 🌟 4. POST /api/shipments (เซฟข้อมูลจากตารางจัดรถ)

@@ -130,6 +130,7 @@ router.put('/bookings/:id', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
         const customer_id = await getCustomerId(client, customer_name);
 
         const updateBookingQuery = `
@@ -150,9 +151,19 @@ router.put('/bookings/:id', async (req, res) => {
             cleanVal(open_gate), cleanVal(return_date), id
         ];
         
-        await client.query(updateBookingQuery, bookingValues);
+        const bResult = await client.query(updateBookingQuery, bookingValues);
+
+        if (bResult.rows.length > 0) {
+            // 🌟 1. ดึงเลข Booking No กลับมาเพื่อเอาไปซิงค์ตู้ 🌟
+            const bNo = bResult.rows[0].booking_no;
+            req.body.booking_no = bNo; 
+            
+            // 🌟 2. สั่งซิงค์จำนวนตู้! (ถ้าระบุ 5 ตู้ ระบบจะสร้างแถวรอจัดรถให้ครบ 5 แถวทันที) 🌟
+            await syncShipments(client, req.body);
+        }
+
         await client.query('COMMIT');
-        res.json({ success: true, message: 'อัปเดตข้อมูลสำเร็จ' });
+        res.json({ success: true, message: 'อัปเดตข้อมูลสำเร็จ 100%' });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error("PUT /bookings/:id Error:", err.message);

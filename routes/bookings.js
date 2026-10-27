@@ -154,7 +154,7 @@ router.put('/bookings/:id', async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        // 🌟 ดึง customer_id แทนการใช้ชื่อ
+        // ดึง customer_id แทนการใช้ชื่อ
         const customer_id = await getCustomerId(client, customer_name);
 
         const updateBookingQuery = `
@@ -179,12 +179,12 @@ router.put('/bookings/:id', async (req, res) => {
 
         if (bResult.rows.length > 0) {
             const bNo = bResult.rows[0].booking_no;
-            // ซิงค์ตู้ย่อยให้ข้อมูลตรงกับตารางหลักด้วย
+            // 🌟 แก้ไขจุดนี้: อัปเดตแค่ customer_id เท่านั้น (เพราะตาราง shipments ไม่มีช่อง container_size แล้ว) 🌟
             await client.query(`
                 UPDATE shipments 
-                SET customer_id = $1, container_size = $2, job_title = $3
-                WHERE booking_no = $4
-            `, [customer_id, cleanVal(container_size), job_name || '', bNo]);
+                SET customer_id = $1
+                WHERE booking_no = $2
+            `, [customer_id, bNo]);
         }
 
         await client.query('COMMIT');

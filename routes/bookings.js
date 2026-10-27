@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 
-const cleanVal = (val) => (val === '' || val === undefined || val === null ? null : val);
+// ฟังก์ชันแปลงค่าเพื่อป้องกัน Error ตอนเอาลง Database
+const cleanVal = (val) => (!val || val === '' || val === 'NaN') ? null : String(val).trim();
 const cleanNum = (val) => {
-    if (val === '' || val === undefined || val === null) return 0;
+    if (!val) return 0;
     const num = parseFloat(String(val).replace(/,/g, ''));
     return isNaN(num) ? 0 : num;
 };
@@ -26,7 +27,7 @@ async function syncShipments(client, b, customer_id) {
     for (const ship of current_shipments) {
         let raw = [];
         try { raw = JSON.parse(ship.raw_data); } catch(e) {}
-        while (raw.length < 80) raw.push(''); // ขยายเผื่อโครงสร้างตารางใหม่
+        while (raw.length < 80) raw.push(''); 
         
         raw[2] = b.mode || raw[2];
         raw[4] = b.run_date || raw[4];
@@ -47,7 +48,6 @@ async function syncShipments(client, b, customer_id) {
         raw[27] = b.open_gate || raw[27];
         raw[28] = b.return_date || raw[28];
         
-        // 🌟 เซฟตู้ย่อยโดยผูก customer_id
         await client.query(`UPDATE shipments SET run_date=$1, customer_id=$2, raw_data=$3 WHERE order_id=$4`, 
         [raw[4], customer_id, JSON.stringify(raw), ship.order_id]);
     }
@@ -78,7 +78,6 @@ async function syncShipments(client, b, customer_id) {
             raw_data[24] = b.demurrage || ''; raw_data[25] = b.load_date || ''; raw_data[26] = b.unload_date || '';
             raw_data[27] = b.open_gate || ''; raw_data[28] = b.return_date || '';
 
-            // 🌟 สร้างตู้ย่อยใหม่ ผูกกับ customer_id และ booking_no
             await client.query(`INSERT INTO shipments (order_id, run_date, customer_id, booking_no, status, raw_data) VALUES ($1, $2, $3, $4, 'รอจัดรถ', $5)`, 
             [new_order_id, b.run_date, customer_id, b.booking_no, JSON.stringify(raw_data)]);
         }
@@ -103,34 +102,34 @@ router.post('/bookings/header', async (req, res) => {
         await client.query('BEGIN');
         b.booking_no = b.booking_no || `BK-${Date.now()}`;
         
-        // 🌟 ดึง ID ลูกค้าจากตารางลูกค้า
         const customer_id = await getCustomerId(client, b.customer_name);
 
         const query = `
             INSERT INTO bookings (
                 booking_no, mode, booking_date, run_date, job_name, customer_id, container_count, origin, destination,
-                cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, rent_cutoff, demurrage, unload_date, return_date,
-                price_type, trip_fee, trans_fee
-            ) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+                agent, cy_date, vgm_cutoff, cutoff_time, load_date, open_gate, rent_cutoff, demurrage, unload_date, return_date,
+                job_type, price_type, trip_fee, trans_fee, container_size
+            ) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
             ON CONFLICT (booking_no) DO UPDATE 
             SET mode = EXCLUDED.mode, run_date = EXCLUDED.run_date, job_name = EXCLUDED.job_name, customer_id = EXCLUDED.customer_id, 
                 container_count = EXCLUDED.container_count, origin = EXCLUDED.origin, destination = EXCLUDED.destination,
-                cy_date = EXCLUDED.cy_date, vgm_cutoff = EXCLUDED.vgm_cutoff, cutoff_time = EXCLUDED.cutoff_time,
+                agent = EXCLUDED.agent, cy_date = EXCLUDED.cy_date, vgm_cutoff = EXCLUDED.vgm_cutoff, cutoff_time = EXCLUDED.cutoff_time,
                 load_date = EXCLUDED.load_date, open_gate = EXCLUDED.open_gate, rent_cutoff = EXCLUDED.rent_cutoff, demurrage = EXCLUDED.demurrage, 
-                unload_date = EXCLUDED.unload_date, return_date = EXCLUDED.return_date, price_type = EXCLUDED.price_type, 
-                trip_fee = EXCLUDED.trip_fee, trans_fee = EXCLUDED.trans_fee, updated_at = CURRENT_TIMESTAMP
+                unload_date = EXCLUDED.unload_date, return_date = EXCLUDED.return_date, 
+                job_type = EXCLUDED.job_type, price_type = EXCLUDED.price_type, 
+                trip_fee = EXCLUDED.trip_fee, trans_fee = EXCLUDED.trans_fee, container_size = EXCLUDED.container_size,
+                updated_at = CURRENT_TIMESTAMP
             RETURNING id, booking_no;
         `;
         const values = [
             b.booking_no, cleanVal(b.mode), b.run_date, b.job_name || '', customer_id, b.container_count || 1, b.origin || '', b.destination || '',
-            cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.load_date), cleanVal(b.open_gate),
+            cleanVal(b.agent), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.load_date), cleanVal(b.open_gate),
             cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.unload_date), cleanVal(b.return_date),
-            cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee)
+            cleanVal(b.job_type), cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.container_size)
         ];
         
         const result = await client.query(query, values);
         
-        // 🌟 ซิงค์ตู้โดยส่ง ID เข้าไปแทนชื่อ
         await syncShipments(client, b, customer_id);
         
         await client.query('COMMIT');
@@ -141,7 +140,7 @@ router.post('/bookings/header', async (req, res) => {
     } finally { client.release(); }
 });
 
-// PUT /api/bookings/:id (อัปเดตข้อมูลจากตาราง Booking List)
+// 🌟 PUT /api/bookings/:id (อัปเดตข้อมูลจากตาราง Booking List) 🌟
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const {
@@ -151,18 +150,16 @@ router.put('/bookings/:id', async (req, res) => {
         load_date, unload_date, open_gate, return_date
     } = req.body;
 
-    // ฟังก์ชันแปลงค่า ป้องกัน Error 
-    const cleanNumInline = (val) => isNaN(parseFloat(String(val).replace(/,/g, ''))) ? 0 : parseFloat(String(val).replace(/,/g, ''));
-    const cleanValInline = (val) => (!val || val === '' || val === 'NaN') ? null : String(val).trim();
-
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        // 🌟 ดึง customer_id แทนการใช้ชื่อ
+        const customer_id = await getCustomerId(client, customer_name);
 
-        // 1. อัปเดตตารางหัวบุคกิ้ง
         const updateBookingQuery = `
             UPDATE bookings 
-            SET mode = $1, run_date = $2, customer_name = $3, agent = $4, job_name = $5, job_type = $6, 
+            SET mode = $1, run_date = $2, customer_id = $3, agent = $4, job_name = $5, job_type = $6, 
                 origin = $7, destination = $8, container_count = $9, container_size = $10, price_type = $11, 
                 trip_fee = $12, trans_fee = $13, cy_date = $14, vgm_cutoff = $15, cutoff_time = $16, 
                 rent_cutoff = $17, demurrage = $18, load_date = $19, unload_date = $20, 
@@ -171,32 +168,30 @@ router.put('/bookings/:id', async (req, res) => {
             RETURNING booking_no;
         `;
         const bookingValues = [
-            mode, run_date, customer_name, cleanValInline(agent), job_name, cleanValInline(job_type), 
-            origin, destination, container_count, cleanValInline(container_size), price_type, 
-            cleanNumInline(trip_fee), cleanNumInline(trans_fee), 
-            cleanValInline(cy_date), cleanValInline(vgm_cutoff), cleanValInline(cutoff_time), 
-            cleanValInline(rent_cutoff), cleanValInline(demurrage), 
-            cleanValInline(load_date), cleanValInline(unload_date), 
-            cleanValInline(open_gate), cleanValInline(return_date), id
+            cleanVal(mode), run_date, customer_id, cleanVal(agent), job_name || '', cleanVal(job_type), 
+            origin || '', destination || '', container_count, cleanVal(container_size), cleanVal(price_type), 
+            cleanNum(trip_fee), cleanNum(trans_fee), cleanVal(cy_date), cleanVal(vgm_cutoff), cleanVal(cutoff_time), 
+            cleanVal(rent_cutoff), cleanVal(demurrage), cleanVal(load_date), cleanVal(unload_date), 
+            cleanVal(open_gate), cleanVal(return_date), id
         ];
         
         const bResult = await client.query(updateBookingQuery, bookingValues);
 
-        // 2. อัปเดตตารางลูก (Shipments) ซิงค์ข้อมูลให้ตรงกัน
         if (bResult.rows.length > 0) {
             const bNo = bResult.rows[0].booking_no;
+            // ซิงค์ตู้ย่อยให้ข้อมูลตรงกับตารางหลักด้วย
             await client.query(`
                 UPDATE shipments 
-                SET customer_name = $1, container_size = $2, job_title = $3
+                SET customer_id = $1, container_size = $2, job_title = $3
                 WHERE booking_no = $4
-            `, [customer_name, cleanValInline(container_size), job_name, bNo]);
+            `, [customer_id, cleanVal(container_size), job_name || '', bNo]);
         }
 
         await client.query('COMMIT');
         res.json({ success: true, message: 'อัปเดตข้อมูลสำเร็จ 100%' });
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error("Booking Update Error:", err.message);
+        console.error("PUT /bookings/:id Error:", err.message);
         res.status(500).json({ success: false, message: err.message });
     } finally {
         client.release();
@@ -282,7 +277,6 @@ router.delete('/shipments', async (req, res) => {
 router.get('/bookings/search', async (req, res) => {
     try {
         const { start_date, end_date, search, customer } = req.query;
-        // 🌟 เชื่อมตารางลูกค้าเพื่อดึงชื่อออกไปโชว์ที่หน้าเว็บ
         let query = `
             SELECT b.*, c.short_name AS customer_name 
             FROM bookings b 

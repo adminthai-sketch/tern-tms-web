@@ -450,13 +450,13 @@
             closeAddModal();
         }
 
-        // --- 🗑️ DELETE (ปรับให้เก็บ ID ที่จะลบ) ---
+       // --- 🗑️ DELETE (แก้บั๊กรับค่า ID ไม่ให้ส่งช่องว่างไปหา DB) ---
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
             if (confirm(`⚠️ ยืนยันการลบข้อมูลแถวนี้ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อลบออกจากฐานข้อมูลจริง)`)) {
-                // 🌟 เก็บ ID ก่อนลบทิ้งจากหน้าจอ
-                const rowData = hotMasterInstance.getSourceDataAtRow(row);
-                if (rowData && rowData[0]) deletedIdsList.push(rowData[0]); 
+                // 🌟 อ่านค่าจาก Cell (ช่องแรกสุดคือ ID) 
+                const idVal = hotMasterInstance.getDataAtCell(row, 0);
+                if (idVal && String(idVal).trim() !== '') deletedIdsList.push(idVal); 
 
                 hotMasterInstance.alter('remove_row', row, 1);
                 originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
@@ -471,18 +471,16 @@
                 const endRow = Math.max(selected[0][0], selected[0][2]);
                 const amount = endRow - startRow + 1;
                 if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" เพื่อลบจริง)`)) {
-                    // 🌟 เก็บ ID ของทุกแถวที่ถูกลากคลุม
+                    // 🌟 วนลูปอ่านค่า ID ทีละแถว
                     for (let i = startRow; i <= endRow; i++) {
-                        const rowData = hotMasterInstance.getSourceDataAtRow(i);
-                        if (rowData && rowData[0]) deletedIdsList.push(rowData[0]);
+                        const idVal = hotMasterInstance.getDataAtCell(i, 0);
+                        if (idVal && String(idVal).trim() !== '') deletedIdsList.push(idVal);
                     }
-
                     hotMasterInstance.alter('remove_row', startRow, amount);
                     originalTableData = JSON.parse(JSON.stringify(hotMasterInstance.getSourceData()));
                 }
             } else { alert('🖱️ ลากคลุมแถวในตารางที่ต้องการลบก่อนครับ'); }
         }
-
         // --- 💾 SAVE ---
         async function saveCurrentMaster() {
             if (!hotMasterInstance) return;

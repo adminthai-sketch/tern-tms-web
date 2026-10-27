@@ -9,6 +9,12 @@ const cleanNum = (val) => {
     return isNaN(num) ? 0 : num;
 };
 
+// ฟังก์ชันช่วยทำความสะอาด ID ก่อนลบ (กัน Error พังจากหน้าเว็บส่งค่าว่างมา)
+const getValidIds = (idsArray) => {
+    if (!idsArray || !Array.isArray(idsArray)) return [];
+    return idsArray.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+};
+
 // ==========================================
 // 🔑 Login
 // ==========================================
@@ -47,15 +53,15 @@ router.get('/users', async (req, res) => {
 });
 
 router.post('/users', async (req, res) => {
-    const { data, deletedIds } = req.body; // 🌟 รับ deletedIds
+    const { data, deletedIds } = req.body; 
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
-        // 🌟 ถ้ามีการลบ ให้ลบจาก Database ก่อน
-        if (deletedIds && deletedIds.length > 0) {
-            await client.query('DELETE FROM users WHERE id = ANY($1::int[])', [deletedIds]);
+        const idsToDelete = getValidIds(deletedIds);
+        if (idsToDelete.length > 0) {
+            await client.query('DELETE FROM users WHERE id = ANY($1::int[])', [idsToDelete]);
         }
 
         for (let row of data) {
@@ -99,8 +105,9 @@ router.post('/roles', async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        if (deletedIds && deletedIds.length > 0) {
-            await client.query('DELETE FROM roles WHERE id = ANY($1::int[])', [deletedIds]);
+        const idsToDelete = getValidIds(deletedIds);
+        if (idsToDelete.length > 0) {
+            await client.query('DELETE FROM roles WHERE id = ANY($1::int[])', [idsToDelete]);
         }
 
         for (let row of data) {
@@ -140,8 +147,9 @@ router.post('/trucks', async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        if (deletedIds && deletedIds.length > 0) {
-            await client.query('DELETE FROM trucks WHERE id = ANY($1::int[])', [deletedIds]);
+        const idsToDelete = getValidIds(deletedIds);
+        if (idsToDelete.length > 0) {
+            await client.query('DELETE FROM trucks WHERE id = ANY($1::int[])', [idsToDelete]);
         }
 
         for (const row of data) {
@@ -178,8 +186,9 @@ router.post('/driver_info', async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        if (deletedIds && deletedIds.length > 0) {
-            await client.query('DELETE FROM drivers WHERE id = ANY($1::int[])', [deletedIds]);
+        const idsToDelete = getValidIds(deletedIds);
+        if (idsToDelete.length > 0) {
+            await client.query('DELETE FROM drivers WHERE id = ANY($1::int[])', [idsToDelete]);
         }
 
         for (const row of data) {
@@ -223,7 +232,7 @@ router.post('/truck_assignments', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        await client.query('DELETE FROM truck_assignments'); // ล้างข้อมูลเก่าและเขียนใหม่
+        await client.query('DELETE FROM truck_assignments'); 
 
         for (const row of data) {
             const [id, plate_number, dummy, driver_name] = row;
@@ -265,8 +274,9 @@ router.post('/customers', async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        if (deletedIds && deletedIds.length > 0) {
-            await client.query('DELETE FROM customers WHERE id = ANY($1::int[])', [deletedIds]);
+        const idsToDelete = getValidIds(deletedIds);
+        if (idsToDelete.length > 0) {
+            await client.query('DELETE FROM customers WHERE id = ANY($1::int[])', [idsToDelete]);
         }
 
         for (const row of data) {

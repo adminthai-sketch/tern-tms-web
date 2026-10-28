@@ -17,6 +17,7 @@ const fleetRoutes = require('./routes/fleet');
 const adminRoutes = require('./routes/admin');
 const excelRoutes = require('./routes/excel');
 const usersRoutes = require('./routes/users');
+const billingRoutes = require('./routes/billing');
 
 // 2. เรียกใช้ API Routes
 app.use('/api', authRoutes);
@@ -25,6 +26,7 @@ app.use('/api', fleetRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', excelRoutes);
 app.use('/api', usersRoutes);
+app.use('/api/billing', billingRoutes);
 
 // 📌 บล็อกดักจับ API Error 404 (ให้ตอบกลับเป็น JSON เสมอ)
 app.use('/api/*', (req, res) => {

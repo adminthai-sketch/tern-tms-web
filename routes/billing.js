@@ -106,4 +106,53 @@ router.post('/toggle-lock', async (req, res) => {
     }
 });
 
+// ==========================================
+// API สำหรับหน้าพิมพ์ใบแจ้งหนี้ (Print Invoice)
+// ==========================================
+
+// 1. ดึงข้อมูลเต็มรูปแบบของ Booking หรือ IV เพื่อนำไปจัดหน้า A4
+router.get('/print-data', async (req, res) => {
+    const { booking_no, iv_no } = req.query;
+    if (!booking_no && !iv_no) return res.status(400).json({ success: false, message: 'Missing param' });
+
+    try {
+        let condition = ''; let param = '';
+        if (booking_no) { condition = 's.booking_no = $1'; param = booking_no; }
+        else { condition = 'f.iv_no = $1'; param = iv_no; }
+
+        const result = await pool.query(`
+            SELECT 
+                s.order_id, s.booking_no, s.container_1_no, s.container_2_no, s.container_size,
+                s.leg1_plate, s.leg2_plate, s.leg3_plate,
+                b.run_date, b.origin, b.destination, b.job_name,
+                c.id AS customer_id, c.customer_name, c.address, c.tax_id, c.invoice_layout,
+                f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee,
+                f.advance_fee, f.other_expense, f.gross_weight, f.ar_no, f.iv_no
+            FROM shipment_operations s
+            JOIN bookings b ON s.booking_no = b.booking_no
+            LEFT JOIN customers c ON b.customer_id = c.id
+            LEFT JOIN financials f ON s.order_id = f.order_id
+            WHERE ${condition}
+            ORDER BY s.order_id ASC
+        `, [param]);
+
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// 2. บันทึกรูปแบบคอลัมน์ (Layout) ผูกติดกับลูกค้าแต่ละราย
+router.post('/save-layout', async (req, res) => {
+    const { customer_id, layout } = req.body;
+    if (!customer_id) return res.status(400).json({ success: false });
+
+    try {
+        await pool.query('UPDATE customers SET invoice_layout = $1 WHERE id = $2', [JSON.stringify(layout), customer_id]);
+        res.json({ success: true, message: 'บันทึกรูปแบบตารางของลูกค้ารายนี้สำเร็จ!' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 module.exports = router;

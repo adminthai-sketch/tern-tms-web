@@ -205,7 +205,15 @@ function initBillingGrid(data) {
             { data: 'order_id', type: 'text', readOnly: true, className: 'text-slate-400 font-bold htCenter htMiddle zone-read' }, 
             { data: '_calc_status', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-read', renderer: statusRenderer }, 
             { data: '_disp_date', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-read' },
-            { data: 'booking_no', type: 'text', readOnly: true, className: 'font-bold text-slate-600 htCenter htMiddle zone-read' }, 
+            { 
+    data: 'booking_no', 
+    readOnly: true, 
+    className: 'htCenter htMiddle zone-read',
+    renderer: function(instance, td, row, col, prop, value, cellProperties) {
+        Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+        td.innerHTML = `<a href="/print-invoice.html?booking=${value}" target="_blank" title="คลิกเพื่อพิมพ์ใบแจ้งหนี้" class="text-blue-600 font-bold underline hover:text-blue-800 transition-colors">${value || ''}</a>`;
+    } 
+},
             { data: 'customer_name', type: 'text', readOnly: true, className: 'text-slate-700 font-bold htMiddle zone-read' }, 
             { data: 'origin', type: 'text', readOnly: true, className: 'text-slate-500 htMiddle zone-read' }, 
             { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-500 htMiddle zone-read' }, 

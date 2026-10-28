@@ -163,6 +163,7 @@ router.get('/shipments', async (req, res) => {
         res.json({ success: true, data: result.rows });
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error("API GET Shipments Error:", err);
         res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
@@ -259,7 +260,7 @@ router.delete('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
-router.get('/bookings/search', async (req, res) => { /* โค้ดเดิมยาวๆ ปล่อยผ่านครับ */ 
+router.get('/bookings/search', async (req, res) => {
     try {
         const { start_date, end_date, search, customer } = req.query;
         let query = `SELECT b.*, c.short_name AS customer_name FROM bookings b LEFT JOIN customers c ON b.customer_id = c.id WHERE 1=1`;
@@ -272,6 +273,7 @@ router.get('/bookings/search', async (req, res) => { /* โค้ดเดิม
         res.json({ success: true, data: result.rows });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
+
 router.delete('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -279,6 +281,7 @@ router.delete('/bookings/:id', async (req, res) => {
         res.json({ success: true, message: 'ลบรายการสำเร็จ' });
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
+
 router.post('/rates/single', async (req, res) => {
     const r = req.body;
     if (!r.job_name) return res.status(400).json({ success: false });
@@ -308,12 +311,14 @@ router.post('/rates/single', async (req, res) => {
         res.json({ success: true });
     } catch (err) { res.status(500).json({ success: false }); } finally { client.release(); }
 });
+
 router.get('/container-sizes', async (req, res) => {
     try {
         const result = await pool.query('SELECT size_name FROM master_container_sizes ORDER BY size_name ASC');
         res.json({ success: true, data: result.rows });
     } catch(err) { res.status(500).json({ success: false }); }
 });
+
 router.post('/container-sizes', async (req, res) => {
     try {
         const { size_name } = req.body;
@@ -321,4 +326,5 @@ router.post('/container-sizes', async (req, res) => {
         res.json({ success: true });
     } catch(err) { res.status(500).json({ success: false }); }
 });
+
 module.exports = router;

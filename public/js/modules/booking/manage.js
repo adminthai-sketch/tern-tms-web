@@ -1,5 +1,5 @@
 // ==========================================
-// 📦 MODULE: DISPATCH & CONTAINER MANAGE (Smart Filters)
+// 📦 MODULE: DISPATCH & CONTAINER MANAGE
 // ==========================================
 
 let hotGridInstance = null;
@@ -118,6 +118,7 @@ function applyZebraStripingCSS() {
             .ht-edited-row { border-left: 3px solid #f59e0b !important; }
             .unsaved-id-cell { color: #dc2626 !important; font-weight: 800 !important; background-color: #fde047 !important; }
 
+            /* 🌟 อนิเมชั่นไฟกระพริบที่ตัวหนังสือเวลา 🌟 */
             @keyframes vgm-text-blink {
                 0% { opacity: 1; color: #ef4444; }
                 50% { opacity: 0.3; color: #991b1b; transform: scale(1.05); }
@@ -162,21 +163,14 @@ async function loadContainerGridData() {
             });
 
             editedRowIndices.clear();
-            
-            // 🌟 ระบบ Auto-fill ฟิลเตอร์เวลามาจากหน้าบุคกิ้ง 🌟
+            updateDropdownOptions(); 
+
             const urlParams = new URLSearchParams(window.location.search);
             const selectBooking = urlParams.get('select');
             if (selectBooking) {
                 document.getElementById('filter-booking-no').value = selectBooking;
-                const targetJob = rawShipmentList.find(r => r.booking_no === selectBooking);
-                if (targetJob) {
-                    if (targetJob.run_date) document.getElementById('filter-run-date').value = String(targetJob.run_date).split('T')[0];
-                    if (targetJob.customer_name) document.getElementById('filter-customer').value = targetJob.customer_name;
-                }
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-            
-            updateDropdownOptions(); // อัปเดตลิสต์ครั้งแรก
             applyFilters();
         } else {
             rawShipmentList = []; applyFilters();
@@ -184,29 +178,22 @@ async function loadContainerGridData() {
     } catch (err) { applyFilters(); } finally { document.getElementById('loading-overlay').classList.add('hidden'); }
 }
 
-// 🌟 ฟังก์ชันนี้ถูกปรับให้อิงตามค่าที่ถูกพิมพ์เข้าไป เพื่อบีบตัวเลือกให้แคบลงเรื่อยๆ 🌟
 function updateDropdownOptions() {
     const dVal = document.getElementById('filter-run-date').value;
     const cVal = document.getElementById('filter-customer').value;
     const bVal = document.getElementById('filter-booking-no').value;
-    
     const dates = new Set(), custs = new Set(), books = new Set();
-    
     rawShipmentList.forEach(i => {
         const iD = i.run_date ? String(i.run_date).split('T')[0] : '';
         const iC = i.customer_name ? String(i.customer_name).trim() : ''; 
         const iB = i.booking_no ? String(i.booking_no).trim() : ''; 
-        
-        // ถ้าคอลัมน์อื่นตรงเงื่อนไข ก็ให้เก็บคอลัมน์ตัวเองไว้โชว์เป็นตัวเลือก
         if ((!cVal || iC === cVal) && (!bVal || iB === bVal) && iD) dates.add(iD);
         if ((!dVal || iD === dVal) && (!bVal || iB === bVal)) { if (iC) custs.add(iC); }
         if ((!dVal || iD === dVal) && (!cVal || iC === cVal) && iB) books.add(iB);
     });
-    
     const dlDate = document.getElementById('dl-run-date');
     const dlCust = document.getElementById('dl-customer');
     const dlBook = document.getElementById('dl-booking-no');
-    
     dlDate.innerHTML = ''; Array.from(dates).sort().forEach(v => dlDate.innerHTML += `<option value="${v}">`);
     dlCust.innerHTML = ''; Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`);
     dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`);
@@ -219,20 +206,16 @@ window.applyFilters = function() {
     const b = document.getElementById('filter-booking-no').value;
     const searchTxt = document.getElementById('global-search').value.toLowerCase().trim();
 
-    // 🌟 สั่งอัปเดตตัวเลือกในกล่อง Dropdown ทุกครั้งที่มีการพิมพ์หรือเลือก 🌟
-    updateDropdownOptions();
-
     filteredList = rawShipmentList.filter(item => {
         const iD = item.run_date ? String(item.run_date).split('T')[0] : '';
         const iC = item.customer_name ? String(item.customer_name).trim() : ''; 
-        const iB = item.booking_no ? String(i.booking_no).trim() : ''; 
+        const iB = item.booking_no ? String(item.booking_no).trim() : ''; 
         const matchD = !d || iD === d; 
         const matchC = !c || iC === c; 
         const matchB = !b || iB === b;
         const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
         return matchD && matchC && matchB && matchGlobal;
     });
-    
     initContainerHandsontable(filteredList);
 };
 
@@ -322,7 +305,9 @@ function initContainerHandsontable(data) {
         }
     };
 
+    // 🌟 ระบบกระพริบเตือนลงเบอร์ตู้ เป็นตัวหนังสือ HTML 🌟
     const vgmWarningRenderer = function(instance, td, row, col, prop, value, cellProperties) {
+        // ใช้ HtmlRenderer เพื่อให้ใส่ Tag HTML ตัวหนังสือเล็กๆ ได้
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         td.style.fontWeight = '700';
         td.style.textAlign = 'center';
@@ -338,8 +323,10 @@ function initContainerHandsontable(data) {
             const vgmDate = new Date(vgmCutoff);
             const diffHours = (vgmDate - now) / (1000 * 60 * 60);
             
+            // เตือนล่วงหน้า 24 ชั่วโมง หรือเลยเวลาไปแล้ว
             if (diffHours < 24) {
-                td.style.backgroundColor = '#fef2f2'; 
+                td.style.backgroundColor = '#fef2f2'; // พื้นหลังแดงอ่อนๆ
+                // ใส่เวลาเข้าไปเป็น HTML ในช่องที่ยังว่างอยู่
                 td.innerHTML = `<div class="vgm-text-blink text-[9px] text-red-500 leading-[1.1]"><i class="fa-solid fa-clock"></i> CUTOFF<br>${formatShortDate(vgmCutoff)}</div>`;
                 td.title = `🚨 ใกล้ถึงหรือเลยเวลา VGM Cutoff (${formatShortDate(vgmCutoff)}) รีบใส่เบอร์ตู้ด่วน!`;
             } else {
@@ -347,6 +334,7 @@ function initContainerHandsontable(data) {
                 td.innerHTML = '';
             }
         } else {
+            // ถ้ากรอกเบอร์ตู้แล้ว หรือไม่เข้าเงื่อนไข ก็โชว์เบอร์ตู้ปกติสีน้ำเงิน
             td.style.backgroundColor = '';
             td.innerHTML = value ? value : '';
             td.style.color = '#1d4ed8'; 
@@ -399,6 +387,7 @@ function initContainerHandsontable(data) {
             
             { data: 'container_size', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
             
+            // 🚨 ติดตั้ง Renderer ไฟกระพริบ ตรงช่องเบอร์ตู้ 1 และ 2 🚨
             { data: 'container_1_no', type: 'text', renderer: vgmWarningRenderer },
             { data: 'container_2_no', type: 'text', renderer: vgmWarningRenderer },
             

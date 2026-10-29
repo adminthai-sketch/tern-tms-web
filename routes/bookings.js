@@ -9,8 +9,8 @@ const cleanNum = (val) => {
     return isNaN(num) ? 0 : num;
 };
 
-// ดึงค่า AGENT ยืดหยุ่น รองรับหลายชื่อฟิลด์จาก Frontend
-const getAgentVal = (b) => cleanVal(b.agent || b.agent_name || b.shipping_agent || b.agent_code);
+// ดึงค่า AGENT ยืดหยุ่น รองรับทุกชื่อฟิลด์จาก Frontend
+const getAgentVal = (b) => cleanVal(b.agent || b.agent_name || b.agentName || b.shipping_agent || b.agent_code || b.shipping_line || b.line);
 
 async function getCustomerId(client, customerName) {
     if (!customerName) return null;
@@ -57,7 +57,7 @@ async function syncShipments(client, b) {
     }
 }
 
-// 1. บันทึกหัวบุคกิ้ง (หน้า 1. สร้างรับงาน)
+// 1. สร้างหัวบุคกิ้งใหม่ (หน้า 1. สร้างรับงาน)
 router.post('/bookings/header', async (req, res) => {
     const b = req.body;
     if (!b.mode || !b.run_date) return res.status(400).json({ success: false, message: 'กรุณากรอก Mode และวันที่วิ่งงาน' });
@@ -75,7 +75,7 @@ router.post('/bookings/header', async (req, res) => {
             ON CONFLICT (booking_no) DO UPDATE 
             SET mode = EXCLUDED.mode, run_date = EXCLUDED.run_date, job_name = EXCLUDED.job_name, customer_id = EXCLUDED.customer_id, 
                 container_count = EXCLUDED.container_count, origin = EXCLUDED.origin, destination = EXCLUDED.destination,
-                agent = COALESCE(EXCLUDED.agent, bookings.agent), 
+                agent = EXCLUDED.agent, 
                 cy_date = COALESCE(EXCLUDED.cy_date, bookings.cy_date), 
                 vgm_cutoff = COALESCE(EXCLUDED.vgm_cutoff, bookings.vgm_cutoff), 
                 cutoff_time = COALESCE(EXCLUDED.cutoff_time, bookings.cutoff_time),
@@ -106,7 +106,7 @@ router.post('/bookings/header', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 2. แก้ไขข้อมูลบุคกิ้ง
+// 2. ปรับปรุง: แก้ไขข้อมูลบุคกิ้ง (ปุ่ม ✏️ แก้ ในตาราง) อัปเดตผ่าน id หรือ booking_no
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const b = req.body;
@@ -114,23 +114,50 @@ router.put('/bookings/:id', async (req, res) => {
     try {
         await client.query('BEGIN');
         const customer_id = await getCustomerId(client, b.customer_name);
-        const updateBookingQuery = `
-            UPDATE bookings 
-            SET mode = $1, run_date = $2, customer_id = $3, agent = COALESCE($4, agent), job_name = $5, job_type = $6, 
-                origin = $7, destination = $8, container_count = $9, container_size = $10, price_type = $11, 
-                trip_fee = $12, trans_fee = $13, cy_date = COALESCE($14, cy_date), vgm_cutoff = COALESCE($15, vgm_cutoff), cutoff_time = COALESCE($16, cutoff_time), 
-                rent_cutoff = COALESCE($17, rent_cutoff), demurrage = COALESCE($18, demurrage), load_date = COALESCE($19, load_date), unload_date = COALESCE($20, unload_date), 
-                open_gate = COALESCE($21, open_gate), return_date = COALESCE($22, return_date), updated_at = CURRENT_TIMESTAMP
-            WHERE id = $23
-            RETURNING booking_no;
-        `;
-        const bookingValues = [
-            cleanVal(b.mode), b.run_date, customer_id, getAgentVal(b), b.job_name || '', cleanVal(b.job_type), 
-            b.origin || '', b.destination || '', parseInt(b.container_count || 1), cleanVal(b.container_size), cleanVal(b.price_type), 
-            cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
-            cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), 
-            cleanVal(b.open_gate), cleanVal(b.return_date), id
-        ];
+        const agentVal = getAgentVal(b);
+        const bookingNoParam = b.booking_no || cleanVal(id);
+
+        let updateBookingQuery;
+        let bookingValues;
+
+        if (!isNaN(Number(id))) {
+            updateBookingQuery = `
+                UPDATE bookings 
+                SET mode = $1, run_date = $2, customer_id = $3, agent = $4, job_name = $5, job_type = $6, 
+                    origin = $7, destination = $8, container_count = $9, container_size = $10, price_type = $11, 
+                    trip_fee = $12, trans_fee = $13, cy_date = COALESCE($14, cy_date), vgm_cutoff = COALESCE($15, vgm_cutoff), cutoff_time = COALESCE($16, cutoff_time), 
+                    rent_cutoff = COALESCE($17, rent_cutoff), demurrage = COALESCE($18, demurrage), load_date = COALESCE($19, load_date), unload_date = COALESCE($20, unload_date), 
+                    open_gate = COALESCE($21, open_gate), return_date = COALESCE($22, return_date), updated_at = CURRENT_TIMESTAMP
+                WHERE id = $23 OR booking_no = $24
+                RETURNING id, booking_no;
+            `;
+            bookingValues = [
+                cleanVal(b.mode), b.run_date, customer_id, agentVal, b.job_name || '', cleanVal(b.job_type), 
+                b.origin || '', b.destination || '', parseInt(b.container_count || 1), cleanVal(b.container_size), cleanVal(b.price_type), 
+                cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
+                cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), 
+                cleanVal(b.open_gate), cleanVal(b.return_date), parseInt(id), bookingNoParam
+            ];
+        } else {
+            updateBookingQuery = `
+                UPDATE bookings 
+                SET mode = $1, run_date = $2, customer_id = $3, agent = $4, job_name = $5, job_type = $6, 
+                    origin = $7, destination = $8, container_count = $9, container_size = $10, price_type = $11, 
+                    trip_fee = $12, trans_fee = $13, cy_date = COALESCE($14, cy_date), vgm_cutoff = COALESCE($15, vgm_cutoff), cutoff_time = COALESCE($16, cutoff_time), 
+                    rent_cutoff = COALESCE($17, rent_cutoff), demurrage = COALESCE($18, demurrage), load_date = COALESCE($19, load_date), unload_date = COALESCE($20, unload_date), 
+                    open_gate = COALESCE($21, open_gate), return_date = COALESCE($22, return_date), updated_at = CURRENT_TIMESTAMP
+                WHERE booking_no = $23
+                RETURNING id, booking_no;
+            `;
+            bookingValues = [
+                cleanVal(b.mode), b.run_date, customer_id, agentVal, b.job_name || '', cleanVal(b.job_type), 
+                b.origin || '', b.destination || '', parseInt(b.container_count || 1), cleanVal(b.container_size), cleanVal(b.price_type), 
+                cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
+                cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), 
+                cleanVal(b.open_gate), cleanVal(b.return_date), bookingNoParam
+            ];
+        }
+
         const bResult = await client.query(updateBookingQuery, bookingValues);
         if (bResult.rows.length > 0) {
             b.booking_no = bResult.rows[0].booking_no; 
@@ -140,11 +167,12 @@ router.put('/bookings/:id', async (req, res) => {
         res.json({ success: true, message: 'อัปเดตข้อมูลสำเร็จ' });
     } catch (err) {
         await client.query('ROLLBACK');
+        console.error("PUT /bookings/:id Error:", err);
         res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
 
-// 3. ดึงรายการตู้ตามเดือน/ปี
+// 3. ดึงรายการตู้ตามเดือน/ปี (ส่ง booking_id และ agent มาครบถ้วน)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -161,7 +189,7 @@ router.get('/shipments', async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 s.*,
-                b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
+                b.id AS booking_id, b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
                 b.origin, b.destination, b.container_size, b.job_type, b.agent,
                 b.cy_date, b.vgm_cutoff, b.cutoff_time, b.load_date, b.unload_date, b.return_date, b.open_gate,
                 f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense
@@ -181,7 +209,7 @@ router.get('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 4. บันทึกข้อมูลตู้แบบ Batch
+// 4. บันทึกข้อมูลตู้แบบ Batch (ปุ่ม 💾 บันทึกการแก้ไข)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลสำหรับบันทึก' });
@@ -214,7 +242,6 @@ router.post('/shipments', async (req, res) => {
                 await client.query(`UPDATE bookings SET container_count = container_count + 1 WHERE booking_no = $1`, [row.booking_no]);
             }
 
-            // ใช้ COALESCE ล็อกไม่ให้ค่า AGENT โดนเคลียร์เป็๋น NULL เมื่อแก้ไขข้อมูลตู้
             const rowAgent = getAgentVal(row);
             if (row.booking_no && rowAgent !== null) {
                 await client.query(`

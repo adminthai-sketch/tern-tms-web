@@ -23,23 +23,23 @@ router.get('/shipments', async (req, res) => {
                 COALESCE(f.shore_fee, 0) AS shore_fee, 
                 COALESCE(f.lift_fee, 0) AS lift_fee, 
                 COALESCE(f.deposit_fee, 0) AS deposit_fee,
-                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark,
-                f.is_locked, f.locked_by, f.locked_at
+                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark
             FROM bookings b
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
-            WHERE EXTRACT(MONTH FROM b.run_date) = $1::INTEGER 
-              AND EXTRACT(YEAR FROM b.run_date) = $2::INTEGER
-            ORDER BY b.run_date ASC, b.booking_no ASC, s.order_id ASC
+            WHERE b.run_date IS NOT NULL 
+              AND EXTRACT(MONTH FROM b.run_date::DATE) = $1::INTEGER 
+              AND EXTRACT(YEAR FROM b.run_date::DATE) = $2::INTEGER
+            ORDER BY b.run_date ASC, b.booking_no ASC
         `, [month, year]);
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
+        console.error("SQL Error:", err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
-
 // 2. บันทึกข้อมูลเลข AR, IV และน้ำหนัก (ใช้ UPSERT ป้องกันอัปเดตไม่เข้า)
 router.post('/shipments', async (req, res) => {
     const { data, user_id, user_role } = req.body;

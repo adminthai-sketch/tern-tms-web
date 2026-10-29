@@ -1,5 +1,5 @@
 // ==========================================
-// 💸 MODULE: MASTER BOOKING LIST (CLEAN & SMART FALLBACK)
+// 💸 MODULE: MASTER BOOKING LIST (CLEAN VERSION)
 // ==========================================
 
 let hotMasterInstance = null;
@@ -46,7 +46,8 @@ function applyBillingCSS() {
 // 📌 ฟังก์ชันโหลดข้อมูลจาก API
 window.loadBillingMasterData = async function() {
     const monthInput = document.getElementById('filter-month').value;
-    const [year, month] = monthInput ? monthInput.split('-') : ['', ''];
+    if (!monthInput) return;
+    const [year, month] = monthInput.split('-');
     
     const overlay = document.getElementById('master-loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
@@ -57,12 +58,6 @@ window.loadBillingMasterData = async function() {
         
         if (result.success && Array.isArray(result.data)) {
             rawShipmentList = result.data;
-            
-            if (rawShipmentList.length === 0) {
-                initMasterGrid([]);
-                return;
-            }
-
             const bkMap = {};
             
             // จับกลุ่มข้อมูลตาม Booking No
@@ -71,46 +66,44 @@ window.loadBillingMasterData = async function() {
                 if (!bk) return;
                 
                 if (!bkMap[bk]) {
+                    const cnt = Number(item.container_count) || 1;
+                    const fee = Number(item.booking_trip_fee || item.trip_fee) || 0;
                     bkMap[bk] = {
                         booking_no: bk, 
                         run_date: item.run_date ? String(item.run_date).split('T')[0] : '',
-                        customer_name: item.customer_name || item.full_customer_name || '', 
-                        total_count: 0, 
-                        total_amount: 0,
+                        customer_name: item.customer_name || '', 
+                        total_count: cnt, 
+                        total_amount: fee * cnt,
                         disp_iv: item.iv_no || '',
-                        disp_ar: item.ar_no || ''
+                        disp_ar: item.ar_no || '',
+                        shipment_count: 0
                     };
                 }
                 
-                // ถ้ารายการมีตู้ย่อย ให้นับตู้และรวมค่าบรรทุก
+                // ถ้ารายการนั้นมีการจัดตู้แล้ว (มี order_id)
                 if (item.order_id) {
-                    bkMap[bk].total_count += 1;
-                    bkMap[bk].total_amount += (Number(item.trip_fee) || 0);
+                    bkMap[bk].shipment_count += 1;
                 }
                 
                 if (item.iv_no && String(item.iv_no).trim() !== '') bkMap[bk].disp_iv = String(item.iv_no).trim();
                 if (item.ar_no && String(item.ar_no).trim() !== '') bkMap[bk].disp_ar = String(item.ar_no).trim();
             });
 
-            masterBookingList = Object.values(bkMap);
-
-            // 🌟 หากเป็นข้อมูล Fallback (ไม่เจอเดือนที่เลือกแต่ดึงรายการที่มีมาแทน) ให้ปรับปุ่มเลือกเดือนตามรายการแรกอัตโนมัติ
-            if (result.is_fallback && masterBookingList.length > 0 && masterBookingList[0].run_date) {
-                const firstDate = masterBookingList[0].run_date;
-                const [fYear, fMonth] = firstDate.split('-');
-                if (fYear && fMonth) {
-                    const monthEl = document.getElementById('filter-month');
-                    if (monthEl) monthEl.value = `${fYear}-${fMonth}`;
+            // ปรับจำนวนตู้ให้ตรงตามจำนวนตู้จัดจริงถ้ามีการลงตู้แล้ว
+            masterBookingList = Object.values(bkMap).map(b => {
+                if (b.shipment_count > 0) {
+                    b.total_count = b.shipment_count;
                 }
-            }
+                return b;
+            });
 
             initMasterGrid(masterBookingList);
         } else {
-            console.error("API error message:", result.message);
+            console.error("API Error or empty:", result);
             initMasterGrid([]);
         }
     } catch (err) { 
-        console.error("Fetch error:", err); 
+        console.error("Fetch Error:", err); 
         initMasterGrid([]);
     } finally { 
         if (overlay) overlay.classList.add('hidden'); 
@@ -163,7 +156,6 @@ function initMasterGrid(data) {
         ` : '';
     };
 
-    // 🌟 หากไม่พบข้อมูล ให้โชว์ข้อความที่อ่านง่าย ชัดเจน ไม่ขึ้นแถวว่าง
     const tableData = data.length > 0 ? data : [
         { booking_no: 'ไม่พบรายการ Booking', run_date: '-', customer_name: 'ไม่มีข้อมูลในฐานข้อมูล', total_count: 0, total_amount: 0, disp_iv: '-', disp_ar: '-' }
     ];

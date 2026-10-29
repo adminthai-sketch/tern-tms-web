@@ -10,9 +10,22 @@ let currentUser = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyBillingCSS();
-    currentUser = JSON.parse(localStorage.getItem('tms_user') || '{}');
-    if(currentUser.fullname) document.getElementById('user-fullname').innerText = currentUser.fullname;
-    if(currentUser.role) document.getElementById('user-role-badge').innerText = currentUser.role.toUpperCase();
+    
+    // 🌟 1. ดึงและแสดงข้อมูล User (แก้ปัญหาค้าง)
+    try {
+        const savedUser = localStorage.getItem('tms_user');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            const nameToDisplay = currentUser.fullName || currentUser.username || 'ผู้ดูแลระบบ';
+            if(document.getElementById('user-fullname')) document.getElementById('user-fullname').innerText = nameToDisplay;
+            if(document.getElementById('user-role-badge')) document.getElementById('user-role-badge').innerText = (currentUser.role || 'ADMIN').toUpperCase();
+        } else {
+            window.location.href = '/login.html';
+            return;
+        }
+    } catch (e) {
+        console.error("User info load error:", e);
+    }
     
     const today = new Date();
     document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');

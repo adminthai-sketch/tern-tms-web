@@ -41,32 +41,38 @@ async function loadBookingForEdit(bookingNo) {
         if (result.success && result.data && result.data.length > 0) {
             const item = result.data.find(i => i.booking_no === bookingNo) || result.data[0];
             
-            document.getElementById('form-title').innerText = `แก้ไขรายการรับงาน (Booking: ${bookingNo})`;
-            document.getElementById('editing-badge').classList.remove('hidden');
-            document.getElementById('btn-cancel-edit').classList.remove('hidden');
+            const titleEl = document.getElementById('form-title');
+            if (titleEl) titleEl.innerText = `แก้ไขรายการรับงาน (Booking: ${bookingNo})`;
             
-            // ใช้ Hidden Input เก็บ ID สำหรับอ้างอิงตอนกดเซฟ
+            if (document.getElementById('editing-badge')) document.getElementById('editing-badge').classList.remove('hidden');
+            if (document.getElementById('btn-cancel-edit')) document.getElementById('btn-cancel-edit').classList.remove('hidden');
+            
             let idInput = document.getElementById('editingOrderId');
             if(idInput) idInput.value = item.id;
             
-            document.getElementById('pMode').value = item.mode || '';
+            if (document.getElementById('pMode')) document.getElementById('pMode').value = item.mode || '';
             toggleModeUI();
             
-            document.getElementById('runDate').value = item.run_date ? item.run_date.split('T')[0] : '';
-            document.getElementById('rowCount').value = item.container_count || 1;
-            
-            // 🌟 ดึงค่าขนาดตู้กลับมาแสดง
+            if (document.getElementById('runDate')) document.getElementById('runDate').value = item.run_date ? item.run_date.split('T')[0] : '';
+            if (document.getElementById('rowCount')) document.getElementById('rowCount').value = item.container_count || 1;
             if (document.getElementById('containerSize')) document.getElementById('containerSize').value = item.container_size || '';
 
-            document.getElementById('jobNameInput').value = item.job_name || '';
-            document.getElementById('pCustomer').value = item.customer_name || '';
-            document.getElementById('pOrigin').value = item.origin || '';
-            document.getElementById('pDest').value = item.destination || '';
+            if (document.getElementById('jobNameInput')) document.getElementById('jobNameInput').value = item.job_name || '';
+            if (document.getElementById('pCustomer')) document.getElementById('pCustomer').value = item.customer_name || '';
+            if (document.getElementById('pOrigin')) document.getElementById('pOrigin').value = item.origin || '';
+            if (document.getElementById('pDest')) document.getElementById('pDest').value = item.destination || '';
             
             if (document.getElementById('pJobType')) document.getElementById('pJobType').value = item.job_type || '';
             if (document.getElementById('pPriceType')) document.getElementById('pPriceType').value = item.price_type || '';
             if (document.getElementById('pTripFee')) document.getElementById('pTripFee').value = item.trip_fee || '';
             if (document.getElementById('pTransFee')) document.getElementById('pTransFee').value = item.trans_fee || '';
+
+            // 🌟 หยอดค่า AGENT ลงทุก Input ที่รองรับ ป้องกันค่าหลุด
+            if (item.agent) {
+                if (document.getElementById('pAgentExp')) document.getElementById('pAgentExp').value = item.agent;
+                if (document.getElementById('pAgentImp')) document.getElementById('pAgentImp').value = item.agent;
+                if (document.getElementById('pAgent')) document.getElementById('pAgent').value = item.agent;
+            }
 
             const setDateTime = (idBase, dtStr) => {
                 if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return;
@@ -77,19 +83,17 @@ async function loadBookingForEdit(bookingNo) {
             };
 
             if (item.mode === 'EXPORT') {
-                document.getElementById('pBookingExp').value = item.booking_no || '';
-                document.getElementById('pAgentExp').value = item.agent || '';
-                document.getElementById('pDepotExp').value = item.origin || '';
-                document.getElementById('pReturnExp').value = item.destination || '';
+                if (document.getElementById('pBookingExp')) document.getElementById('pBookingExp').value = item.booking_no || '';
+                if (document.getElementById('pDepotExp')) document.getElementById('pDepotExp').value = item.origin || '';
+                if (document.getElementById('pReturnExp')) document.getElementById('pReturnExp').value = item.destination || '';
                 setDateTime('pCyExp', item.cy_date); setDateTime('pVgmExp', item.vgm_cutoff);
                 setDateTime('pCutoffExp', item.cutoff_time); setDateTime('pLoadExp', item.load_date);
                 setDateTime('pOpenGateExp', item.open_gate);
                 setDateTime('pCutoffReturnExp', item.cutoff_time);
             } else if (item.mode === 'IMPORT') {
-                document.getElementById('pBookingImp').value = item.booking_no || '';
-                document.getElementById('pAgentImp').value = item.agent || '';
-                document.getElementById('pPortImp').value = item.origin || '';
-                document.getElementById('pDepotImp').value = item.destination || '';
+                if (document.getElementById('pBookingImp')) document.getElementById('pBookingImp').value = item.booking_no || '';
+                if (document.getElementById('pPortImp')) document.getElementById('pPortImp').value = item.origin || '';
+                if (document.getElementById('pDepotImp')) document.getElementById('pDepotImp').value = item.destination || '';
                 setDateTime('pCyImp', item.cy_date); setDateTime('pRentImp', item.rent_cutoff);
                 setDateTime('pDemImp', item.demurrage); setDateTime('pUnloadImp', item.unload_date);
                 setDateTime('pReturnImp', item.return_date);
@@ -105,16 +109,19 @@ async function loadBookingForEdit(bookingNo) {
 window.cancelEdit = function() { window.location.href = '/booking-list.html'; };
 
 window.toggleModeUI = function() {
-    const mode = document.getElementById('pMode').value;
-    document.getElementById('export-zone').classList.add('hidden');
-    document.getElementById('import-zone').classList.add('hidden');
-    document.getElementById('transfer-zone').classList.add('hidden');
-    document.getElementById('jobPreviewBox').classList.remove('hidden');
+    const modeEl = document.getElementById('pMode');
+    if (!modeEl) return;
+    const mode = modeEl.value;
     
-    if(mode === 'EXPORT') document.getElementById('export-zone').classList.remove('hidden');
-    else if(mode === 'IMPORT') document.getElementById('import-zone').classList.remove('hidden');
-    else if(mode === 'TRANSFER') document.getElementById('transfer-zone').classList.remove('hidden');
-    else document.getElementById('jobPreviewBox').classList.add('hidden');
+    if (document.getElementById('export-zone')) document.getElementById('export-zone').classList.add('hidden');
+    if (document.getElementById('import-zone')) document.getElementById('import-zone').classList.add('hidden');
+    if (document.getElementById('transfer-zone')) document.getElementById('transfer-zone').classList.add('hidden');
+    if (document.getElementById('jobPreviewBox')) document.getElementById('jobPreviewBox').classList.remove('hidden');
+    
+    if(mode === 'EXPORT' && document.getElementById('export-zone')) document.getElementById('export-zone').classList.remove('hidden');
+    else if(mode === 'IMPORT' && document.getElementById('import-zone')) document.getElementById('import-zone').classList.remove('hidden');
+    else if(mode === 'TRANSFER' && document.getElementById('transfer-zone')) document.getElementById('transfer-zone').classList.remove('hidden');
+    else if(document.getElementById('jobPreviewBox')) document.getElementById('jobPreviewBox').classList.add('hidden');
 }
 
 window.syncCutoff = function() { 
@@ -124,27 +131,32 @@ window.syncCutoff = function() {
 };
 
 window.previewJobData = function() {
-    const val = document.getElementById('jobNameInput').value;
+    const jobInp = document.getElementById('jobNameInput');
+    if(!jobInp) return;
+    const val = jobInp.value;
     if(!val || !rateDataMap[val]) return;
     const rate = rateDataMap[val];
     
-    document.getElementById('pCustomer').value = rate.customer || ''; 
-    document.getElementById('pOrigin').value = rate.origin || ''; 
-    document.getElementById('pDest').value = rate.dest || ''; 
-    if(document.getElementById('pJobType')) document.getElementById('pJobType').value = rate.jobType || '';
+    if (document.getElementById('pCustomer')) document.getElementById('pCustomer').value = rate.customer || ''; 
+    if (document.getElementById('pOrigin')) document.getElementById('pOrigin').value = rate.origin || ''; 
+    if (document.getElementById('pDest')) document.getElementById('pDest').value = rate.dest || ''; 
+    if (document.getElementById('pJobType')) document.getElementById('pJobType').value = rate.jobType || '';
     
-    if (document.getElementById('pMode').value === 'EXPORT') {
-        document.getElementById('pDepotExp').value = rate.origin || ''; 
-        document.getElementById('pReturnExp').value = rate.dest || ''; 
+    const modeVal = document.getElementById('pMode') ? document.getElementById('pMode').value : '';
+    if (modeVal === 'EXPORT') {
+        if (document.getElementById('pDepotExp')) document.getElementById('pDepotExp').value = rate.origin || ''; 
+        if (document.getElementById('pReturnExp')) document.getElementById('pReturnExp').value = rate.dest || ''; 
     } else {
-        document.getElementById('pPortImp').value = rate.origin || '';
-        document.getElementById('pDepotImp').value = rate.dest || '';
+        if (document.getElementById('pPortImp')) document.getElementById('pPortImp').value = rate.origin || '';
+        if (document.getElementById('pDepotImp')) document.getElementById('pDepotImp').value = rate.dest || '';
     }
     window.updateFeeDropdowns();
 }
 
 window.updateFeeDropdowns = function() {
-    const val = document.getElementById('jobNameInput').value; 
+    const jobInp = document.getElementById('jobNameInput');
+    if (!jobInp) return;
+    const val = jobInp.value; 
     const type = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
     const trpInp = document.getElementById('pTripFee'); 
     const trnInp = document.getElementById('pTransFee');
@@ -166,12 +178,10 @@ function getCombinedDateTime(idBase) {
 }
 
 window.submitBookingForm = async function(btn) {
-    const mode = document.getElementById('pMode').value;
-    const runDate = document.getElementById('runDate').value;
-    const customer = document.getElementById('pCustomer').value;
-    const containerCount = document.getElementById('rowCount').value || 1;
-    
-    // 🌟 ดึงค่าขนาดตู้
+    const mode = document.getElementById('pMode') ? document.getElementById('pMode').value : '';
+    const runDate = document.getElementById('runDate') ? document.getElementById('runDate').value : '';
+    const customer = document.getElementById('pCustomer') ? document.getElementById('pCustomer').value : '';
+    const containerCount = document.getElementById('rowCount') ? document.getElementById('rowCount').value : 1;
     const containerSizeVal = document.getElementById('containerSize') ? document.getElementById('containerSize').value.toUpperCase() : '';
 
     if(!mode || !runDate || !customer) {
@@ -179,17 +189,15 @@ window.submitBookingForm = async function(btn) {
         return; 
     }
 
-    let b_no = "", agentVal = "", cyDate="", vgmCutoff="", cutoffTime="", loadDate="", openGate="", rentCutoff="", demurrage="", unloadDate="", returnDate="";
+    let b_no = "", cyDate="", vgmCutoff="", cutoffTime="", loadDate="", openGate="", rentCutoff="", demurrage="", unloadDate="", returnDate="";
     
     if (mode === 'EXPORT') {
-        b_no = document.getElementById('pBookingExp').value;
-        agentVal = document.getElementById('pAgentExp') ? document.getElementById('pAgentExp').value : ''; // 🌟 ดึงค่า Agent ขาออก
+        b_no = document.getElementById('pBookingExp') ? document.getElementById('pBookingExp').value : '';
         cyDate = getCombinedDateTime('pCyExp'); vgmCutoff = getCombinedDateTime('pVgmExp');
         cutoffTime = getCombinedDateTime('pCutoffExp'); loadDate = getCombinedDateTime('pLoadExp');
         openGate = getCombinedDateTime('pOpenGateExp');
     } else if (mode === 'IMPORT') {
-        b_no = document.getElementById('pBookingImp').value;
-        agentVal = document.getElementById('pAgentImp') ? document.getElementById('pAgentImp').value : ''; // 🌟 ดึงค่า Agent ขาเข้า
+        b_no = document.getElementById('pBookingImp') ? document.getElementById('pBookingImp').value : '';
         cyDate = getCombinedDateTime('pCyImp'); rentCutoff = getCombinedDateTime('pRentImp');
         demurrage = getCombinedDateTime('pDemImp'); unloadDate = getCombinedDateTime('pUnloadImp');
         returnDate = getCombinedDateTime('pReturnImp');
@@ -198,7 +206,17 @@ window.submitBookingForm = async function(btn) {
         if(trRef) b_no = trRef.value;
     }
 
-    const jobName = document.getElementById('jobNameInput').value.trim();
+    // 🌟 ดึงค่า AGENT ยืดหยุ่น ตรวจสอบทุกจุดป้องกันค่าหลุด
+    let agentVal = "";
+    const expAgent = document.getElementById('pAgentExp');
+    const impAgent = document.getElementById('pAgentImp');
+    const genAgent = document.getElementById('pAgent');
+
+    if (expAgent && expAgent.value.trim() !== '') agentVal = expAgent.value.trim();
+    else if (impAgent && impAgent.value.trim() !== '') agentVal = impAgent.value.trim();
+    else if (genAgent && genAgent.value.trim() !== '') agentVal = genAgent.value.trim();
+
+    const jobName = document.getElementById('jobNameInput') ? document.getElementById('jobNameInput').value.trim() : '';
     const jobTypeVal = document.getElementById('pJobType') ? document.getElementById('pJobType').value : '';
     const priceTypeVal = document.getElementById('pPriceType') ? document.getElementById('pPriceType').value : '';
     
@@ -226,7 +244,8 @@ window.submitBookingForm = async function(btn) {
             if (confirm(msg)) {
                 const singleRateData = {
                     job_name: jobName, customer_name: customer,
-                    origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
+                    origin: document.getElementById('pOrigin') ? document.getElementById('pOrigin').value : '', 
+                    destination: document.getElementById('pDest') ? document.getElementById('pDest').value : '',
                     job_type: jobTypeVal,
                     trip_fee_6w: priceTypeVal === '6W' ? tripFeeVal : null,
                     trip_fee_10w: priceTypeVal === '10W' ? tripFeeVal : null,
@@ -242,14 +261,14 @@ window.submitBookingForm = async function(btn) {
         }
     }
 
-    // 🌟 ห่อข้อมูลเตรียมส่งไป Database (พร้อม Field ใหม่ครบถ้วน)
     const dataToSave = {
         mode: mode, run_date: runDate, customer_name: customer, job_name: jobName, job_type: jobTypeVal,
-        origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
+        origin: document.getElementById('pOrigin') ? document.getElementById('pOrigin').value : '', 
+        destination: document.getElementById('pDest') ? document.getElementById('pDest').value : '',
         container_count: containerCount,
-        container_size: containerSizeVal, // 🌟 ขนาดตู้
+        container_size: containerSizeVal,
         booking_no: b_no,
-        agent: agentVal, // 🌟 สายเรือ
+        agent: agentVal,
         price_type: priceTypeVal, trip_fee: tripFeeVal, trans_fee: transFeeVal,
         cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
         rent_cutoff: rentCutoff, demurrage: demurrage, unload_date: unloadDate, return_date: returnDate
@@ -262,14 +281,13 @@ window.submitBookingForm = async function(btn) {
     try {
         const urlParams = new URLSearchParams(window.location.search);
         const editBookingNo = urlParams.get('edit');
+        const editingOrderInput = document.getElementById('editingOrderId');
         
         let res;
-        if (editBookingNo && document.getElementById('editingOrderId').value) {
-            // โหมดอัปเดต (PUT)
-            const bookingId = document.getElementById('editingOrderId').value;
+        if (editBookingNo && editingOrderInput && editingOrderInput.value) {
+            const bookingId = editingOrderInput.value;
             res = await fetch(`/api/bookings/${bookingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSave) });
         } else {
-            // โหมดสร้างใหม่ (POST)
             res = await fetch('/api/bookings/header', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSave) });
         }
 

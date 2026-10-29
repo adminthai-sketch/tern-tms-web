@@ -9,8 +9,11 @@ const cleanNum = (val) => {
     return isNaN(num) ? 0 : num;
 };
 
-// ดึงค่า AGENT ยืดหยุ่น รองรับทุกชื่อฟิลด์จาก Frontend
-const getAgentVal = (b) => cleanVal(b.agent || b.agent_name || b.agentName || b.shipping_agent || b.agent_code || b.shipping_line || b.line);
+// 🌟 ดึงค่า AGENT ยืดหยุ่น รองรับชื่อฟิลด์ทุกรูปแบบจาก Frontend
+const getAgentVal = (b) => cleanVal(
+    b.agent || b.agent_name || b.agentName || b.shipping_agent || 
+    b.agent_code || b.shipping_line || b.line || b.pAgent || b.pAgentExp || b.pAgentImp
+);
 
 async function getCustomerId(client, customerName) {
     if (!customerName) return null;
@@ -57,7 +60,7 @@ async function syncShipments(client, b) {
     }
 }
 
-// 1. สร้างหัวบุคกิ้งใหม่ (หน้า 1. สร้างรับงาน)
+// 1. สร้างหัวบุคกิ้งใหม่
 router.post('/bookings/header', async (req, res) => {
     const b = req.body;
     if (!b.mode || !b.run_date) return res.status(400).json({ success: false, message: 'กรุณากรอก Mode และวันที่วิ่งงาน' });
@@ -73,9 +76,14 @@ router.post('/bookings/header', async (req, res) => {
                 job_type, price_type, trip_fee, trans_fee, container_size
             ) VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
             ON CONFLICT (booking_no) DO UPDATE 
-            SET mode = EXCLUDED.mode, run_date = EXCLUDED.run_date, job_name = EXCLUDED.job_name, customer_id = EXCLUDED.customer_id, 
-                container_count = EXCLUDED.container_count, origin = EXCLUDED.origin, destination = EXCLUDED.destination,
-                agent = COALESCE(EXCLUDED.agent, bookings.agent), 
+            SET mode = EXCLUDED.mode, 
+                run_date = EXCLUDED.run_date, 
+                job_name = EXCLUDED.job_name, 
+                customer_id = EXCLUDED.customer_id, 
+                container_count = EXCLUDED.container_count, 
+                origin = EXCLUDED.origin, 
+                destination = EXCLUDED.destination,
+                agent = CASE WHEN EXCLUDED.agent IS NOT NULL AND EXCLUDED.agent != '' THEN EXCLUDED.agent ELSE bookings.agent END, 
                 cy_date = COALESCE(EXCLUDED.cy_date, bookings.cy_date), 
                 vgm_cutoff = COALESCE(EXCLUDED.vgm_cutoff, bookings.vgm_cutoff), 
                 cutoff_time = COALESCE(EXCLUDED.cutoff_time, bookings.cutoff_time),
@@ -85,8 +93,11 @@ router.post('/bookings/header', async (req, res) => {
                 demurrage = COALESCE(EXCLUDED.demurrage, bookings.demurrage), 
                 unload_date = COALESCE(EXCLUDED.unload_date, bookings.unload_date), 
                 return_date = COALESCE(EXCLUDED.return_date, bookings.return_date), 
-                job_type = EXCLUDED.job_type, price_type = EXCLUDED.price_type, 
-                trip_fee = EXCLUDED.trip_fee, trans_fee = EXCLUDED.trans_fee, container_size = EXCLUDED.container_size,
+                job_type = EXCLUDED.job_type, 
+                price_type = EXCLUDED.price_type, 
+                trip_fee = EXCLUDED.trip_fee, 
+                trans_fee = EXCLUDED.trans_fee, 
+                container_size = EXCLUDED.container_size,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING id, booking_no;
         `;
@@ -106,7 +117,7 @@ router.post('/bookings/header', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 2. แก้ไขข้อมูลบุคกิ้ง (ปุ่ม ✏️ แก้ ในตาราง) - ใช้ COALESCE($4, agent) ป้องกัน AGENT หาย
+// 2. แก้ไขข้อมูลบุคกิ้ง (ปุ่ม ✏️ แก้ ในตาราง และการแก้ไขจากฟอร์ม)
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const b = req.body;
@@ -126,7 +137,7 @@ router.put('/bookings/:id', async (req, res) => {
                 SET mode = COALESCE($1, mode), 
                     run_date = COALESCE($2, run_date), 
                     customer_id = COALESCE($3, customer_id), 
-                    agent = COALESCE($4, agent), 
+                    agent = CASE WHEN $4::text IS NOT NULL AND $4::text != '' THEN $4::text ELSE agent END,
                     job_name = COALESCE($5, job_name), 
                     job_type = COALESCE($6, job_type), 
                     origin = COALESCE($7, origin), 
@@ -162,7 +173,7 @@ router.put('/bookings/:id', async (req, res) => {
                 SET mode = COALESCE($1, mode), 
                     run_date = COALESCE($2, run_date), 
                     customer_id = COALESCE($3, customer_id), 
-                    agent = COALESCE($4, agent), 
+                    agent = CASE WHEN $4::text IS NOT NULL AND $4::text != '' THEN $4::text ELSE agent END,
                     job_name = COALESCE($5, job_name), 
                     job_type = COALESCE($6, job_type), 
                     origin = COALESCE($7, origin), 
@@ -245,7 +256,7 @@ router.get('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 4. บันทึกข้อมูลตู้แบบ Batch (ปุ่ม 💾 บันทึกการแก้ไข)
+// 4. บันทึกข้อมูลตู้แบบ Batch
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลสำหรับบันทึก' });
@@ -279,10 +290,10 @@ router.post('/shipments', async (req, res) => {
             }
 
             const rowAgent = getAgentVal(row);
-            if (row.booking_no && rowAgent !== null) {
+            if (row.booking_no && rowAgent !== null && rowAgent !== '') {
                 await client.query(`
                     UPDATE bookings SET
-                        agent = COALESCE($1, agent),
+                        agent = $1,
                         cy_date = COALESCE($2, cy_date),
                         vgm_cutoff = COALESCE($3, vgm_cutoff),
                         cutoff_time = COALESCE($4, cutoff_time),

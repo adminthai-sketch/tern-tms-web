@@ -32,33 +32,33 @@
             <span class="font-bold text-lg text-slate-800">TERN TMS</span>
         </div>
 
-        <div class="h-5 w-px bg-slate-300 mx-1"></div>
+        <div class="h-5 w-px bg-slate-300 mx-1 hidden sm:block"></div>
 
         <!-- 🌟 ปุ่มหน้าแรก ( Home Button ) -->
         <a href="/index.html" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs transition-colors flex items-center gap-1.5 shadow-sm">
             <i class="fa-solid fa-house text-blue-900"></i> หน้าแรก
         </a>
 
-        <div class="h-5 w-px bg-slate-300 mx-1"></div>
+        <div class="h-5 w-px bg-slate-300 mx-1 hidden sm:block"></div>
 
-        <!-- แท็บเดิม (1. สร้างรับงาน / 2. อัปโหลด Job / 3. รายการบุคกิ้ง) -->
-        <div class="flex gap-1 text-xs">
-            <button onclick="switchTab('create')" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center gap-1">
+        <!-- 🌟 เปลี่ยนจาก button เป็น a href เพื่อลิงก์ข้ามไฟล์ 🌟 -->
+        <div class="flex gap-1 text-xs ml-0 sm:border-l sm:border-slate-200 sm:pl-3">
+            <a href="/booking.html" class="text-slate-500 hover:text-blue-900 hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1">
                 <i class="fa-solid fa-pen-to-square"></i> 1. สร้างรับงาน
-            </button>
-            <button onclick="switchTab('upload')" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center gap-1">
+            </a>
+            <a href="/booking-bulk.html" class="text-slate-500 hover:text-blue-900 hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1">
                 <i class="fa-solid fa-file-excel"></i> 2. อัปโหลด Job
-            </button>
-            <button onclick="switchTab('list')" class="px-3 py-1.5 rounded-lg font-bold bg-blue-900 text-white flex items-center gap-1 shadow-sm">
+            </a>
+            <a href="/booking-list.html" class="bg-blue-900 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm flex items-center gap-1">
                 <i class="fa-solid fa-list-check"></i> 3. รายการบุคกิ้ง
-            </button>
+            </a>
         </div>
     </div>
 
     <!-- ส่วนขวา (User Profile & Logout) -->
     <div class="flex items-center gap-4 text-xs">
         <div class="text-right">
-            <div id="user-fullname" class="font-bold text-slate-800">GXEM Administrator</div>
+            <div id="user-fullname" class="font-bold text-slate-800">กำลังโหลด...</div>
             <div id="user-role-badge" class="text-[10px] text-slate-500 font-semibold">ADMIN</div>
         </div>
         <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ">

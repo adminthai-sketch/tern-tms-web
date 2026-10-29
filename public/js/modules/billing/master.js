@@ -1,14 +1,12 @@
 let hotMasterInstance = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
-    // 1. ตรวจสอบข้อมูลผู้ใช้
+    // 1. ตรวจสอบ User
     const savedUser = localStorage.getItem('tms_user');
     if (savedUser) {
         const currentUser = JSON.parse(savedUser);
         const userEl = document.getElementById('user-fullname');
-        const roleEl = document.getElementById('user-role-badge');
         if (userEl) userEl.innerText = currentUser.fullName || currentUser.username || 'ผู้ดูแลระบบ';
-        if (roleEl) roleEl.innerText = (currentUser.role || 'ADMIN').toUpperCase();
     }
 
     // 2. ตั้งค่าเดือนปัจจุบัน
@@ -22,10 +20,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     await loadBillingMasterData();
 });
 
-// ฟังก์ชันโหลดข้อมูลจาก API
 window.loadBillingMasterData = async function() {
     const monthInput = document.getElementById('filter-month').value;
-    const [year, month] = monthInput ? monthInput.split('-') : ['', ''];
+    if (!monthInput) return;
+    const [year, month] = monthInput.split('-');
     
     const overlay = document.getElementById('master-loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
@@ -35,29 +33,37 @@ window.loadBillingMasterData = async function() {
         const result = await response.json();
         
         if (result.success && Array.isArray(result.data)) {
-            const mappedData = result.data.map(item => ({
-                booking_no: item.booking_no || '-',
-                run_date: item.run_date ? String(item.run_date).split('T')[0] : '-',
-                customer_name: item.customer_name || '-',
-                total_count: Number(item.container_count) || 1,
-                total_amount: (Number(item.trip_fee) || 0) * (Number(item.container_count) || 1),
-                origin: item.origin || '-',
-                destination: item.destination || '-'
-            }));
+            const bkMap = {};
+            result.data.forEach(item => {
+                const bk = item.booking_no;
+                if (!bk) return;
+                if (!bkMap[bk]) {
+                    bkMap[bk] = {
+                        booking_no: bk,
+                        run_date: item.run_date ? String(item.run_date).split('T')[0] : '-',
+                        customer_name: item.customer_name || '-',
+                        origin: item.origin || '-',
+                        destination: item.destination || '-',
+                        container_count: Number(item.container_count) || 1,
+                        trip_fee: Number(item.trip_fee) || 0,
+                        iv_no: item.iv_no || '-',
+                        ar_no: item.ar_no || '-'
+                    };
+                }
+            });
 
-            initMasterGrid(mappedData);
+            initMasterGrid(Object.values(bkMap));
         } else {
             initMasterGrid([]);
         }
     } catch (err) {
-        console.error("Fetch Error:", err);
+        console.error("Load Billing Error:", err);
         initMasterGrid([]);
     } finally {
         if (overlay) overlay.classList.add('hidden');
     }
 };
 
-// วาดตาราง Handsontable
 function initMasterGrid(data) {
     const container = document.getElementById('master-grid-container');
     if (!container) return;
@@ -67,25 +73,27 @@ function initMasterGrid(data) {
     }
 
     const tableData = data.length > 0 ? data : [
-        { booking_no: 'ไม่พบข้อมูลในเดือนที่เลือก', run_date: '-', customer_name: '-', total_count: 0, total_amount: 0, origin: '-', destination: '-' }
+        { booking_no: 'ไม่พบรายการข้อมูล', run_date: '-', customer_name: '-', origin: '-', destination: '-', container_count: 0, trip_fee: 0, iv_no: '-', ar_no: '-' }
     ];
 
     hotMasterInstance = new Handsontable(container, {
         data: tableData,
         wordWrap: false,
         autoRowSize: false,
-        rowHeights: 32,
-        colHeaders: ['Booking No.', 'วันที่วิ่งงาน', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 'จำนวนตู้', 'ค่าบรรทุกรวม (บาท)'],
+        rowHeights: 34,
+        colHeaders: ['Booking No.', 'วันที่วิ่งงาน', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 'จำนวนตู้', 'ค่าบรรทุก (บาท)', 'เลข IV', 'เลข AR'],
         columns: [
             { data: 'booking_no', readOnly: true, className: 'htMiddle font-bold text-purple-700' },
             { data: 'run_date', type: 'text', readOnly: true, className: 'htCenter htMiddle' },
             { data: 'customer_name', type: 'text', readOnly: true, className: 'htMiddle font-bold text-slate-700' },
             { data: 'origin', type: 'text', readOnly: true, className: 'htMiddle text-slate-500' },
             { data: 'destination', type: 'text', readOnly: true, className: 'htMiddle text-slate-500' },
-            { data: 'total_count', type: 'numeric', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700' },
-            { data: 'total_amount', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-emerald-700' }
+            { data: 'container_count', type: 'numeric', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700' },
+            { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-emerald-700' },
+            { data: 'iv_no', type: 'text', readOnly: true, className: 'htCenter htMiddle font-bold text-emerald-800' },
+            { data: 'ar_no', type: 'text', readOnly: true, className: 'htCenter htMiddle font-bold text-red-700' }
         ],
-        colWidths: [200, 110, 200, 130, 130, 90, 150],
+        colWidths: [200, 110, 200, 120, 120, 90, 140, 140, 140],
         rowHeaders: true,
         width: '100%',
         height: '100%',

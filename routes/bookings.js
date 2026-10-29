@@ -132,40 +132,36 @@ router.put('/bookings/:id', async (req, res) => {
     } finally { client.release(); }
 });
 
+// ดึงข้อมูลสำหรับหน้าวางบิล (เพิ่ม c.address และ c.tax_id)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const bookingsRes = await client.query(`
-            SELECT booking_no, run_date, container_count, trip_fee, trans_fee 
-            FROM bookings WHERE EXTRACT(MONTH FROM run_date) = $1::INTEGER AND EXTRACT(YEAR FROM run_date) = $2::INTEGER
-        `, [month, year]);
-        for (const b of bookingsRes.rows) { await syncShipments(client, b); }
-        await client.query('COMMIT');
 
+    try {
         const result = await pool.query(`
             SELECT 
-                s.*,
-                b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
-                b.origin, b.destination, b.container_size, b.job_type, b.agent,
-                b.cy_date, b.vgm_cutoff, b.cutoff_time, b.load_date, b.unload_date, b.return_date, b.open_gate,
-                f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense
+                s.order_id, s.booking_no, s.container_1_no, s.container_2_no,
+                s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg2_driver, s.leg3_plate, s.leg3_driver,
+                b.mode, b.run_date, b.customer_id, 
+                c.short_name AS customer_name, c.customer_name AS full_customer_name, c.address, c.tax_id,
+                b.origin, b.destination, b.container_size, b.job_type,
+                f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee,
+                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark,
+                f.is_locked, f.locked_by, f.locked_at
             FROM shipment_operations s
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
             WHERE EXTRACT(MONTH FROM b.run_date) = $1::INTEGER 
               AND EXTRACT(YEAR FROM b.run_date) = $2::INTEGER
-            ORDER BY s.order_id ASC
+            ORDER BY b.run_date ASC, s.order_id ASC
         `, [month, year]);
+
         res.json({ success: true, data: result.rows });
     } catch (err) {
-        await client.query('ROLLBACK');
-        console.error("API GET Shipments Error:", err);
+        console.error("Billing GET Error:", err);
         res.status(500).json({ success: false, message: err.message });
-    } finally { client.release(); }
+    }
 });
 
 router.post('/shipments', async (req, res) => {

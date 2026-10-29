@@ -332,25 +332,53 @@ window.openBookingDetail = function(bookingNo) {
     calculateDetailSummary();
 };
 
-function calculateDetailSummary() {
-    if (!hotDetailInstance) return;
-    const data = hotDetailInstance.getSourceData();
-    let selectedCount = 0;
-    let totalTrip = 0;
+// 🌟 2. ดึงรายการตู้ตกค้าง และสร้าง Dropdown รายการ Booking
+window.openUnbilledModal = async function() {
+    if (!activeCustomerId) { alert("⚠️ ไม่พบข้อมูลลูกค้า"); return; }
+    
+    const custName = document.getElementById('info-customer-name').innerText;
+    document.getElementById('modal-cust-name').value = custName;
+    document.getElementById('modal-filter-date').value = '';
 
-    data.forEach(row => {
-        if (row._selected) {
-            selectedCount++;
-            totalTrip += (Number(row.trip_fee) || 0);
+    document.getElementById('unbilled-modal').classList.remove('hidden');
+    await fetchUnbilledContainers();
+};
+
+window.fetchUnbilledContainers = async function() {
+    const runDate = document.getElementById('modal-filter-date').value;
+
+    try {
+        const res = await fetch(`/api/billing/unbilled-containers?customer_id=${activeCustomerId}&run_date=${runDate}`);
+        const result = await res.json();
+
+        if (result.success) {
+            currentUnbilledData = result.data;
+            
+            // สร้างรายการ Booking Dropdown จากตู้ตกค้างที่หาได้
+            const bookingSelect = document.getElementById('modal-filter-booking');
+            const uniqueBookings = Array.from(new Set(currentUnbilledData.map(i => i.booking_no))).sort();
+            
+            bookingSelect.innerHTML = '<option value="">-- แสดงทุก Booking ที่มีตู้ค้าง --</option>';
+            uniqueBookings.forEach(bk => {
+                bookingSelect.innerHTML += `<option value="${bk}">${bk}</option>`;
+            });
+
+            filterUnbilledTable();
         }
-    });
+    } catch(e) { console.error(e); }
+};
 
-    const unitPrice = selectedCount > 0 ? (totalTrip / selectedCount) : 0;
+// 🌟 3. กรองแสดงตู้ใน Modal ตาม Booking ที่เลือกใน Dropdown
+window.filterUnbilledTable = function() {
+    const selectedBk = document.getElementById('modal-filter-booking').value;
+    let filteredData = currentUnbilledData;
 
-    document.getElementById('sum-qty').innerText = selectedCount.toFixed(2);
-    document.getElementById('sum-unit-price').innerText = unitPrice.toLocaleString('en-US', {minimumFractionDigits: 2});
-    document.getElementById('sum-total-amount').innerText = totalTrip.toLocaleString('en-US', {minimumFractionDigits: 2});
-}
+    if (selectedBk) {
+        filteredData = currentUnbilledData.filter(i => i.booking_no === selectedBk);
+    }
+
+    renderUnbilledTable(filteredData);
+};
 
 function initDetailGrid(data) {
     const container = document.getElementById('detail-grid-container');

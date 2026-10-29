@@ -277,11 +277,13 @@
                     <label class="font-bold text-slate-600 block mb-1">วันที่วิ่งงาน (Run Date):</label>
                     <input type="date" id="modal-filter-date" onchange="fetchUnbilledContainers()" class="w-full border border-slate-300 rounded px-2.5 py-1.5 font-bold text-slate-700 outline-none focus:border-amber-500">
                 </div>
-                <div>
-                    <label class="font-bold text-slate-600 block mb-1">เลข Booking:</label>
-                    <input type="text" id="modal-filter-booking" placeholder="พิมพ์ค้นหา Booking..." onkeyup="fetchUnbilledContainers()" class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-slate-700 outline-none focus:border-amber-500">
-                </div>
-            </div>
+            <!-- ช่องเดิมที่เป็น <input type="text" id="modal-filter-booking"> เปลี่ยนเป็นแบบนี้: -->
+<div>
+    <label class="font-bold text-slate-600 block mb-1">เลือก Booking ตกค้าง:</label>
+    <select id="modal-filter-booking" onchange="filterUnbilledTable()" class="w-full border border-slate-300 rounded px-2.5 py-1.5 text-slate-700 outline-none focus:border-amber-500 bg-white font-bold">
+        <option value="">-- แสดงทุก Booking --</option>
+    </select>
+</div>
 
             <!-- Container List Table Inside Modal -->
             <div class="flex-1 overflow-y-auto border border-slate-200 rounded-lg mb-4">

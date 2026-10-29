@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 
-// 1. ดึงข้อมูลสำหรับหน้าวางบิล (ใช้วิธีค้นหาแบบช่วงวันที่เหมือนหน้า Booking List 100%)
+// 1. ดึงข้อมูลสำหรับหน้าวางบิล (คิวรีจากตาราง bookings ใช้ชนิดข้อมูล ::date ให้ตรงกับหน้า Booking)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -50,7 +50,9 @@ router.get('/shipments', async (req, res) => {
             FROM bookings b
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN financials f ON s.order_id = f.order_id
-            WHERE b.run_date::text >= $1 AND b.run_date::text <= $2
+            WHERE b.run_date IS NOT NULL 
+              AND b.run_date::date >= $1::date 
+              AND b.run_date::date <= $2::date
             ORDER BY b.run_date ASC, b.booking_no ASC
         `, [startDate, endDate]);
 
@@ -129,7 +131,7 @@ router.get('/unbilled-containers', async (req, res) => {
 
         if (run_date) {
             params.push(run_date);
-            query += ` AND b.run_date::text = $${params.length}`;
+            query += ` AND b.run_date::date = $${params.length}::date`;
         }
         if (booking_no) {
             params.push(`%${booking_no.trim()}%`);
@@ -170,7 +172,8 @@ router.get('/iv-summary', async (req, res) => {
             JOIN shipment_operations s ON f.order_id = s.order_id
             JOIN bookings b ON s.booking_no = b.booking_no
             WHERE f.iv_no IS NOT NULL AND f.iv_no != ''
-              AND b.run_date::text >= $1 AND b.run_date::text <= $2
+              AND b.run_date IS NOT NULL
+              AND b.run_date::date >= $1::date AND b.run_date::date <= $2::date
             GROUP BY f.iv_no, f.ar_no, b.customer_name
             ORDER BY f.iv_no ASC
         `, [startDate, endDate]);

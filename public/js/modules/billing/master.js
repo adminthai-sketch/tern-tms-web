@@ -1,37 +1,31 @@
 // ==========================================
-// 💸 MODULE: MASTER BOOKING LIST (Fix Data & Render Crash)
+// 💸 MODULE: MASTER BOOKING LIST (CLEAN VERSION)
 // ==========================================
 
 let hotMasterInstance = null;
 let rawShipmentList = [];      
 let masterBookingList = [];    
-let filteredMasterList = [];   
-let currentUser = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyBillingCSS();
     
-    // 🌟 1. ดึงข้อมูล User แบบปลอดภัย
-    try {
-        const savedUser = localStorage.getItem('tms_user');
-        if (savedUser) {
-            currentUser = JSON.parse(savedUser);
-            const nameToDisplay = currentUser.fullName || currentUser.username || 'ผู้ดูแลระบบ';
-            if(document.getElementById('user-fullname')) document.getElementById('user-fullname').innerText = nameToDisplay;
-            if(document.getElementById('user-role-badge')) document.getElementById('user-role-badge').innerText = (currentUser.role || 'ADMIN').toUpperCase();
-        } else {
-            window.location.href = '/login.html';
-            return;
-        }
-    } catch (e) {
-        console.error("User info load error:", e);
+    // 1. ดึงข้อมูลผู้ใช้งาน
+    const savedUser = localStorage.getItem('tms_user');
+    if (savedUser) {
+        const currentUser = JSON.parse(savedUser);
+        const nameToDisplay = currentUser.fullName || currentUser.username || 'ผู้ดูแลระบบ';
+        document.getElementById('user-fullname').innerText = nameToDisplay;
+        document.getElementById('user-role-badge').innerText = (currentUser.role || 'ADMIN').toUpperCase();
+    } else {
+        window.location.href = '/login.html';
+        return;
     }
     
+    // 2. ตั้งค่าเดือนปัจจุบัน
     const today = new Date();
-    const monthInput = document.getElementById('filter-month');
-    if (monthInput && !monthInput.value) {
-        monthInput.value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
-    }
+    document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+    
+    // 3. โหลดข้อมูล
     await loadBillingMasterData();
 });
 
@@ -44,21 +38,19 @@ function applyBillingCSS() {
             .handsontable th { background-color: #f8fafc; color: #1e293b; font-weight: 700 !important; border-color: #94a3b8; font-size: 11px !important; }
             .zone-read { background-color: #f8fafc !important; color: #475569; }
             .zone-edit { background-color: #ffffff !important; color: #0f4c81; font-weight: 600; }
-            .badge-pending { background-color: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; padding: 1px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; }
-            .badge-partial { background-color: #fffbebfb; color: #d97706; border: 1px solid #fcd34d; padding: 1px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; }
-            .badge-billed { background-color: #f0fdf4; color: #10b981; border: 1px solid #6ee7b7; padding: 1px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; }
         `;
         document.head.appendChild(style);
     }
 }
 
+// 📌 ฟังก์ชันโหลดข้อมูลจาก API
 window.loadBillingMasterData = async function() {
-    const monthInput = document.getElementById('filter-month');
-    if (!monthInput || !monthInput.value) return;
-    const [year, month] = monthInput.value.split('-');
+    const monthInput = document.getElementById('filter-month').value;
+    if (!monthInput) return;
+    const [year, month] = monthInput.split('-');
     
     const overlay = document.getElementById('master-loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
+    overlay.classList.remove('hidden');
 
     try {
         const response = await fetch(`/api/billing/shipments?year=${year}&month=${month}`);
@@ -68,146 +60,67 @@ window.loadBillingMasterData = async function() {
             rawShipmentList = result.data;
             const bkMap = {};
             
+            // จับกลุ่มข้อมูลตาม Booking No
             rawShipmentList.forEach(item => {
                 const bk = item.booking_no;
                 if (!bk) return;
+                
                 if (!bkMap[bk]) {
                     bkMap[bk] = {
                         booking_no: bk, 
                         run_date: item.run_date ? String(item.run_date).split('T')[0] : '',
                         customer_name: item.customer_name || '', 
-                        origin: item.origin || '', 
-                        destination: item.destination || '',
                         total_count: 0, 
-                        billed_count: 0, 
                         total_amount: 0,
-                        iv_numbers: new Set(), 
-                        ar_numbers: new Set(), 
-                        shipments: []
+                        disp_iv: item.iv_no || '',
+                        disp_ar: item.ar_no || ''
                     };
                 }
                 bkMap[bk].total_count += 1;
-                if (item.iv_no && String(item.iv_no).trim() !== '') {
-                    bkMap[bk].billed_count += 1; 
-                    bkMap[bk].iv_numbers.add(String(item.iv_no).trim());
-                }
-                if (item.ar_no && String(item.ar_no).trim() !== '') {
-                    bkMap[bk].ar_numbers.add(String(item.ar_no).trim());
-                }
                 bkMap[bk].total_amount += (Number(item.trip_fee) || 0);
-                bkMap[bk].shipments.push(item);
+                
+                // ถ้ามีค่า IV/AR ในตู้หลังๆ ให้ยึดค่านั้น
+                if (item.iv_no && String(item.iv_no).trim() !== '') bkMap[bk].disp_iv = String(item.iv_no).trim();
+                if (item.ar_no && String(item.ar_no).trim() !== '') bkMap[bk].disp_ar = String(item.ar_no).trim();
             });
 
-            masterBookingList = Object.values(bkMap).map(b => {
-                if (b.billed_count === 0) b.billing_status = 'รอวางบิล';
-                else if (b.billed_count < b.total_count) b.billing_status = `วางบิลแล้ว ${b.billed_count}/${b.total_count} ตู้`;
-                else b.billing_status = `วางบิลครบ ${b.total_count}/${b.total_count} ตู้`;
-                
-                b.disp_iv = Array.from(b.iv_numbers).join(', ');
-                b.disp_ar = Array.from(b.ar_numbers).join(', ');
-                return b;
-            });
-            
-            updateMasterFilterDropdowns(); 
-            handleMasterFilter();
+            masterBookingList = Object.values(bkMap);
+            initMasterGrid(masterBookingList);
         } else {
-            masterBookingList = [];
-            handleMasterFilter();
+            initMasterGrid([]);
         }
     } catch (err) { 
-        console.error("loadBillingMasterData error:", err); 
-        masterBookingList = [];
-        handleMasterFilter();
+        console.error(err); 
+        initMasterGrid([]);
     } finally { 
-        if (overlay) overlay.classList.add('hidden'); 
+        overlay.classList.add('hidden'); 
     }
 };
 
-function updateMasterFilterDropdowns() {
-    const dates = new Set(), custs = new Set(), books = new Set();
-    masterBookingList.forEach(i => {
-        if (i.run_date) dates.add(i.run_date);
-        if (i.customer_name) custs.add(i.customer_name.trim());
-        if (i.booking_no) books.add(i.booking_no.trim());
-    });
-    
-    const dlDate = document.getElementById('dl-run-date');
-    const dlCust = document.getElementById('dl-customer');
-    const dlBook = document.getElementById('dl-booking-no');
-    
-    if (dlDate) { dlDate.innerHTML = ''; Array.from(dates).sort().forEach(v => dlDate.innerHTML += `<option value="${v}">`); }
-    if (dlCust) { dlCust.innerHTML = ''; Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`); }
-    if (dlBook) { dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`); }
-}
-
-// 🌟 แก้ไขจุดพังจากการใช้ JSON.stringify(item) ที่มีวัตถุประเภท Set
+// 📌 ค้นหาข้อมูล
 window.handleMasterFilter = function() {
-    const dEl = document.getElementById('filter-run-date');
-    const cEl = document.getElementById('filter-customer');
-    const bEl = document.getElementById('filter-booking-no');
-    const sEl = document.getElementById('global-search');
-
-    const d = dEl ? dEl.value : '';
-    const c = cEl ? cEl.value : '';
-    const b = bEl ? bEl.value : '';
-    const searchTxt = sEl ? sEl.value.toLowerCase().trim() : '';
-
-    filteredMasterList = masterBookingList.filter(item => {
-        const matchD = !d || item.run_date === d;
-        const matchC = !c || (item.customer_name && item.customer_name.trim() === c);
-        const matchB = !b || (item.booking_no && item.booking_no.trim() === b);
-        
-        const matchSearch = !searchTxt || 
-            (item.booking_no && item.booking_no.toLowerCase().includes(searchTxt)) ||
-            (item.customer_name && item.customer_name.toLowerCase().includes(searchTxt)) ||
-            (item.disp_iv && item.disp_iv.toLowerCase().includes(searchTxt)) ||
-            (item.disp_ar && item.disp_ar.toLowerCase().includes(searchTxt));
-
-        return matchD && matchC && matchB && matchSearch;
-    });
-
-    updateMasterKPI(filteredMasterList); 
-    initMasterGrid(filteredMasterList);
-};
-
-window.clearMasterFilters = function() {
-    if(document.getElementById('filter-run-date')) document.getElementById('filter-run-date').value = '';
-    if(document.getElementById('filter-customer')) document.getElementById('filter-customer').value = '';
-    if(document.getElementById('filter-booking-no')) document.getElementById('filter-booking-no').value = ''; 
-    if(document.getElementById('global-search')) document.getElementById('global-search').value = ''; 
-    handleMasterFilter();
-};
-
-window.setQuickMasterFilter = function(type) {
-    filteredMasterList = (type === 'pending') 
-        ? masterBookingList.filter(item => item.billed_count < item.total_count) 
-        : masterBookingList.filter(item => item.billed_count > 0);
-    updateMasterKPI(filteredMasterList); 
-    initMasterGrid(filteredMasterList);
-};
-
-function updateMasterKPI(dataList) {
-    let pendingBk = 0, pendingCt = 0, pendingAmt = 0, billedBk = 0, billedCt = 0, billedAmt = 0;
+    const searchTxt = document.getElementById('global-search').value.toLowerCase().trim();
+    if (!searchTxt) {
+        initMasterGrid(masterBookingList);
+        return;
+    }
     
-    dataList.forEach(item => {
-        if (item.billed_count === 0) { pendingBk++; pendingCt += item.total_count; pendingAmt += item.total_amount; }
-        else { billedBk++; billedCt += item.billed_count; billedAmt += item.total_amount; }
+    const filteredList = masterBookingList.filter(item => {
+        return (item.booking_no && item.booking_no.toLowerCase().includes(searchTxt)) ||
+               (item.customer_name && item.customer_name.toLowerCase().includes(searchTxt)) ||
+               (item.disp_iv && item.disp_iv.toLowerCase().includes(searchTxt));
     });
-
-    if(document.getElementById('stat-pending-bk')) document.getElementById('stat-pending-bk').innerText = `${pendingBk} Booking`;
-    if(document.getElementById('stat-pending-ct')) document.getElementById('stat-pending-ct').innerText = `${pendingCt} ตู้`;
-    if(document.getElementById('stat-pending-amt')) document.getElementById('stat-pending-amt').innerText = `${pendingAmt.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`;
     
-    if(document.getElementById('stat-billed-bk')) document.getElementById('stat-billed-bk').innerText = `${billedBk} Booking`;
-    if(document.getElementById('stat-billed-ct')) document.getElementById('stat-billed-ct').innerText = `${billedCt} ตู้`;
-    if(document.getElementById('stat-billed-amt')) document.getElementById('stat-billed-amt').innerText = `${billedAmt.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`;
-}
+    initMasterGrid(filteredList);
+};
 
+// 📌 กดปุ่มไปหน้า Detail
 window.openBookingDetail = function(bookingNo) {
     if (!bookingNo) return;
     window.location.href = `/billing-detail.html?booking=${encodeURIComponent(bookingNo)}`;
 };
 
+// 📌 วาดตาราง Handsontable
 function initMasterGrid(data) {
     const container = document.getElementById('master-grid-container');
     if (!container) return;
@@ -217,55 +130,37 @@ function initMasterGrid(data) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         const valStr = value ? String(value) : '';
         td.innerHTML = valStr ? `
-            <div class="flex items-center justify-between w-full h-full px-1">
+            <div class="flex items-center justify-between w-full h-full px-2">
                 <span class="font-bold text-purple-700">${valStr}</span>
-                <button onclick="openBookingDetail('${valStr}')" class="bg-purple-100 hover:bg-purple-600 text-purple-700 hover:text-white border border-purple-300 px-2 py-0.5 rounded text-[10px] font-bold transition-colors shadow-sm">
+                <button onclick="openBookingDetail('${valStr}')" class="bg-purple-100 hover:bg-purple-600 text-purple-700 hover:text-white border border-purple-300 px-3 py-1 rounded text-xs font-bold transition-colors shadow-sm cursor-pointer">
                     เปิดวางบิล 🔍
                 </button>
             </div>
         ` : '';
     };
 
-    // 🌟 แก้ไขจุดพังโดยตรวจเช็กประเภทข้อมูลให้ปลอดภัยก่อนเรียกใช้คำสั่ง .includes()
-    const statusRenderer = function(instance, td, row, col, prop, value) {
-        Handsontable.renderers.HtmlRenderer.apply(this, arguments);
-        td.style.textAlign = 'center';
-        
-        if (!value || typeof value !== 'string') {
-            td.innerHTML = '';
-            return;
-        }
-
-        if (value.includes('วางบิลครบ')) {
-            td.innerHTML = `<span class="badge-billed"><i class="fa-solid fa-check"></i> ${value}</span>`;
-        } else if (value.includes('วางบิลแล้ว')) {
-            td.innerHTML = `<span class="badge-partial"><i class="fa-solid fa-clock-rotate-left"></i> ${value}</span>`;
-        } else {
-            td.innerHTML = `<span class="badge-pending"><i class="fa-regular fa-clock"></i> รอวางบิล</span>`;
-        }
-    };
+    // ใช้ข้อมูลดัมมี่ 1 แถวเปล่าๆ ถ้าไม่มีข้อมูล เพื่อไม่ให้ตารางพัง
+    const tableData = data.length > 0 ? data : [
+        { booking_no: '', run_date: '', customer_name: '', total_count: 0, total_amount: 0, disp_iv: '', disp_ar: '' }
+    ];
 
     hotMasterInstance = new Handsontable(container, {
-        // 🌟 เปลี่ยนจาก [{}] เป็น [] ป้องกันการสร้างแถวว่างที่ทำให้เกิด Null Error
-        data: data.length > 0 ? data : [],
+        data: tableData,
         wordWrap: false, 
         autoRowSize: false, 
-        rowHeights: 30, 
-        fixedColumnsLeft: 2,
-        colHeaders: ['Booking No.', 'สถานะ', 'วันที่วิ่งงาน', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 'จำนวนตู้', 'ค่าบรรทุก (บาท)', 'เลขที่ IV ✏️', 'เลขที่ AR ✏️'],
+        rowHeights: 36, 
+        fixedColumnsLeft: 1,
+        colHeaders: ['Booking No. (กดปุ่มเพื่อเปิดบิล)', 'วันที่วิ่งงาน', 'ลูกค้า', 'จำนวนตู้', 'ค่าบรรทุกรวม (บาท)', 'เลขที่ IV ✏️', 'เลขที่ AR ✏️'],
         columns: [
             { data: 'booking_no', readOnly: true, className: 'htMiddle zone-read', renderer: bookingLinkRenderer },
-            { data: 'billing_status', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-read', renderer: statusRenderer },
             { data: 'run_date', type: 'text', readOnly: true, className: 'htCenter htMiddle zone-read' },
             { data: 'customer_name', type: 'text', readOnly: true, className: 'font-bold text-slate-700 htMiddle zone-read' },
-            { data: 'origin', type: 'text', readOnly: true, className: 'text-slate-500 htMiddle zone-read' },
-            { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-500 htMiddle zone-read' },
             { data: 'total_count', type: 'numeric', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700 zone-read' },
             { data: 'total_amount', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-emerald-700 zone-read' },
             { data: 'disp_iv', type: 'text', className: 'htCenter htMiddle font-bold text-emerald-800 uppercase zone-edit' },
             { data: 'disp_ar', type: 'text', className: 'htCenter htMiddle font-bold text-red-700 uppercase zone-edit' }
         ],
-        colWidths: [180, 110, 95, 140, 110, 110, 75, 130, 150, 150],
+        colWidths: [260, 100, 200, 80, 150, 160, 160],
         rowHeaders: true, 
         width: '100%', 
         height: '100%', 
@@ -275,8 +170,16 @@ function initMasterGrid(data) {
     });
 }
 
+// 📌 บันทึกข้อมูลเลข IV / AR
 window.saveMasterBillingChanges = async function() {
     if (!hotMasterInstance) return;
+    
+    // ดึง User จาก LocalStorage ก่อนบันทึก
+    const currentUser = JSON.parse(localStorage.getItem('tms_user') || '{}');
+    if (!currentUser.id) {
+        alert("กรุณาล็อกอินใหม่"); return;
+    }
+
     const masterData = hotMasterInstance.getSourceData();
     const dataToSave = [];
     
@@ -284,11 +187,13 @@ window.saveMasterBillingChanges = async function() {
         if (!bkRow || !bkRow.booking_no) return;
         const shipments = rawShipmentList.filter(s => s.booking_no === bkRow.booking_no);
         shipments.forEach(s => {
-            if(bkRow.disp_iv) s.iv_no = bkRow.disp_iv.trim();
-            if(bkRow.disp_ar) s.ar_no = bkRow.disp_ar.trim();
+            if (bkRow.disp_iv !== undefined) s.iv_no = bkRow.disp_iv.trim();
+            if (bkRow.disp_ar !== undefined) s.ar_no = bkRow.disp_ar.trim();
             dataToSave.push(s);
         });
     });
+
+    if (dataToSave.length === 0) return;
 
     try {
         const res = await fetch('/api/billing/shipments', { 
@@ -300,6 +205,8 @@ window.saveMasterBillingChanges = async function() {
         if (result.success) { 
             alert('✅ บันทึกเลข IV และ AR เรียบร้อยแล้ว!'); 
             loadBillingMasterData(); 
+        } else {
+            alert('❌ เกิดข้อผิดพลาด: ' + result.message);
         }
     } catch (err) { 
         alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้'); 

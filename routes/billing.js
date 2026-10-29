@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../config/db'); // 🌟 ใช้แบบไม่มี { } เพื่อรับค่า pool สดตรงๆ
+const pool = require('../config/db');
 
-// ดึงข้อมูลสำหรับหน้าวางบิล (Billing Master)
+// ดึงข้อมูลสำหรับหน้าวางบิล
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -20,7 +20,8 @@ router.get('/shipments', async (req, res) => {
                 b.id AS booking_id,
                 b.booking_no, 
                 b.run_date, 
-                COALESCE(c.short_name, b.customer_name, '-') AS customer_name,
+                -- 🌟 ดึงแค่ c.short_name (ลบ b.customer_name ทิ้ง ป้องกันฐานข้อมูลพัง) 🌟
+                COALESCE(c.short_name, '-') AS customer_name,
                 b.origin, 
                 b.destination, 
                 b.container_size, 

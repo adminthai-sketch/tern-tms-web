@@ -1,13 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../config/db');
+const pool = require('../config/db'); // 🌟 ใช้แบบไม่มี { } เพื่อรับค่า pool สดตรงๆ
 
-// GET /api/billing/shipments
+// ดึงข้อมูลสำหรับหน้าวางบิล (Billing Master)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
-    if (!year || !month) {
-        return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
-    }
+    if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
     try {
         const y = parseInt(year, 10);

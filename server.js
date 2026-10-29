@@ -19,14 +19,16 @@ const excelRoutes = require('./routes/excel');
 const usersRoutes = require('./routes/users');
 const billingRoutes = require('./routes/billing');
 
-// 2. เรียกใช้ API Routes
+// 2. เรียกใช้ API Routes (เรียงจากเส้นทางเฉพาะเจาะจง -> เส้นทางทั่วไป)
+// 🌟 สำคัญมาก: ต้องวาง /api/billing ไว้ก่อน /api เพื่อไม่ให้ bookingRoutes ยึด Request ไป
+app.use('/api/billing', billingRoutes);
+
 app.use('/api', authRoutes);
 app.use('/api', bookingRoutes);
 app.use('/api', fleetRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', excelRoutes);
 app.use('/api', usersRoutes);
-app.use('/api/billing', billingRoutes);
 
 // 📌 บล็อกดักจับ API Error 404 (ให้ตอบกลับเป็น JSON เสมอ)
 app.use('/api/*', (req, res) => {

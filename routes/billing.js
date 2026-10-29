@@ -2,79 +2,47 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 
-// 1. ดึงข้อมูลสำหรับหน้าวางบิล (พร้อม Smart Fallback ดึงข้อมูลล่าสุดให้อัตโนมัติหากไม่พบในเดือนที่เลือก)
+// 1. ดึงข้อมูลสำหรับหน้าวางบิล (ปรับใช้วิธีค้นหาแบบช่วงวันที่เหมือนหน้า Booking List)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
+    if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
     try {
-        let rows = [];
-        let isFallback = false;
+        // คำนวณวันแรกและวันสุดท้ายของเดือนเหมือนใน list.js
+        const y = parseInt(year, 10);
+        const m = parseInt(month, 10);
+        const lastDay = new Date(y, m, 0).getDate();
+        
+        const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
+        const endDate = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-        // 🌟 1.1 ลองค้นหาตามปีและเดือนที่ส่งมาก่อน
-        if (year && month) {
-            const monthPadded = String(month).padStart(2, '0');
-            const searchPattern = `${year}-${monthPadded}%`;
+        const result = await pool.query(`
+            SELECT 
+                s.order_id, 
+                b.booking_no, 
+                s.container_1_no, s.container_2_no,
+                s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg2_driver, s.leg3_plate, s.leg3_driver,
+                b.mode, b.run_date, b.customer_id, 
+                COALESCE(c.short_name, b.customer_name, '') AS customer_name, 
+                COALESCE(c.customer_name, b.customer_name, '') AS full_customer_name, 
+                c.address, c.tax_id,
+                b.origin, b.destination, b.container_size, b.job_type, b.job_name,
+                COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, 
+                COALESCE(f.trans_fee, b.trans_fee, 0) AS trans_fee, 
+                COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
+                COALESCE(f.shore_fee, 0) AS shore_fee, 
+                COALESCE(f.lift_fee, 0) AS lift_fee, 
+                COALESCE(f.deposit_fee, 0) AS deposit_fee,
+                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark
+            FROM bookings b
+            LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
+            LEFT JOIN customers c ON b.customer_id = c.id
+            LEFT JOIN financials f ON s.order_id = f.order_id
+            WHERE b.run_date >= $1 AND b.run_date <= $2
+            ORDER BY b.run_date ASC, b.booking_no ASC
+        `, [startDate, endDate]);
 
-            const result = await pool.query(`
-                SELECT 
-                    s.order_id, 
-                    b.booking_no, 
-                    s.container_1_no, s.container_2_no,
-                    s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg2_driver, s.leg3_plate, s.leg3_driver,
-                    b.mode, b.run_date, b.customer_id, 
-                    c.short_name AS customer_name, c.customer_name AS full_customer_name, c.address, c.tax_id,
-                    b.origin, b.destination, b.container_size, b.job_type,
-                    COALESCE(f.trip_fee, 0) AS trip_fee, 
-                    COALESCE(f.trans_fee, 0) AS trans_fee, 
-                    COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
-                    COALESCE(f.shore_fee, 0) AS shore_fee, 
-                    COALESCE(f.lift_fee, 0) AS lift_fee, 
-                    COALESCE(f.deposit_fee, 0) AS deposit_fee,
-                    f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark
-                FROM bookings b
-                LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
-                LEFT JOIN customers c ON b.customer_id = c.id
-                LEFT JOIN financials f ON s.order_id = f.order_id
-                WHERE b.run_date IS NOT NULL 
-                  AND b.run_date::text LIKE $1
-                ORDER BY b.run_date DESC, b.booking_no ASC
-            `, [searchPattern]);
-
-            rows = result.rows;
-        }
-
-        // 🌟 1.2 SMART FALLBACK: ถ้าไม่พบข้อมูลในเดือนที่เลือก ให้ดึง 100 รายการล่าสุดใน DB ทั้งหมดมาแสดงทันที
-        if (rows.length === 0) {
-            const fallbackResult = await pool.query(`
-                SELECT 
-                    s.order_id, 
-                    b.booking_no, 
-                    s.container_1_no, s.container_2_no,
-                    s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg2_driver, s.leg3_plate, s.leg3_driver,
-                    b.mode, b.run_date, b.customer_id, 
-                    c.short_name AS customer_name, c.customer_name AS full_customer_name, c.address, c.tax_id,
-                    b.origin, b.destination, b.container_size, b.job_type,
-                    COALESCE(f.trip_fee, 0) AS trip_fee, 
-                    COALESCE(f.trans_fee, 0) AS trans_fee, 
-                    COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
-                    COALESCE(f.shore_fee, 0) AS shore_fee, 
-                    COALESCE(f.lift_fee, 0) AS lift_fee, 
-                    COALESCE(f.deposit_fee, 0) AS deposit_fee,
-                    f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark
-                FROM bookings b
-                LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
-                LEFT JOIN customers c ON b.customer_id = c.id
-                LEFT JOIN financials f ON s.order_id = f.order_id
-                ORDER BY b.run_date DESC, b.booking_no ASC
-                LIMIT 100
-            `);
-            rows = fallbackResult.rows;
-            if (rows.length > 0) {
-                isFallback = true;
-            }
-        }
-
-        res.json({ success: true, data: rows, is_fallback: isFallback });
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error("SQL Error in /api/billing/shipments:", err);
         res.status(500).json({ success: false, message: err.message });
@@ -150,7 +118,7 @@ router.get('/unbilled-containers', async (req, res) => {
 
         if (run_date) {
             params.push(run_date);
-            query += ` AND b.run_date::text LIKE $${params.length}`;
+            query += ` AND b.run_date = $${params.length}`;
         }
         if (booking_no) {
             params.push(`%${booking_no.trim()}%`);
@@ -171,28 +139,31 @@ router.get('/iv-summary', async (req, res) => {
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
     try {
-        const monthPadded = String(month).padStart(2, '0');
-        const searchPattern = `${year}-${monthPadded}%`;
+        const y = parseInt(year, 10);
+        const m = parseInt(month, 10);
+        const lastDay = new Date(y, m, 0).getDate();
+        
+        const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
+        const endDate = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
         const result = await pool.query(`
             SELECT 
                 f.iv_no, f.ar_no, MAX(f.billing_date) AS billing_date,
-                c.id AS customer_id, c.short_name AS customer_name,
+                c.id AS customer_id, COALESCE(c.short_name, b.customer_name, '') AS customer_name,
                 COUNT(s.order_id) AS total_containers,
                 ARRAY_AGG(DISTINCT b.booking_no) AS booking_list,
-                SUM(COALESCE(f.trip_fee, 0)) AS total_trip_fee,
+                SUM(COALESCE(f.trip_fee, b.trip_fee, 0)) AS total_trip_fee,
                 SUM(COALESCE(f.port_pass_fee, 0) + COALESCE(f.deposit_fee, 0) + COALESCE(f.lift_fee, 0) + COALESCE(f.shore_fee, 0)) AS total_other_fee,
-                SUM(COALESCE(f.trip_fee, 0) + COALESCE(f.port_pass_fee, 0) + COALESCE(f.deposit_fee, 0) + COALESCE(f.lift_fee, 0) + COALESCE(f.shore_fee, 0)) AS grand_total
+                SUM(COALESCE(f.trip_fee, b.trip_fee, 0) + COALESCE(f.port_pass_fee, 0) + COALESCE(f.deposit_fee, 0) + COALESCE(f.lift_fee, 0) + COALESCE(f.shore_fee, 0)) AS grand_total
             FROM financials f
             JOIN shipment_operations s ON f.order_id = s.order_id
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             WHERE f.iv_no IS NOT NULL AND f.iv_no != ''
-              AND b.run_date IS NOT NULL 
-              AND b.run_date::text LIKE $1
-            GROUP BY f.iv_no, f.ar_no, c.id, c.short_name
+              AND b.run_date >= $1 AND b.run_date <= $2
+            GROUP BY f.iv_no, f.ar_no, c.id, c.short_name, b.customer_name
             ORDER BY f.iv_no ASC
-        `, [searchPattern]);
+        `, [startDate, endDate]);
         res.json({ success: true, data: result.rows });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -208,7 +179,7 @@ router.get('/print-data', async (req, res) => {
         if (booking_no) { condition = 'b.booking_no = $1'; param = booking_no; }
         else { condition = 'f.iv_no = $1'; param = iv_no; }
         const result = await pool.query(`
-            SELECT s.order_id, b.booking_no, s.container_1_no, s.container_2_no, s.container_size, s.leg1_plate, s.leg2_plate, s.leg3_plate, b.run_date, b.origin, b.destination, b.job_name, c.id AS customer_id, c.customer_name, c.address, c.tax_id, c.invoice_layout, f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense, f.gross_weight, f.ar_no, f.iv_no
+            SELECT s.order_id, b.booking_no, s.container_1_no, s.container_2_no, s.container_size, s.leg1_plate, s.leg2_plate, s.leg3_plate, b.run_date, b.origin, b.destination, b.job_name, c.id AS customer_id, COALESCE(c.customer_name, b.customer_name, '') AS customer_name, c.address, c.tax_id, c.invoice_layout, COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense, f.gross_weight, f.ar_no, f.iv_no
             FROM bookings b 
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no 
             LEFT JOIN customers c ON b.customer_id = c.id 

@@ -168,6 +168,7 @@ router.get('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
+// 🌟 ปรับปรุง: บันทึกทั้งข้อมูล Shipment และ Booking (AGENT) ในคำสั่งเดียว
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลสำหรับบันทึก' });
@@ -198,6 +199,26 @@ router.post('/shipments', async (req, res) => {
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 `, [final_order_id, cleanNum(row.trip_fee), cleanNum(row.trans_fee), cleanNum(row.port_pass_fee), cleanNum(row.shore_fee), cleanNum(row.lift_fee), cleanNum(row.deposit_fee), cleanNum(row.advance_fee), cleanNum(row.other_expense)]);
                 await client.query(`UPDATE bookings SET container_count = container_count + 1 WHERE booking_no = $1`, [row.booking_no]);
+            }
+
+            // 🌟 บันทึก AGENT และข้อมูลหัวบุคกิ้งที่แก้ไขตรงในตารางลงฐานข้อมูล
+            if (row.booking_no) {
+                await client.query(`
+                    UPDATE bookings SET
+                        agent = $1,
+                        cy_date = COALESCE($2, cy_date),
+                        vgm_cutoff = COALESCE($3, vgm_cutoff),
+                        cutoff_time = COALESCE($4, cutoff_time),
+                        load_date = COALESCE($5, load_date),
+                        unload_date = COALESCE($6, unload_date),
+                        return_date = COALESCE($7, return_date),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE booking_no = $8
+                `, [
+                    cleanVal(row.agent), cleanVal(row.cy_date), cleanVal(row.vgm_cutoff),
+                    cleanVal(row.cutoff_time), cleanVal(row.load_date), cleanVal(row.unload_date),
+                    cleanVal(row.return_date), row.booking_no
+                ]);
             }
 
             await client.query(`

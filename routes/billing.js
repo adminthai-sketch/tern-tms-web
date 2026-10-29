@@ -1,13 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../config/db');
+const { pool } = require('../config/db'); 
 
-// 1. ดึงข้อมูลสำหรับหน้าวางบิล (ปรับ LEFT JOIN เพื่อให้ Booking แสดงเสมอ)
+// 1. ดึงข้อมูลสำหรับหน้าวางบิล (ปรับใช้วิธีเช็กวันที่แบบ LIKE เพื่อป้องกัน Database Crash)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
     try {
+        // ใช้ LIKE โดยจัดฟอร์แมตเป็น YYYY-MM% เพื่อค้นหาโดยไม่แคร์ว่าจะเป็น String หรือ Date
+        const searchMonth = `${year}-${String(month).padStart(2, '0')}%`;
+
         const result = await pool.query(`
             SELECT 
                 s.order_id, 
@@ -29,10 +32,10 @@ router.get('/shipments', async (req, res) => {
             LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
             WHERE b.run_date IS NOT NULL 
-              AND EXTRACT(MONTH FROM b.run_date::DATE) = $1::INTEGER 
-              AND EXTRACT(YEAR FROM b.run_date::DATE) = $2::INTEGER
-            ORDER BY b.run_date ASC, b.booking_no ASC
-        `, [month, year]);
+              AND b.run_date != ''
+              AND b.run_date LIKE $1
+            ORDER BY b.run_date ASC, b.booking_no ASC, s.order_id ASC
+        `, [searchMonth]);
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
@@ -40,6 +43,7 @@ router.get('/shipments', async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 });
+
 // 2. บันทึกข้อมูลเลข AR, IV และน้ำหนัก (ใช้ UPSERT ป้องกันอัปเดตไม่เข้า)
 router.post('/shipments', async (req, res) => {
     const { data, user_id, user_role } = req.body;
@@ -130,6 +134,8 @@ router.get('/iv-summary', async (req, res) => {
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
     try {
+        const searchMonth = `${year}-${String(month).padStart(2, '0')}%`;
+
         const result = await pool.query(`
             SELECT 
                 f.iv_no, f.ar_no, MAX(f.billing_date) AS billing_date,
@@ -144,11 +150,11 @@ router.get('/iv-summary', async (req, res) => {
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             WHERE f.iv_no IS NOT NULL AND f.iv_no != ''
-              AND EXTRACT(MONTH FROM b.run_date) = $1::INTEGER 
-              AND EXTRACT(YEAR FROM b.run_date) = $2::INTEGER
+              AND b.run_date IS NOT NULL 
+              AND b.run_date LIKE $1
             GROUP BY f.iv_no, f.ar_no, c.id, c.short_name
             ORDER BY f.iv_no ASC
-        `, [month, year]);
+        `, [searchMonth]);
         res.json({ success: true, data: result.rows });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });

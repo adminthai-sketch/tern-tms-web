@@ -2,46 +2,79 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 
-// 1. ดึงข้อมูลสำหรับหน้าวางบิล (แก้ SQL การเปรียบเทียบวันที่อย่างปลอดภัย)
+// 1. ดึงข้อมูลสำหรับหน้าวางบิล (พร้อม Smart Fallback ดึงข้อมูลล่าสุดให้อัตโนมัติหากไม่พบในเดือนที่เลือก)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
-    if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
     try {
-        const monthPadded = String(month).padStart(2, '0');
-        const patternISO = `${year}-${monthPadded}%`;        // รูปแบบ YYYY-MM% (เช่น 2026-10%)
-        const patternSlash = `%/${monthPadded}/${year}%`;    // รูปแบบ %/MM/YYYY% (เผื่อกรณีเก็บ DD/MM/YYYY)
+        let rows = [];
+        let isFallback = false;
 
-        const result = await pool.query(`
-            SELECT 
-                s.order_id, 
-                b.booking_no, 
-                s.container_1_no, s.container_2_no,
-                s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg2_driver, s.leg3_plate, s.leg3_driver,
-                b.mode, b.run_date, b.customer_id, 
-                c.short_name AS customer_name, c.customer_name AS full_customer_name, c.address, c.tax_id,
-                b.origin, b.destination, b.container_size, b.job_type,
-                COALESCE(f.trip_fee, 0) AS trip_fee, 
-                COALESCE(f.trans_fee, 0) AS trans_fee, 
-                COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
-                COALESCE(f.shore_fee, 0) AS shore_fee, 
-                COALESCE(f.lift_fee, 0) AS lift_fee, 
-                COALESCE(f.deposit_fee, 0) AS deposit_fee,
-                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark
-            FROM bookings b
-            LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
-            LEFT JOIN customers c ON b.customer_id = c.id
-            LEFT JOIN financials f ON s.order_id = f.order_id
-            WHERE b.run_date IS NOT NULL 
-              AND b.run_date::text != ''
-              AND (
-                  b.run_date::text LIKE $1 
-                  OR b.run_date::text LIKE $2
-              )
-            ORDER BY b.run_date ASC, b.booking_no ASC
-        `, [patternISO, patternSlash]);
+        // 🌟 1.1 ลองค้นหาตามปีและเดือนที่ส่งมาก่อน
+        if (year && month) {
+            const monthPadded = String(month).padStart(2, '0');
+            const searchPattern = `${year}-${monthPadded}%`;
 
-        res.json({ success: true, data: result.rows });
+            const result = await pool.query(`
+                SELECT 
+                    s.order_id, 
+                    b.booking_no, 
+                    s.container_1_no, s.container_2_no,
+                    s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg2_driver, s.leg3_plate, s.leg3_driver,
+                    b.mode, b.run_date, b.customer_id, 
+                    c.short_name AS customer_name, c.customer_name AS full_customer_name, c.address, c.tax_id,
+                    b.origin, b.destination, b.container_size, b.job_type,
+                    COALESCE(f.trip_fee, 0) AS trip_fee, 
+                    COALESCE(f.trans_fee, 0) AS trans_fee, 
+                    COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
+                    COALESCE(f.shore_fee, 0) AS shore_fee, 
+                    COALESCE(f.lift_fee, 0) AS lift_fee, 
+                    COALESCE(f.deposit_fee, 0) AS deposit_fee,
+                    f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark
+                FROM bookings b
+                LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
+                LEFT JOIN customers c ON b.customer_id = c.id
+                LEFT JOIN financials f ON s.order_id = f.order_id
+                WHERE b.run_date IS NOT NULL 
+                  AND b.run_date::text LIKE $1
+                ORDER BY b.run_date DESC, b.booking_no ASC
+            `, [searchPattern]);
+
+            rows = result.rows;
+        }
+
+        // 🌟 1.2 SMART FALLBACK: ถ้าไม่พบข้อมูลในเดือนที่เลือก ให้ดึง 100 รายการล่าสุดใน DB ทั้งหมดมาแสดงทันที
+        if (rows.length === 0) {
+            const fallbackResult = await pool.query(`
+                SELECT 
+                    s.order_id, 
+                    b.booking_no, 
+                    s.container_1_no, s.container_2_no,
+                    s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg2_driver, s.leg3_plate, s.leg3_driver,
+                    b.mode, b.run_date, b.customer_id, 
+                    c.short_name AS customer_name, c.customer_name AS full_customer_name, c.address, c.tax_id,
+                    b.origin, b.destination, b.container_size, b.job_type,
+                    COALESCE(f.trip_fee, 0) AS trip_fee, 
+                    COALESCE(f.trans_fee, 0) AS trans_fee, 
+                    COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
+                    COALESCE(f.shore_fee, 0) AS shore_fee, 
+                    COALESCE(f.lift_fee, 0) AS lift_fee, 
+                    COALESCE(f.deposit_fee, 0) AS deposit_fee,
+                    f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark
+                FROM bookings b
+                LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
+                LEFT JOIN customers c ON b.customer_id = c.id
+                LEFT JOIN financials f ON s.order_id = f.order_id
+                ORDER BY b.run_date DESC, b.booking_no ASC
+                LIMIT 100
+            `);
+            rows = fallbackResult.rows;
+            if (rows.length > 0) {
+                isFallback = true;
+            }
+        }
+
+        res.json({ success: true, data: rows, is_fallback: isFallback });
     } catch (err) {
         console.error("SQL Error in /api/billing/shipments:", err);
         res.status(500).json({ success: false, message: err.message });
@@ -139,8 +172,7 @@ router.get('/iv-summary', async (req, res) => {
 
     try {
         const monthPadded = String(month).padStart(2, '0');
-        const patternISO = `${year}-${monthPadded}%`;
-        const patternSlash = `%/${monthPadded}/${year}%`;
+        const searchPattern = `${year}-${monthPadded}%`;
 
         const result = await pool.query(`
             SELECT 
@@ -157,13 +189,10 @@ router.get('/iv-summary', async (req, res) => {
             LEFT JOIN customers c ON b.customer_id = c.id
             WHERE f.iv_no IS NOT NULL AND f.iv_no != ''
               AND b.run_date IS NOT NULL 
-              AND (
-                  b.run_date::text LIKE $1 
-                  OR b.run_date::text LIKE $2
-              )
+              AND b.run_date::text LIKE $1
             GROUP BY f.iv_no, f.ar_no, c.id, c.short_name
             ORDER BY f.iv_no ASC
-        `, [patternISO, patternSlash]);
+        `, [searchPattern]);
         res.json({ success: true, data: result.rows });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });

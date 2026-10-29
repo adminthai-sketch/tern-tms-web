@@ -1,5 +1,5 @@
 // ==========================================
-// 💸 MODULE: MASTER BOOKING LIST (CLEAN VERSION)
+// 💸 MODULE: MASTER BOOKING LIST (CLEAN & SMART FALLBACK)
 // ==========================================
 
 let hotMasterInstance = null;
@@ -46,8 +46,7 @@ function applyBillingCSS() {
 // 📌 ฟังก์ชันโหลดข้อมูลจาก API
 window.loadBillingMasterData = async function() {
     const monthInput = document.getElementById('filter-month').value;
-    if (!monthInput) return;
-    const [year, month] = monthInput.split('-');
+    const [year, month] = monthInput ? monthInput.split('-') : ['', ''];
     
     const overlay = document.getElementById('master-loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
@@ -58,6 +57,12 @@ window.loadBillingMasterData = async function() {
         
         if (result.success && Array.isArray(result.data)) {
             rawShipmentList = result.data;
+            
+            if (rawShipmentList.length === 0) {
+                initMasterGrid([]);
+                return;
+            }
+
             const bkMap = {};
             
             // จับกลุ่มข้อมูลตาม Booking No
@@ -69,7 +74,7 @@ window.loadBillingMasterData = async function() {
                     bkMap[bk] = {
                         booking_no: bk, 
                         run_date: item.run_date ? String(item.run_date).split('T')[0] : '',
-                        customer_name: item.customer_name || '', 
+                        customer_name: item.customer_name || item.full_customer_name || '', 
                         total_count: 0, 
                         total_amount: 0,
                         disp_iv: item.iv_no || '',
@@ -77,7 +82,7 @@ window.loadBillingMasterData = async function() {
                     };
                 }
                 
-                // ถ้ารายการนั้นมีตู้ย่อย (order_id) ให้นับตู้และรวมค่าบรรทุก
+                // ถ้ารายการมีตู้ย่อย ให้นับตู้และรวมค่าบรรทุก
                 if (item.order_id) {
                     bkMap[bk].total_count += 1;
                     bkMap[bk].total_amount += (Number(item.trip_fee) || 0);
@@ -88,9 +93,20 @@ window.loadBillingMasterData = async function() {
             });
 
             masterBookingList = Object.values(bkMap);
+
+            // 🌟 หากเป็นข้อมูล Fallback (ไม่เจอเดือนที่เลือกแต่ดึงรายการที่มีมาแทน) ให้ปรับปุ่มเลือกเดือนตามรายการแรกอัตโนมัติ
+            if (result.is_fallback && masterBookingList.length > 0 && masterBookingList[0].run_date) {
+                const firstDate = masterBookingList[0].run_date;
+                const [fYear, fMonth] = firstDate.split('-');
+                if (fYear && fMonth) {
+                    const monthEl = document.getElementById('filter-month');
+                    if (monthEl) monthEl.value = `${fYear}-${fMonth}`;
+                }
+            }
+
             initMasterGrid(masterBookingList);
         } else {
-            console.warn("API returned error or empty data:", result);
+            console.error("API error message:", result.message);
             initMasterGrid([]);
         }
     } catch (err) { 
@@ -133,6 +149,10 @@ function initMasterGrid(data) {
     const bookingLinkRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         const valStr = value ? String(value) : '';
+        if (valStr.includes('ไม่พบรายการ')) {
+            td.innerHTML = `<span class="text-slate-400 italic">${valStr}</span>`;
+            return;
+        }
         td.innerHTML = valStr ? `
             <div class="flex items-center justify-between w-full h-full px-2">
                 <span class="font-bold text-purple-700">${valStr}</span>
@@ -143,8 +163,9 @@ function initMasterGrid(data) {
         ` : '';
     };
 
+    // 🌟 หากไม่พบข้อมูล ให้โชว์ข้อความที่อ่านง่าย ชัดเจน ไม่ขึ้นแถวว่าง
     const tableData = data.length > 0 ? data : [
-        { booking_no: '', run_date: '', customer_name: '', total_count: 0, total_amount: 0, disp_iv: '', disp_ar: '' }
+        { booking_no: 'ไม่พบรายการ Booking', run_date: '-', customer_name: 'ไม่มีข้อมูลในฐานข้อมูล', total_count: 0, total_amount: 0, disp_iv: '-', disp_ar: '-' }
     ];
 
     hotMasterInstance = new Handsontable(container, {
@@ -186,7 +207,7 @@ window.saveMasterBillingChanges = async function() {
     const dataToSave = [];
     
     masterData.forEach(bkRow => {
-        if (!bkRow || !bkRow.booking_no) return;
+        if (!bkRow || !bkRow.booking_no || bkRow.booking_no.includes('ไม่พบรายการ')) return;
         const shipments = rawShipmentList.filter(s => s.booking_no === bkRow.booking_no);
         shipments.forEach(s => {
             if (bkRow.disp_iv !== undefined) s.iv_no = bkRow.disp_iv.trim();

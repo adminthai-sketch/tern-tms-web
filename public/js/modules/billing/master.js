@@ -50,7 +50,7 @@ window.loadBillingMasterData = async function() {
     const [year, month] = monthInput.split('-');
     
     const overlay = document.getElementById('master-loading-overlay');
-    overlay.classList.remove('hidden');
+    if (overlay) overlay.classList.remove('hidden');
 
     try {
         const response = await fetch(`/api/billing/shipments?year=${year}&month=${month}`);
@@ -76,10 +76,13 @@ window.loadBillingMasterData = async function() {
                         disp_ar: item.ar_no || ''
                     };
                 }
-                bkMap[bk].total_count += 1;
-                bkMap[bk].total_amount += (Number(item.trip_fee) || 0);
                 
-                // ถ้ามีค่า IV/AR ในตู้หลังๆ ให้ยึดค่านั้น
+                // ถ้ารายการนั้นมีตู้ย่อย (order_id) ให้นับตู้และรวมค่าบรรทุก
+                if (item.order_id) {
+                    bkMap[bk].total_count += 1;
+                    bkMap[bk].total_amount += (Number(item.trip_fee) || 0);
+                }
+                
                 if (item.iv_no && String(item.iv_no).trim() !== '') bkMap[bk].disp_iv = String(item.iv_no).trim();
                 if (item.ar_no && String(item.ar_no).trim() !== '') bkMap[bk].disp_ar = String(item.ar_no).trim();
             });
@@ -87,13 +90,14 @@ window.loadBillingMasterData = async function() {
             masterBookingList = Object.values(bkMap);
             initMasterGrid(masterBookingList);
         } else {
+            console.warn("API returned error or empty data:", result);
             initMasterGrid([]);
         }
     } catch (err) { 
-        console.error(err); 
+        console.error("Fetch error:", err); 
         initMasterGrid([]);
     } finally { 
-        overlay.classList.add('hidden'); 
+        if (overlay) overlay.classList.add('hidden'); 
     }
 };
 
@@ -139,7 +143,6 @@ function initMasterGrid(data) {
         ` : '';
     };
 
-    // ใช้ข้อมูลดัมมี่ 1 แถวเปล่าๆ ถ้าไม่มีข้อมูล เพื่อไม่ให้ตารางพัง
     const tableData = data.length > 0 ? data : [
         { booking_no: '', run_date: '', customer_name: '', total_count: 0, total_amount: 0, disp_iv: '', disp_ar: '' }
     ];
@@ -174,7 +177,6 @@ function initMasterGrid(data) {
 window.saveMasterBillingChanges = async function() {
     if (!hotMasterInstance) return;
     
-    // ดึง User จาก LocalStorage ก่อนบันทึก
     const currentUser = JSON.parse(localStorage.getItem('tms_user') || '{}');
     if (!currentUser.id) {
         alert("กรุณาล็อกอินใหม่"); return;

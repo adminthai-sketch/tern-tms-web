@@ -2,12 +2,16 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 
-// 1. ดึงข้อมูลสำหรับหน้าวางบิล (แก้ไข SQL เพื่อให้ดึง Date/Timestamp ได้ไม่ crash)
+// 1. ดึงข้อมูลสำหรับหน้าวางบิล (แก้ SQL การเปรียบเทียบวันที่อย่างปลอดภัย)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
     try {
+        const monthPadded = String(month).padStart(2, '0');
+        const patternISO = `${year}-${monthPadded}%`;        // รูปแบบ YYYY-MM% (เช่น 2026-10%)
+        const patternSlash = `%/${monthPadded}/${year}%`;    // รูปแบบ %/MM/YYYY% (เผื่อกรณีเก็บ DD/MM/YYYY)
+
         const result = await pool.query(`
             SELECT 
                 s.order_id, 
@@ -29,19 +33,22 @@ router.get('/shipments', async (req, res) => {
             LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
             WHERE b.run_date IS NOT NULL 
-              AND EXTRACT(MONTH FROM b.run_date) = $1::INTEGER 
-              AND EXTRACT(YEAR FROM b.run_date) = $2::INTEGER
+              AND b.run_date::text != ''
+              AND (
+                  b.run_date::text LIKE $1 
+                  OR b.run_date::text LIKE $2
+              )
             ORDER BY b.run_date ASC, b.booking_no ASC
-        `, [month, year]);
+        `, [patternISO, patternSlash]);
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
-        console.error("SQL Error:", err);
+        console.error("SQL Error in /api/billing/shipments:", err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// 2. บันทึกข้อมูลเลข AR, IV และน้ำหนัก
+// 2. บันทึกข้อมูลเลข AR, IV และน้ำหนัก (ใช้ UPSERT)
 router.post('/shipments', async (req, res) => {
     const { data, user_id, user_role } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -110,7 +117,7 @@ router.get('/unbilled-containers', async (req, res) => {
 
         if (run_date) {
             params.push(run_date);
-            query += ` AND b.run_date = $${params.length}`;
+            query += ` AND b.run_date::text LIKE $${params.length}`;
         }
         if (booking_no) {
             params.push(`%${booking_no.trim()}%`);
@@ -131,6 +138,10 @@ router.get('/iv-summary', async (req, res) => {
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
     try {
+        const monthPadded = String(month).padStart(2, '0');
+        const patternISO = `${year}-${monthPadded}%`;
+        const patternSlash = `%/${monthPadded}/${year}%`;
+
         const result = await pool.query(`
             SELECT 
                 f.iv_no, f.ar_no, MAX(f.billing_date) AS billing_date,
@@ -146,11 +157,13 @@ router.get('/iv-summary', async (req, res) => {
             LEFT JOIN customers c ON b.customer_id = c.id
             WHERE f.iv_no IS NOT NULL AND f.iv_no != ''
               AND b.run_date IS NOT NULL 
-              AND EXTRACT(MONTH FROM b.run_date) = $1::INTEGER 
-              AND EXTRACT(YEAR FROM b.run_date) = $2::INTEGER
+              AND (
+                  b.run_date::text LIKE $1 
+                  OR b.run_date::text LIKE $2
+              )
             GROUP BY f.iv_no, f.ar_no, c.id, c.short_name
             ORDER BY f.iv_no ASC
-        `, [month, year]);
+        `, [patternISO, patternSlash]);
         res.json({ success: true, data: result.rows });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });

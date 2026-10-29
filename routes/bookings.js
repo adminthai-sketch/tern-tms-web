@@ -75,7 +75,7 @@ router.post('/bookings/header', async (req, res) => {
             ON CONFLICT (booking_no) DO UPDATE 
             SET mode = EXCLUDED.mode, run_date = EXCLUDED.run_date, job_name = EXCLUDED.job_name, customer_id = EXCLUDED.customer_id, 
                 container_count = EXCLUDED.container_count, origin = EXCLUDED.origin, destination = EXCLUDED.destination,
-                agent = EXCLUDED.agent, 
+                agent = COALESCE(EXCLUDED.agent, bookings.agent), 
                 cy_date = COALESCE(EXCLUDED.cy_date, bookings.cy_date), 
                 vgm_cutoff = COALESCE(EXCLUDED.vgm_cutoff, bookings.vgm_cutoff), 
                 cutoff_time = COALESCE(EXCLUDED.cutoff_time, bookings.cutoff_time),
@@ -106,7 +106,7 @@ router.post('/bookings/header', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 2. ปรับปรุง: แก้ไขข้อมูลบุคกิ้ง (ปุ่ม ✏️ แก้ ในตาราง) อัปเดตผ่าน id หรือ booking_no
+// 2. แก้ไขข้อมูลบุคกิ้ง (ปุ่ม ✏️ แก้ ในตาราง) - ใช้ COALESCE($4, agent) ป้องกัน AGENT หาย
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const b = req.body;
@@ -123,36 +123,72 @@ router.put('/bookings/:id', async (req, res) => {
         if (!isNaN(Number(id))) {
             updateBookingQuery = `
                 UPDATE bookings 
-                SET mode = $1, run_date = $2, customer_id = $3, agent = $4, job_name = $5, job_type = $6, 
-                    origin = $7, destination = $8, container_count = $9, container_size = $10, price_type = $11, 
-                    trip_fee = $12, trans_fee = $13, cy_date = COALESCE($14, cy_date), vgm_cutoff = COALESCE($15, vgm_cutoff), cutoff_time = COALESCE($16, cutoff_time), 
-                    rent_cutoff = COALESCE($17, rent_cutoff), demurrage = COALESCE($18, demurrage), load_date = COALESCE($19, load_date), unload_date = COALESCE($20, unload_date), 
-                    open_gate = COALESCE($21, open_gate), return_date = COALESCE($22, return_date), updated_at = CURRENT_TIMESTAMP
+                SET mode = COALESCE($1, mode), 
+                    run_date = COALESCE($2, run_date), 
+                    customer_id = COALESCE($3, customer_id), 
+                    agent = COALESCE($4, agent), 
+                    job_name = COALESCE($5, job_name), 
+                    job_type = COALESCE($6, job_type), 
+                    origin = COALESCE($7, origin), 
+                    destination = COALESCE($8, destination), 
+                    container_count = COALESCE($9, container_count), 
+                    container_size = COALESCE($10, container_size), 
+                    price_type = COALESCE($11, price_type), 
+                    trip_fee = COALESCE($12, trip_fee), 
+                    trans_fee = COALESCE($13, trans_fee), 
+                    cy_date = COALESCE($14, cy_date), 
+                    vgm_cutoff = COALESCE($15, vgm_cutoff), 
+                    cutoff_time = COALESCE($16, cutoff_time), 
+                    rent_cutoff = COALESCE($17, rent_cutoff), 
+                    demurrage = COALESCE($18, demurrage), 
+                    load_date = COALESCE($19, load_date), 
+                    unload_date = COALESCE($20, unload_date), 
+                    open_gate = COALESCE($21, open_gate), 
+                    return_date = COALESCE($22, return_date), 
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = $23 OR booking_no = $24
                 RETURNING id, booking_no;
             `;
             bookingValues = [
-                cleanVal(b.mode), b.run_date, customer_id, agentVal, b.job_name || '', cleanVal(b.job_type), 
-                b.origin || '', b.destination || '', parseInt(b.container_count || 1), cleanVal(b.container_size), cleanVal(b.price_type), 
-                cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
+                cleanVal(b.mode), b.run_date, customer_id, agentVal, b.job_name || null, cleanVal(b.job_type), 
+                b.origin || null, b.destination || null, b.container_count ? parseInt(b.container_count) : null, cleanVal(b.container_size), cleanVal(b.price_type), 
+                b.trip_fee ? cleanNum(b.trip_fee) : null, b.trans_fee ? cleanNum(b.trans_fee) : null, cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
                 cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), 
                 cleanVal(b.open_gate), cleanVal(b.return_date), parseInt(id), bookingNoParam
             ];
         } else {
             updateBookingQuery = `
                 UPDATE bookings 
-                SET mode = $1, run_date = $2, customer_id = $3, agent = $4, job_name = $5, job_type = $6, 
-                    origin = $7, destination = $8, container_count = $9, container_size = $10, price_type = $11, 
-                    trip_fee = $12, trans_fee = $13, cy_date = COALESCE($14, cy_date), vgm_cutoff = COALESCE($15, vgm_cutoff), cutoff_time = COALESCE($16, cutoff_time), 
-                    rent_cutoff = COALESCE($17, rent_cutoff), demurrage = COALESCE($18, demurrage), load_date = COALESCE($19, load_date), unload_date = COALESCE($20, unload_date), 
-                    open_gate = COALESCE($21, open_gate), return_date = COALESCE($22, return_date), updated_at = CURRENT_TIMESTAMP
+                SET mode = COALESCE($1, mode), 
+                    run_date = COALESCE($2, run_date), 
+                    customer_id = COALESCE($3, customer_id), 
+                    agent = COALESCE($4, agent), 
+                    job_name = COALESCE($5, job_name), 
+                    job_type = COALESCE($6, job_type), 
+                    origin = COALESCE($7, origin), 
+                    destination = COALESCE($8, destination), 
+                    container_count = COALESCE($9, container_count), 
+                    container_size = COALESCE($10, container_size), 
+                    price_type = COALESCE($11, price_type), 
+                    trip_fee = COALESCE($12, trip_fee), 
+                    trans_fee = COALESCE($13, trans_fee), 
+                    cy_date = COALESCE($14, cy_date), 
+                    vgm_cutoff = COALESCE($15, vgm_cutoff), 
+                    cutoff_time = COALESCE($16, cutoff_time), 
+                    rent_cutoff = COALESCE($17, rent_cutoff), 
+                    demurrage = COALESCE($18, demurrage), 
+                    load_date = COALESCE($19, load_date), 
+                    unload_date = COALESCE($20, unload_date), 
+                    open_gate = COALESCE($21, open_gate), 
+                    return_date = COALESCE($22, return_date), 
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE booking_no = $23
                 RETURNING id, booking_no;
             `;
             bookingValues = [
-                cleanVal(b.mode), b.run_date, customer_id, agentVal, b.job_name || '', cleanVal(b.job_type), 
-                b.origin || '', b.destination || '', parseInt(b.container_count || 1), cleanVal(b.container_size), cleanVal(b.price_type), 
-                cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
+                cleanVal(b.mode), b.run_date, customer_id, agentVal, b.job_name || null, cleanVal(b.job_type), 
+                b.origin || null, b.destination || null, b.container_count ? parseInt(b.container_count) : null, cleanVal(b.container_size), cleanVal(b.price_type), 
+                b.trip_fee ? cleanNum(b.trip_fee) : null, b.trans_fee ? cleanNum(b.trans_fee) : null, cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
                 cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), 
                 cleanVal(b.open_gate), cleanVal(b.return_date), bookingNoParam
             ];
@@ -172,7 +208,7 @@ router.put('/bookings/:id', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 3. ดึงรายการตู้ตามเดือน/ปี (ส่ง booking_id และ agent มาครบถ้วน)
+// 3. ดึงรายการตู้ตามเดือน/ปี
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });

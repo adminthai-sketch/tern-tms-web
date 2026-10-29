@@ -1,5 +1,5 @@
 // ==========================================
-// 💸 MODULE: MASTER BOOKING LIST (Crash-Safe)
+// 💸 MODULE: MASTER BOOKING LIST (Fix Data & Render Crash)
 // ==========================================
 
 let hotMasterInstance = null;
@@ -11,7 +11,7 @@ let currentUser = {};
 window.addEventListener('DOMContentLoaded', async () => {
     applyBillingCSS();
     
-    // 🌟 1. ดึงข้อมูลผู้ใช้งานอย่างปลอดภัย
+    // 🌟 1. ดึงข้อมูล User แบบปลอดภัย
     try {
         const savedUser = localStorage.getItem('tms_user');
         if (savedUser) {
@@ -140,6 +140,7 @@ function updateMasterFilterDropdowns() {
     if (dlBook) { dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`); }
 }
 
+// 🌟 แก้ไขจุดพังจากการใช้ JSON.stringify(item) ที่มีวัตถุประเภท Set
 window.handleMasterFilter = function() {
     const dEl = document.getElementById('filter-run-date');
     const cEl = document.getElementById('filter-customer');
@@ -152,10 +153,17 @@ window.handleMasterFilter = function() {
     const searchTxt = sEl ? sEl.value.toLowerCase().trim() : '';
 
     filteredMasterList = masterBookingList.filter(item => {
-        return (!d || item.run_date === d) && 
-               (!c || (item.customer_name && item.customer_name.trim() === c)) && 
-               (!b || (item.booking_no && item.booking_no.trim() === b)) && 
-               (!searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt));
+        const matchD = !d || item.run_date === d;
+        const matchC = !c || (item.customer_name && item.customer_name.trim() === c);
+        const matchB = !b || (item.booking_no && item.booking_no.trim() === b);
+        
+        const matchSearch = !searchTxt || 
+            (item.booking_no && item.booking_no.toLowerCase().includes(searchTxt)) ||
+            (item.customer_name && item.customer_name.toLowerCase().includes(searchTxt)) ||
+            (item.disp_iv && item.disp_iv.toLowerCase().includes(searchTxt)) ||
+            (item.disp_ar && item.disp_ar.toLowerCase().includes(searchTxt));
+
+        return matchD && matchC && matchB && matchSearch;
     });
 
     updateMasterKPI(filteredMasterList); 
@@ -205,7 +213,6 @@ function initMasterGrid(data) {
     if (!container) return;
     if (hotMasterInstance) { hotMasterInstance.destroy(); }
 
-    // 🌟 ดักจับ Null Safety ใน Renderer ทั้งหมด
     const bookingLinkRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         const valStr = value ? String(value) : '';
@@ -219,11 +226,11 @@ function initMasterGrid(data) {
         ` : '';
     };
 
+    // 🌟 แก้ไขจุดพังโดยตรวจเช็กประเภทข้อมูลให้ปลอดภัยก่อนเรียกใช้คำสั่ง .includes()
     const statusRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         td.style.textAlign = 'center';
         
-        // 🌟 ป้องกัน TypeError: Cannot read properties of undefined (reading 'includes')
         if (!value || typeof value !== 'string') {
             td.innerHTML = '';
             return;
@@ -239,7 +246,8 @@ function initMasterGrid(data) {
     };
 
     hotMasterInstance = new Handsontable(container, {
-        data: data,
+        // 🌟 เปลี่ยนจาก [{}] เป็น [] ป้องกันการสร้างแถวว่างที่ทำให้เกิด Null Error
+        data: data.length > 0 ? data : [],
         wordWrap: false, 
         autoRowSize: false, 
         rowHeights: 30, 

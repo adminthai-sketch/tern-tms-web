@@ -21,23 +21,51 @@
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col relative">
 
-    <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-4 shrink-0 z-20 shadow-sm">
-        <div class="flex items-center gap-4">
-            <span class="font-bold text-lg text-emerald-700 tracking-wide hidden sm:flex items-center gap-2">
-                <i class="fa-solid fa-truck-fast"></i> จัดรถ & ลงเบอร์ตู้
-            </span>
-            <div class="flex gap-1 ml-0 sm:ml-2 sm:border-l sm:border-slate-200 sm:pl-3">
-                <a href="/index.html" class="text-slate-500 hover:text-primary hover:bg-slate-50 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors"><i class="fa-solid fa-house mr-1"></i> หน้าแรก</a>
-                <a href="/booking.html" class="text-slate-500 hover:text-primary hover:bg-slate-50 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors"><i class="fa-solid fa-pen-to-square mr-1"></i> สร้างรับงาน</a>
-                <a href="/booking-list.html" class="text-slate-500 hover:text-primary hover:bg-slate-50 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors"><i class="fa-solid fa-table-list mr-1"></i> รายการบุคกิ้ง</a>
-                <a href="/booking-manage.html" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-sm"><i class="fa-solid fa-desktop mr-1"></i> จัดการตู้</a>
+    <!-- Header Navigation Bar -->
+<header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-6 shrink-0 shadow-sm z-50">
+    <div class="flex items-center gap-3">
+        <!-- Logo -->
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-blue-900 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-sm">
+                <i class="fa-solid fa-truck-fast"></i>
             </div>
+            <span class="font-bold text-lg text-slate-800">TERN TMS</span>
         </div>
-        <div class="flex items-center gap-3">
-            <div id="user-fullname" class="text-xs font-bold text-slate-700 hidden md:block">กำลังโหลด...</div>
-            <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-1"><i class="fa-solid fa-power-off"></i></button>
+
+        <div class="h-5 w-px bg-slate-300 mx-1"></div>
+
+        <!-- 🌟 ปุ่มหน้าแรก ( Home Button ) -->
+        <a href="/index.html" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs transition-colors flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-house text-blue-900"></i> หน้าแรก
+        </a>
+
+        <div class="h-5 w-px bg-slate-300 mx-1"></div>
+
+        <!-- แท็บเดิม (1. สร้างรับงาน / 2. อัปโหลด Job / 3. รายการบุคกิ้ง) -->
+        <div class="flex gap-1 text-xs">
+            <button onclick="switchTab('create')" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center gap-1">
+                <i class="fa-solid fa-pen-to-square"></i> 1. สร้างรับงาน
+            </button>
+            <button onclick="switchTab('upload')" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center gap-1">
+                <i class="fa-solid fa-file-excel"></i> 2. อัปโหลด Job
+            </button>
+            <button onclick="switchTab('list')" class="px-3 py-1.5 rounded-lg font-bold bg-blue-900 text-white flex items-center gap-1 shadow-sm">
+                <i class="fa-solid fa-list-check"></i> 3. รายการบุคกิ้ง
+            </button>
         </div>
-    </header>
+    </div>
+
+    <!-- ส่วนขวา (User Profile & Logout) -->
+    <div class="flex items-center gap-4 text-xs">
+        <div class="text-right">
+            <div id="user-fullname" class="font-bold text-slate-800">GXEM Administrator</div>
+            <div id="user-role-badge" class="text-[10px] text-slate-500 font-semibold">ADMIN</div>
+        </div>
+        <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ">
+            <i class="fa-solid fa-power-off"></i>
+        </button>
+    </div>
+</header>
 
     <main class="flex-1 p-3 overflow-hidden flex flex-col gap-2 relative">
         <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2 shrink-0 z-10">

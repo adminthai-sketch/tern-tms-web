@@ -9,11 +9,11 @@ const cleanNum = (val) => {
     return isNaN(num) ? 0 : num;
 };
 
-// 🌟 ดึงค่า AGENT ยืดหยุ่น รองรับชื่อฟิลด์ทุกรูปแบบจาก Frontend
-const getAgentVal = (b) => cleanVal(
-    b.agent || b.agent_name || b.agentName || b.shipping_agent || 
-    b.agent_code || b.shipping_line || b.line || b.pAgent || b.pAgentExp || b.pAgentImp
-);
+// 🌟 ดึงค่า AGENT ยืดหยุ่น รองรับทุกฟิลด์ที่ส่งมาจาก Frontend
+const getAgentVal = (b) => {
+    const raw = b.agent || b.agent_name || b.agentName || b.shipping_agent || b.agent_code || b.shipping_line || b.line || b.pAgent || b.pAgentExp || b.pAgentImp;
+    return (!raw || raw === '' || raw === 'NaN' || raw === 'null') ? null : String(raw).trim();
+};
 
 async function getCustomerId(client, customerName) {
     if (!customerName) return null;

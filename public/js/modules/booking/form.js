@@ -178,7 +178,8 @@ function getCombinedDateTime(idBase) {
 }
 
 window.submitBookingForm = async function(btn) {
-    const mode = document.getElementById('pMode') ? document.getElementById('pMode').value : '';
+    const rawMode = document.getElementById('pMode') ? document.getElementById('pMode').value : '';
+    const mode = rawMode.trim().toUpperCase(); // 🌟 ป้องกัน Case-mismatch (เช่น Export -> EXPORT)
     const runDate = document.getElementById('runDate') ? document.getElementById('runDate').value : '';
     const customer = document.getElementById('pCustomer') ? document.getElementById('pCustomer').value : '';
     const containerCount = document.getElementById('rowCount') ? document.getElementById('rowCount').value : 1;
@@ -206,15 +207,16 @@ window.submitBookingForm = async function(btn) {
         if(trRef) b_no = trRef.value;
     }
 
-    // 🌟 ดึงค่า AGENT ยืดหยุ่น ตรวจสอบทุกจุดป้องกันค่าหลุด
+    // 🌟 ดึงค่า AGENT แบบดักกวาดทุก ID ที่เป็นไปได้ในหน้าสร้างรับงาน
     let agentVal = "";
-    const expAgent = document.getElementById('pAgentExp');
-    const impAgent = document.getElementById('pAgentImp');
-    const genAgent = document.getElementById('pAgent');
-
-    if (expAgent && expAgent.value.trim() !== '') agentVal = expAgent.value.trim();
-    else if (impAgent && impAgent.value.trim() !== '') agentVal = impAgent.value.trim();
-    else if (genAgent && genAgent.value.trim() !== '') agentVal = genAgent.value.trim();
+    const agentInputs = ['pAgentExp', 'pAgentImp', 'pAgent', 'agent', 'agent_name', 'shipping_agent'];
+    for (let id of agentInputs) {
+        const el = document.getElementById(id);
+        if (el && el.value && el.value.trim() !== '') {
+            agentVal = el.value.trim();
+            break; 
+        }
+    }
 
     const jobName = document.getElementById('jobNameInput') ? document.getElementById('jobNameInput').value.trim() : '';
     const jobTypeVal = document.getElementById('pJobType') ? document.getElementById('pJobType').value : '';
@@ -224,43 +226,6 @@ window.submitBookingForm = async function(btn) {
     const tripFeeVal = document.getElementById('pTripFee') ? formatNum(document.getElementById('pTripFee').value) : 0;
     const transFeeVal = document.getElementById('pTransFee') ? formatNum(document.getElementById('pTransFee').value) : 0;
 
-    if (jobName) {
-        let isNewRate = !rateDataMap[jobName];
-        let priceChanged = false;
-        
-        if (!isNewRate && priceTypeVal) {
-            const rate = rateDataMap[jobName];
-            if (priceTypeVal === '6W' && (Number(rate.trp6||0) !== tripFeeVal || Number(rate.trn6||0) !== transFeeVal)) priceChanged = true;
-            else if (priceTypeVal === '10W' && (Number(rate.trp10||0) !== tripFeeVal || Number(rate.trn10||0) !== transFeeVal)) priceChanged = true;
-            else if (priceTypeVal === '12W*2' && (Number(rate.trp12||0) !== tripFeeVal || Number(rate.trn12||0) !== transFeeVal)) priceChanged = true;
-            else if (priceTypeVal === 'เงินสด' && (Number(rate.trpCash||0) !== tripFeeVal || Number(rate.trnCash||0) !== transFeeVal)) priceChanged = true;
-        }
-
-        if (isNewRate || priceChanged) {
-            const msg = isNewRate 
-                ? `🚨 ระบบตรวจพบชื่องานใหม่: "${jobName}"\nคุณต้องการบันทึกข้อมูลและราคาชุดนี้ลงในตาราง Master Rates (ฐานข้อมูล) ด้วยหรือไม่?`
-                : `🔄 คุณมีการแก้ไขราคาสำหรับรถ ${priceTypeVal} ของงาน "${jobName}"\nต้องการอัปเดตราคาใหม่ลงตาราง Master Rates (ฐานข้อมูล) ด้วยหรือไม่?`;
-                
-            if (confirm(msg)) {
-                const singleRateData = {
-                    job_name: jobName, customer_name: customer,
-                    origin: document.getElementById('pOrigin') ? document.getElementById('pOrigin').value : '', 
-                    destination: document.getElementById('pDest') ? document.getElementById('pDest').value : '',
-                    job_type: jobTypeVal,
-                    trip_fee_6w: priceTypeVal === '6W' ? tripFeeVal : null,
-                    trip_fee_10w: priceTypeVal === '10W' ? tripFeeVal : null,
-                    trip_fee_12w: priceTypeVal === '12W*2' ? tripFeeVal : null,
-                    trip_fee_cash: priceTypeVal === 'เงินสด' ? tripFeeVal : null,
-                    trans_fee_6w: priceTypeVal === '6W' ? transFeeVal : null,
-                    trans_fee_10w: priceTypeVal === '10W' ? transFeeVal : null,
-                    trans_fee_12w: priceTypeVal === '12W*2' ? transFeeVal : null,
-                    trans_fee_cash: priceTypeVal === 'เงินสด' ? transFeeVal : null,
-                };
-                try { await fetch('/api/rates/single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(singleRateData) }); } catch(e) {}
-            }
-        }
-    }
-
     const dataToSave = {
         mode: mode, run_date: runDate, customer_name: customer, job_name: jobName, job_type: jobTypeVal,
         origin: document.getElementById('pOrigin') ? document.getElementById('pOrigin').value : '', 
@@ -268,7 +233,7 @@ window.submitBookingForm = async function(btn) {
         container_count: containerCount,
         container_size: containerSizeVal,
         booking_no: b_no,
-        agent: agentVal,
+        agent: agentVal, // 🌟 ส่งค่า AGENT ที่กวาดเจอ
         price_type: priceTypeVal, trip_fee: tripFeeVal, trans_fee: transFeeVal,
         cy_date: cyDate, vgm_cutoff: vgmCutoff, cutoff_time: cutoffTime, load_date: loadDate, open_gate: openGate,
         rent_cutoff: rentCutoff, demurrage: demurrage, unload_date: unloadDate, return_date: returnDate

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 
-// 1. ดึงข้อมูลสำหรับหน้าวางบิล (กรอง run_date ปลอดภัย ป้องกัน SQL Crash)
+// 1. ดึงข้อมูลสำหรับหน้าวางบิล
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -15,9 +15,7 @@ router.get('/shipments', async (req, res) => {
         const monthStr = String(m).padStart(2, '0');
         const startDate = `${y}-${monthStr}-01`;
         const endDate = `${y}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
-        const likePattern = `${y}-${monthStr}%`;
 
-        // 🌟 คิวรีข้อมูลโดยดักจับข้อมูล run_date ที่เปราะบาง ไม่ใช้ ::date แปลงตรงๆ
         const result = await pool.query(`
             SELECT 
                 b.id AS booking_id,
@@ -64,45 +62,9 @@ router.get('/shipments', async (req, res) => {
                   OR (b.run_date::text >= $2 AND b.run_date::text <= $3)
               )
             ORDER BY b.run_date ASC, b.booking_no ASC
-        `, [likePattern, startDate, endDate]);
+        `, [`${y}-${monthStr}%`, startDate, endDate]);
 
-        let rows = result.rows;
-        let isFallback = false;
-
-        // 🌟 SMART FALLBACK: หากไม่พบข้อมูลตามตัวกรอง ให้ดึง 50 รายการล่าสุดใน DB มาแสดงเพื่อยืนยันการเชื่อมต่อ
-        if (rows.length === 0) {
-            const fallbackRes = await pool.query(`
-                SELECT 
-                    b.id AS booking_id,
-                    b.booking_no, 
-                    b.run_date, 
-                    COALESCE(c.short_name, b.customer_name, '') AS customer_name, 
-                    COALESCE(c.customer_name, b.customer_name, '') AS full_customer_name, 
-                    c.address, c.tax_id, b.origin, b.destination, b.container_size, 
-                    COALESCE(b.container_count, 1) AS container_count,
-                    b.job_type, b.job_name,
-                    COALESCE(b.trip_fee, 0) AS booking_trip_fee,
-                    COALESCE(b.trans_fee, 0) AS booking_trans_fee,
-                    s.order_id, s.container_1_no, s.container_2_no, s.leg1_plate, s.leg1_driver,
-                    COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, 
-                    COALESCE(f.trans_fee, b.trans_fee, 0) AS trans_fee, 
-                    COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
-                    COALESCE(f.shore_fee, 0) AS shore_fee, 
-                    COALESCE(f.lift_fee, 0) AS lift_fee, 
-                    COALESCE(f.deposit_fee, 0) AS deposit_fee,
-                    f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_status, f.billing_remark
-                FROM bookings b
-                LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
-                LEFT JOIN customers c ON b.customer_id = c.id
-                LEFT JOIN financials f ON s.order_id = f.order_id
-                ORDER BY b.id DESC
-                LIMIT 50
-            `);
-            rows = fallbackRes.rows;
-            if (rows.length > 0) isFallback = true;
-        }
-
-        res.json({ success: true, data: rows, is_fallback: isFallback });
+        res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error("SQL Error in /api/billing/shipments:", err);
         res.status(500).json({ success: false, message: err.message });
@@ -193,7 +155,7 @@ router.get('/unbilled-containers', async (req, res) => {
     }
 });
 
-// 4. สรุปรายการตามเลข IV (สำหรับแท็บ IV List)
+// 4. สรุปรายการตามเลข IV
 router.get('/iv-summary', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -202,11 +164,7 @@ router.get('/iv-summary', async (req, res) => {
         const y = parseInt(year, 10);
         const m = parseInt(month, 10);
         const lastDay = new Date(y, m, 0).getDate();
-        
         const monthStr = String(m).padStart(2, '0');
-        const startDate = `${y}-${monthStr}-01`;
-        const endDate = `${y}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
-        const likePattern = `${y}-${monthStr}%`;
 
         const result = await pool.query(`
             SELECT 
@@ -230,7 +188,7 @@ router.get('/iv-summary', async (req, res) => {
               )
             GROUP BY f.iv_no, f.ar_no, c.id, c.short_name, b.customer_name
             ORDER BY f.iv_no ASC
-        `, [likePattern, startDate, endDate]);
+        `, [`${y}-${monthStr}%`, `${y}-${monthStr}-01`, `${y}-${monthStr}-${String(lastDay).padStart(2, '0')}`]);
         res.json({ success: true, data: result.rows });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });

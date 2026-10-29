@@ -9,6 +9,9 @@ const cleanNum = (val) => {
     return isNaN(num) ? 0 : num;
 };
 
+// ดึงค่า AGENT ยืดหยุ่น รองรับหลายชื่อฟิลด์จาก Frontend
+const getAgentVal = (b) => cleanVal(b.agent || b.agent_name || b.shipping_agent || b.agent_code);
+
 async function getCustomerId(client, customerName) {
     if (!customerName) return null;
     const res = await client.query('SELECT id FROM customers WHERE short_name = $1 OR customer_name = $1 LIMIT 1', [customerName]);
@@ -54,6 +57,7 @@ async function syncShipments(client, b) {
     }
 }
 
+// 1. บันทึกหัวบุคกิ้ง (หน้า 1. สร้างรับงาน)
 router.post('/bookings/header', async (req, res) => {
     const b = req.body;
     if (!b.mode || !b.run_date) return res.status(400).json({ success: false, message: 'กรุณากรอก Mode และวันที่วิ่งงาน' });
@@ -71,9 +75,16 @@ router.post('/bookings/header', async (req, res) => {
             ON CONFLICT (booking_no) DO UPDATE 
             SET mode = EXCLUDED.mode, run_date = EXCLUDED.run_date, job_name = EXCLUDED.job_name, customer_id = EXCLUDED.customer_id, 
                 container_count = EXCLUDED.container_count, origin = EXCLUDED.origin, destination = EXCLUDED.destination,
-                agent = EXCLUDED.agent, cy_date = EXCLUDED.cy_date, vgm_cutoff = EXCLUDED.vgm_cutoff, cutoff_time = EXCLUDED.cutoff_time,
-                load_date = EXCLUDED.load_date, open_gate = EXCLUDED.open_gate, rent_cutoff = EXCLUDED.rent_cutoff, demurrage = EXCLUDED.demurrage, 
-                unload_date = EXCLUDED.unload_date, return_date = EXCLUDED.return_date, 
+                agent = COALESCE(EXCLUDED.agent, bookings.agent), 
+                cy_date = COALESCE(EXCLUDED.cy_date, bookings.cy_date), 
+                vgm_cutoff = COALESCE(EXCLUDED.vgm_cutoff, bookings.vgm_cutoff), 
+                cutoff_time = COALESCE(EXCLUDED.cutoff_time, bookings.cutoff_time),
+                load_date = COALESCE(EXCLUDED.load_date, bookings.load_date), 
+                open_gate = COALESCE(EXCLUDED.open_gate, bookings.open_gate), 
+                rent_cutoff = COALESCE(EXCLUDED.rent_cutoff, bookings.rent_cutoff), 
+                demurrage = COALESCE(EXCLUDED.demurrage, bookings.demurrage), 
+                unload_date = COALESCE(EXCLUDED.unload_date, bookings.unload_date), 
+                return_date = COALESCE(EXCLUDED.return_date, bookings.return_date), 
                 job_type = EXCLUDED.job_type, price_type = EXCLUDED.price_type, 
                 trip_fee = EXCLUDED.trip_fee, trans_fee = EXCLUDED.trans_fee, container_size = EXCLUDED.container_size,
                 updated_at = CURRENT_TIMESTAMP
@@ -81,7 +92,7 @@ router.post('/bookings/header', async (req, res) => {
         `;
         const values = [
             b.booking_no, cleanVal(b.mode), b.run_date, b.job_name || '', customer_id, parseInt(b.container_count || 1), b.origin || '', b.destination || '',
-            cleanVal(b.agent), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.load_date), cleanVal(b.open_gate),
+            getAgentVal(b), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.load_date), cleanVal(b.open_gate),
             cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.unload_date), cleanVal(b.return_date),
             cleanVal(b.job_type), cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.container_size)
         ];
@@ -95,6 +106,7 @@ router.post('/bookings/header', async (req, res) => {
     } finally { client.release(); }
 });
 
+// 2. แก้ไขข้อมูลบุคกิ้ง
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const b = req.body;
@@ -104,16 +116,16 @@ router.put('/bookings/:id', async (req, res) => {
         const customer_id = await getCustomerId(client, b.customer_name);
         const updateBookingQuery = `
             UPDATE bookings 
-            SET mode = $1, run_date = $2, customer_id = $3, agent = $4, job_name = $5, job_type = $6, 
+            SET mode = $1, run_date = $2, customer_id = $3, agent = COALESCE($4, agent), job_name = $5, job_type = $6, 
                 origin = $7, destination = $8, container_count = $9, container_size = $10, price_type = $11, 
-                trip_fee = $12, trans_fee = $13, cy_date = $14, vgm_cutoff = $15, cutoff_time = $16, 
-                rent_cutoff = $17, demurrage = $18, load_date = $19, unload_date = $20, 
-                open_gate = $21, return_date = $22, updated_at = CURRENT_TIMESTAMP
+                trip_fee = $12, trans_fee = $13, cy_date = COALESCE($14, cy_date), vgm_cutoff = COALESCE($15, vgm_cutoff), cutoff_time = COALESCE($16, cutoff_time), 
+                rent_cutoff = COALESCE($17, rent_cutoff), demurrage = COALESCE($18, demurrage), load_date = COALESCE($19, load_date), unload_date = COALESCE($20, unload_date), 
+                open_gate = COALESCE($21, open_gate), return_date = COALESCE($22, return_date), updated_at = CURRENT_TIMESTAMP
             WHERE id = $23
             RETURNING booking_no;
         `;
         const bookingValues = [
-            cleanVal(b.mode), b.run_date, customer_id, cleanVal(b.agent), b.job_name || '', cleanVal(b.job_type), 
+            cleanVal(b.mode), b.run_date, customer_id, getAgentVal(b), b.job_name || '', cleanVal(b.job_type), 
             b.origin || '', b.destination || '', parseInt(b.container_count || 1), cleanVal(b.container_size), cleanVal(b.price_type), 
             cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
             cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), 
@@ -132,6 +144,7 @@ router.put('/bookings/:id', async (req, res) => {
     } finally { client.release(); }
 });
 
+// 3. ดึงรายการตู้ตามเดือน/ปี
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -168,7 +181,7 @@ router.get('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 🌟 ปรับปรุง: บันทึกทั้งข้อมูล Shipment และ Booking (AGENT) ในคำสั่งเดียว
+// 4. บันทึกข้อมูลตู้แบบ Batch
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลสำหรับบันทึก' });
@@ -201,11 +214,12 @@ router.post('/shipments', async (req, res) => {
                 await client.query(`UPDATE bookings SET container_count = container_count + 1 WHERE booking_no = $1`, [row.booking_no]);
             }
 
-            // 🌟 บันทึก AGENT และข้อมูลหัวบุคกิ้งที่แก้ไขตรงในตารางลงฐานข้อมูล
-            if (row.booking_no) {
+            // ใช้ COALESCE ล็อกไม่ให้ค่า AGENT โดนเคลียร์เป็๋น NULL เมื่อแก้ไขข้อมูลตู้
+            const rowAgent = getAgentVal(row);
+            if (row.booking_no && rowAgent !== null) {
                 await client.query(`
                     UPDATE bookings SET
-                        agent = $1,
+                        agent = COALESCE($1, agent),
                         cy_date = COALESCE($2, cy_date),
                         vgm_cutoff = COALESCE($3, vgm_cutoff),
                         cutoff_time = COALESCE($4, cutoff_time),
@@ -215,7 +229,7 @@ router.post('/shipments', async (req, res) => {
                         updated_at = CURRENT_TIMESTAMP
                     WHERE booking_no = $8
                 `, [
-                    cleanVal(row.agent), cleanVal(row.cy_date), cleanVal(row.vgm_cutoff),
+                    rowAgent, cleanVal(row.cy_date), cleanVal(row.vgm_cutoff),
                     cleanVal(row.cutoff_time), cleanVal(row.load_date), cleanVal(row.unload_date),
                     cleanVal(row.return_date), row.booking_no
                 ]);

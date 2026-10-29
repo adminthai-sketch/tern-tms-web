@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../config/db');
 
-// 1. ดึงข้อมูลสำหรับหน้าวางบิล (คิวรีจากตาราง bookings ใช้ชนิดข้อมูล ::date ให้ตรงกับหน้า Booking)
+// 1. ดึงข้อมูลสำหรับหน้าวางบิล (คัดลอก Logic จาก bookings.js 100%)
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -12,16 +12,18 @@ router.get('/shipments', async (req, res) => {
         const m = parseInt(month, 10);
         const lastDay = new Date(y, m, 0).getDate();
         
+        // รูปแบบวันที่เดียวกับที่ส่งไปหน้า Booking (YYYY-MM-DD)
         const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
         const endDate = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
+        // ใช้ BETWEEN เหมือน routes/bookings.js เป๊ะๆ เพื่อหลีกเลี่ยง Data Type Error
         const result = await pool.query(`
             SELECT 
                 b.id AS booking_id,
                 b.booking_no, 
                 b.run_date, 
-                COALESCE(b.customer_name, '') AS customer_name, 
-                COALESCE(b.customer_name, '') AS full_customer_name, 
+                c.short_name AS customer_name,
+                c.customer_name AS full_customer_name,
                 b.origin, 
                 b.destination, 
                 b.container_size, 
@@ -49,10 +51,9 @@ router.get('/shipments', async (req, res) => {
                 f.billing_remark
             FROM bookings b
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
+            LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
-            WHERE b.run_date IS NOT NULL 
-              AND b.run_date::date >= $1::date 
-              AND b.run_date::date <= $2::date
+            WHERE b.run_date BETWEEN $1 AND $2
             ORDER BY b.run_date ASC, b.booking_no ASC
         `, [startDate, endDate]);
 
@@ -119,10 +120,11 @@ router.get('/unbilled-containers', async (req, res) => {
         let query = `
             SELECT 
                 s.order_id, b.booking_no, s.container_1_no, s.container_2_no, s.container_size,
-                s.leg1_plate, b.run_date, b.origin, b.destination, b.customer_name,
+                s.leg1_plate, b.run_date, b.origin, b.destination, c.short_name AS customer_name,
                 f.trip_fee, f.port_pass_fee, f.deposit_fee, f.lift_fee, f.shore_fee, f.gross_weight
             FROM bookings b
             JOIN shipment_operations s ON b.booking_no = s.booking_no
+            LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
             WHERE b.customer_id = $1 
               AND (f.iv_no IS NULL OR f.iv_no = '')
@@ -131,7 +133,7 @@ router.get('/unbilled-containers', async (req, res) => {
 
         if (run_date) {
             params.push(run_date);
-            query += ` AND b.run_date::date = $${params.length}::date`;
+            query += ` AND b.run_date = $${params.length}`;
         }
         if (booking_no) {
             params.push(`%${booking_no.trim()}%`);
@@ -146,7 +148,7 @@ router.get('/unbilled-containers', async (req, res) => {
     }
 });
 
-// 4. สรุปรายการตามเลข IV (สำหรับแท็บ IV List)
+// 4. สรุปรายการตามเลข IV (ใช้ BETWEEN เหมือนกัน)
 router.get('/iv-summary', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -162,7 +164,7 @@ router.get('/iv-summary', async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 f.iv_no, f.ar_no, MAX(f.billing_date) AS billing_date,
-                b.customer_name,
+                c.id AS customer_id, c.short_name AS customer_name,
                 COUNT(s.order_id) AS total_containers,
                 ARRAY_AGG(DISTINCT b.booking_no) AS booking_list,
                 SUM(COALESCE(f.trip_fee, b.trip_fee, 0)) AS total_trip_fee,
@@ -171,10 +173,10 @@ router.get('/iv-summary', async (req, res) => {
             FROM financials f
             JOIN shipment_operations s ON f.order_id = s.order_id
             JOIN bookings b ON s.booking_no = b.booking_no
+            LEFT JOIN customers c ON b.customer_id = c.id
             WHERE f.iv_no IS NOT NULL AND f.iv_no != ''
-              AND b.run_date IS NOT NULL
-              AND b.run_date::date >= $1::date AND b.run_date::date <= $2::date
-            GROUP BY f.iv_no, f.ar_no, b.customer_name
+              AND b.run_date BETWEEN $1 AND $2
+            GROUP BY f.iv_no, f.ar_no, c.id, c.short_name
             ORDER BY f.iv_no ASC
         `, [startDate, endDate]);
         res.json({ success: true, data: result.rows });
@@ -192,9 +194,10 @@ router.get('/print-data', async (req, res) => {
         if (booking_no) { condition = 'b.booking_no = $1'; param = booking_no; }
         else { condition = 'f.iv_no = $1'; param = iv_no; }
         const result = await pool.query(`
-            SELECT s.order_id, b.booking_no, s.container_1_no, s.container_2_no, s.container_size, s.leg1_plate, s.leg2_plate, s.leg3_plate, b.run_date, b.origin, b.destination, b.job_name, b.customer_name, COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense, f.gross_weight, f.ar_no, f.iv_no
+            SELECT s.order_id, b.booking_no, s.container_1_no, s.container_2_no, s.container_size, s.leg1_plate, s.leg2_plate, s.leg3_plate, b.run_date, b.origin, b.destination, b.job_name, c.id AS customer_id, c.customer_name, c.address, c.tax_id, c.invoice_layout, COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense, f.gross_weight, f.ar_no, f.iv_no
             FROM bookings b 
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no 
+            LEFT JOIN customers c ON b.customer_id = c.id 
             LEFT JOIN financials f ON s.order_id = f.order_id
             WHERE ${condition} ORDER BY s.order_id ASC
         `, [param]);

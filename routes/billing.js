@@ -16,12 +16,14 @@ router.get('/shipments', async (req, res) => {
 
         const result = await pool.query(`
             SELECT 
-                b.id AS booking_id, b.booking_no, b.run_date, b.mode, b.job_type, b.job_name,
+                b.id AS booking_id, b.booking_no, b.run_date, b.mode, b.job_type, b.job_name, b.price_type, b.agent,
                 c.id AS customer_id, COALESCE(c.short_name, '-') AS customer_name, COALESCE(c.customer_name, '-') AS full_customer_name,
                 c.address, c.tax_id, b.origin, b.destination, b.container_size, 
                 COALESCE(b.container_count, 1) AS container_count,
+                COALESCE(b.container_count, 1) AS booking_container_count,
                 COALESCE(b.trip_fee, 0) AS booking_trip_fee,
                 s.order_id, s.container_1_no, s.container_2_no,
+                COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS plate,
                 s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg3_plate,
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee,
                 COALESCE(f.trans_fee, b.trans_fee, 0) AS trans_fee,
@@ -46,7 +48,7 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-// 2. บันทึกข้อมูลวางบิลรายตู้ (IV / AR / น้ำหนัก / หมายเหตุ)
+// 2. บันทึกข้อมูลวางบิลรายตู้ (IV / AR / น้ำหนัก / ค่าขนส่ง และ คชจ.สำรองทั้งหมด)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -57,22 +59,37 @@ router.post('/shipments', async (req, res) => {
         for (const row of data) {
             if (!row.order_id) continue;
             await client.query(`
-                INSERT INTO financials (order_id, gross_weight, ar_no, iv_no, billing_remark, billing_date)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO financials (
+                    order_id, gross_weight, ar_no, iv_no, billing_remark, billing_date,
+                    trip_fee, port_pass_fee, deposit_fee, lift_fee, shore_fee, other_expense
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 ON CONFLICT (order_id) 
                 DO UPDATE SET 
                     gross_weight = EXCLUDED.gross_weight, 
                     ar_no = EXCLUDED.ar_no, 
                     iv_no = EXCLUDED.iv_no,
                     billing_remark = EXCLUDED.billing_remark, 
-                    billing_date = EXCLUDED.billing_date
+                    billing_date = EXCLUDED.billing_date,
+                    trip_fee = COALESCE(EXCLUDED.trip_fee, financials.trip_fee),
+                    port_pass_fee = COALESCE(EXCLUDED.port_pass_fee, financials.port_pass_fee),
+                    deposit_fee = COALESCE(EXCLUDED.deposit_fee, financials.deposit_fee),
+                    lift_fee = COALESCE(EXCLUDED.lift_fee, financials.lift_fee),
+                    shore_fee = COALESCE(EXCLUDED.shore_fee, financials.shore_fee),
+                    other_expense = COALESCE(EXCLUDED.other_expense, financials.other_expense)
             `, [
                 row.order_id, 
                 row.gross_weight ? parseFloat(row.gross_weight) : 0,
                 row.ar_no ? String(row.ar_no).trim() : null, 
                 row.iv_no ? String(row.iv_no).trim() : null, 
                 row.billing_remark || null, 
-                row.billing_date || null
+                row.billing_date || null,
+                row.trip_fee !== undefined ? parseFloat(row.trip_fee) : null,
+                row.port_pass_fee !== undefined ? parseFloat(row.port_pass_fee) : null,
+                row.deposit_fee !== undefined ? parseFloat(row.deposit_fee) : null,
+                row.lift_fee !== undefined ? parseFloat(row.lift_fee) : null,
+                row.shore_fee !== undefined ? parseFloat(row.shore_fee) : null,
+                row.other_expense !== undefined ? parseFloat(row.other_expense) : null
             ]);
         }
         await client.query('COMMIT');
@@ -95,7 +112,8 @@ router.get('/unbilled-containers', async (req, res) => {
         let query = `
             SELECT 
                 s.order_id, b.booking_no, s.container_1_no, s.container_2_no, s.container_size,
-                s.leg1_plate, b.run_date, b.origin, b.destination, c.short_name AS customer_name,
+                COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS leg1_plate, 
+                b.run_date, b.origin, b.destination, c.short_name AS customer_name,
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, 
                 COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
                 COALESCE(f.deposit_fee, 0) AS deposit_fee, 
@@ -107,7 +125,7 @@ router.get('/unbilled-containers', async (req, res) => {
             JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
-            WHERE b.customer_id = $1 AND (f.iv_no IS NULL OR f.iv_no = '')
+            WHERE b.customer_id = $1 AND (f.iv_no IS NULL OR TRIM(f.iv_no) = '')
         `;
         const params = [customer_id];
         if (run_date) { params.push(run_date); query += ` AND b.run_date::text = $${params.length}`; }
@@ -122,7 +140,7 @@ router.get('/unbilled-containers', async (req, res) => {
     }
 });
 
-// 4. สรุปรายการตามเลข IV (สำหรับหน้า IV List - ป้องกันค่า NULL)
+// 4. สรุปรายการตามเลข IV (สำหรับหน้า IV List - ครอบ COALESCE ทุกช่องป้องกันผลรวมเป็น NULL)
 router.get('/iv-summary', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -160,7 +178,7 @@ router.get('/iv-summary', async (req, res) => {
             JOIN shipment_operations s ON f.order_id = s.order_id
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            WHERE f.iv_no IS NOT NULL AND f.iv_no != '' AND b.run_date BETWEEN $1 AND $2
+            WHERE f.iv_no IS NOT NULL AND TRIM(f.iv_no) != '' AND b.run_date BETWEEN $1 AND $2
             GROUP BY f.iv_no, f.ar_no, c.id, c.short_name
             ORDER BY f.iv_no ASC
         `, [startDate, endDate]);
@@ -172,29 +190,44 @@ router.get('/iv-summary', async (req, res) => {
     }
 });
 
-// 5. ดึงข้อมูลสำหรับพิมพ์ใบแนบ A4 (มี invoice_layout ครบถ้วน)
+// 5. ดึงข้อมูลสำหรับพิมพ์ใบแนบ A4 (รองรับทั้ง booking และ booking_no, iv และ iv_no)
 router.get('/print-data', async (req, res) => {
-    const { booking_no, iv_no } = req.query;
-    if (!booking_no && !iv_no) return res.status(400).json({ success: false, message: 'กรุณาระบุ booking_no หรือ iv_no' });
+    const bookingNo = req.query.booking_no || req.query.booking;
+    const ivNo = req.query.iv_no || req.query.iv;
+
+    if (!bookingNo && !ivNo) {
+        return res.status(400).json({ success: false, message: 'กรุณาระบุ booking_no หรือ iv_no' });
+    }
 
     try {
         let condition = ''; 
         let param = '';
-        if (booking_no) { condition = 'b.booking_no = $1'; param = booking_no; }
-        else { condition = 'f.iv_no = $1'; param = iv_no; }
+        if (ivNo) { 
+            condition = 'f.iv_no = $1'; 
+            param = String(ivNo).trim(); 
+        } else { 
+            condition = 'b.booking_no = $1'; 
+            param = String(bookingNo).trim(); 
+        }
 
         const result = await pool.query(`
             SELECT 
-                s.order_id, b.booking_no, s.container_1_no, s.container_2_no, s.container_size, 
-                s.leg1_plate, s.leg2_plate, s.leg3_plate, b.run_date, b.origin, b.destination, b.job_name, 
-                c.id AS customer_id, c.customer_name, c.address, c.tax_id, c.invoice_layout, 
-                COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, f.trans_fee, 
+                s.order_id, b.booking_no, b.mode, b.price_type,
+                s.container_1_no, s.container_2_no, s.container_size, 
+                COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS plate,
+                s.leg1_plate, s.leg2_plate, s.leg3_plate, s.leg1_driver,
+                b.run_date, b.origin, b.destination, b.job_name, 
+                c.id AS customer_id, 
+                COALESCE(c.customer_name, c.short_name, '-') AS customer_name,
+                c.address, c.tax_id, c.invoice_layout, 
+                COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, 
+                COALESCE(f.trans_fee, b.trans_fee, 0) AS trans_fee, 
                 COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
                 COALESCE(f.shore_fee, 0) AS shore_fee, 
                 COALESCE(f.lift_fee, 0) AS lift_fee, 
                 COALESCE(f.deposit_fee, 0) AS deposit_fee, 
                 COALESCE(f.other_expense, 0) AS other_expense,
-                f.gross_weight, f.ar_no, f.iv_no, f.billing_remark
+                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_remark
             FROM bookings b 
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no 
             LEFT JOIN customers c ON b.customer_id = c.id 

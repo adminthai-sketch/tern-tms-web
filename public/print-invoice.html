@@ -8,32 +8,30 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* ตั้งค่าหน้ากระดาษ A4 แนวนอน (Landscape) */
-        @page { size: A4 landscape; margin: 10mm; }
-        body { font-family: 'Prompt', sans-serif; background-color: #525659; margin: 0; padding: 0; }
+        @page { size: A4 landscape; margin: 8mm; }
+        body { font-family: 'Prompt', sans-serif; background-color: #525659; margin: 0; padding: 0; color: #000; }
         
-        /* กล่องกระดาษจำลองบนหน้าจอเว็บ */
         .page-container {
             background-color: white;
-            width: 29.7cm; /* ความกว้าง A4 แนวนอน */
+            width: 29.7cm;
             min-height: 20cm;
-            margin: 2rem auto;
-            padding: 10mm;
+            margin: 1.5rem auto;
+            padding: 8mm 10mm;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             position: relative;
+            box-sizing: border-box;
         }
 
-        /* ตารางสไตล์ Excel */
-        .table-excel { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        .table-excel { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
         .table-excel th, .table-excel td { 
             border: 1px solid #000; 
-            padding: 4px 6px; 
-            font-size: 11px; 
+            padding: 3px 4px; 
+            font-size: 10.5px; 
             color: #000;
+            line-height: 1.2;
         }
-        .table-excel th { background-color: #e5e7eb; font-weight: bold; text-align: center; }
+        .table-excel th { background-color: #f1f5f9; font-weight: bold; text-align: center; }
         
-        /* สไตล์ตอนกดพิมพ์ (Print) */
         @media print {
             body { background-color: white; }
             .page-container { margin: 0; padding: 0; box-shadow: none; width: 100%; min-height: auto; }
@@ -43,49 +41,46 @@
 </head>
 <body>
 
-    <!-- แถบเครื่องมือด้านบน (ไม่ถูกปริ้นท์ออกมา) -->
     <div class="no-print sticky top-0 w-full bg-slate-800 text-white p-3 flex justify-between items-center shadow-lg z-50">
         <div>
-            <span class="font-bold text-lg text-blue-300"><i class="fa-solid fa-file-magnifying-glass"></i> ตรวจสอบรายการวางบิล</span>
-            <span class="ml-4 text-sm">ผู้ใช้งานสามารถเช็คความถูกต้อง หรือเลือกเปิด/ปิดคอลัมน์ก่อนพิมพ์ได้</span>
+            <span class="font-bold text-lg text-blue-300"><i class="fa-solid fa-file-invoice-dollar"></i> ใบแจ้งหนี้ประกอบค่าขนส่ง (A4 แนวนอน)</span>
         </div>
         <div class="flex gap-2">
-            <button onclick="document.getElementById('col-settings-modal').classList.remove('hidden')" class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded font-bold text-sm transition-colors border border-slate-500"><i class="fa-solid fa-gear"></i> ตั้งค่าคอลัมน์ลูกค้า</button>
-            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded font-bold text-sm transition-colors shadow-md"><i class="fa-solid fa-print"></i> พิมพ์เอกสาร (Print)</button>
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-500 px-5 py-2 rounded font-bold text-sm transition-colors shadow-md flex items-center gap-1.5">
+                <i class="fa-solid fa-print"></i> พิมพ์เอกสาร (Print)
+            </button>
         </div>
     </div>
 
-    <!-- กระดาษ A4 -->
+    <!-- กระดาษ A4 แนวนอน -->
     <div class="page-container" id="printable-area">
         
-        <!-- Header (โลโก้ และ ข้อมูลบริษัท/ลูกค้า) -->
-        <div class="flex justify-between items-start mb-4">
-            <!-- ฝั่งซ้าย: โลโก้ และ ที่อยู่บริษัทเรา -->
-            <div class="flex gap-4">
-                <!-- โลโก้ TERN LOGO-01 -->
-<img src="/LOGO/TURN LOGO-01.png" alt="TERN LOGISTICS" class="h-16 object-contain" onerror="this.src='/logo/TURN LOGO-01.png'">
-                <div class="text-[12px] leading-tight text-black">
-                    <div class="font-bold text-lg mb-1">บริษัท เทิร์น โลจิสติกส์ จำกัด</div>
+        <!-- Header บริษัทเรา และ ข้อมูลลูกค้า -->
+        <div class="flex justify-between items-start mb-3">
+            <div class="flex gap-3">
+                <img src="/LOGO/TURN LOGO-01.png" alt="TERN LOGISTICS" class="h-14 object-contain" onerror="this.style.display='none'">
+                <div class="text-[11px] leading-tight text-black">
+                    <div class="font-bold text-base mb-0.5">บริษัท เทิร์น โลจิสติกส์ จำกัด</div>
                     <div>93/5 ถนนประชาราษฎร์ ตำบลตลาดขวัญ อำเภอเมืองนนทบุรี จังหวัดนนทบุรี 11000</div>
                     <div>เบอร์โทร 063-226-4662, 081-708-4008 | อีเมล admin@terngroup.info</div>
                     <div>เลขประจำตัวผู้เสียภาษี 0125561034901 (สำนักงานใหญ่)</div>
                 </div>
             </div>
             
-            <!-- ฝั่งขวา: ข้อมูลลูกค้า -->
-            <div class="text-[12px] leading-tight text-black border border-black p-2 min-w-[300px]">
-                <div class="font-bold mb-1 border-b border-black pb-1">ชื่อลูกค้า / ที่อยู่</div>
-                <div id="doc-customer-name" class="font-bold">กำลังโหลด...</div>
-                <div id="doc-customer-address" class="whitespace-pre-line">กำลังโหลดที่อยู่...</div>
-                <div class="mt-1">เลขประจำตัวผู้เสียภาษี : <span id="doc-customer-tax">...</span></div>
+            <!-- กรอบลูกค้าตามแบบฟอร์ม -->
+            <div class="text-[11px] leading-tight text-black border border-black p-2 min-w-[340px] max-w-[420px]">
+                <div class="font-bold mb-1 border-b border-black pb-0.5">ชื่อลูกค้า / ที่อยู่</div>
+                <div id="doc-customer-name" class="font-bold">...</div>
+                <div id="doc-customer-address" class="whitespace-pre-line text-[10.5px]">...</div>
+                <div class="mt-1">เลขประจำตัวผู้เสียภาษี : <span id="doc-customer-tax" class="font-bold">...</span></div>
             </div>
         </div>
 
-        <!-- Meta Data (Booking, Date, IV) -->
-        <div class="text-[13px] font-bold text-red-600 mb-2 flex justify-between">
+        <!-- Meta Data (Booking, ประจำวันที่, IV No) สีแดงตามแบบ -->
+        <div class="text-[12px] font-bold text-red-600 mb-2 flex justify-between items-end">
             <div>
-                <div class="text-black text-[14px]">รายละเอียดประกอบใบแจ้งหนี้ เอกสาร : ค่าขนส่งตู้บรรจุ (LOADED)</div>
-                <div>Booking No. <span id="doc-booking-no" class="underline">...</span></div>
+                <div class="text-black text-[13px] font-bold">รายละเอียดประกอบใบแจ้งหนี้ เอกสาร : ค่าขนส่งตู้บรรจุ (LOADED)</div>
+                <div>Booking No. <span id="doc-booking-no">...</span></div>
             </div>
             <div class="text-right">
                 <div>ประจำวันที่ <span id="doc-run-date">...</span></div>
@@ -93,125 +88,108 @@
             </div>
         </div>
 
-        <!-- Summary Table (ตารางสรุป) -->
-        <table class="table-excel mb-4">
+        <!-- Summary Table (ตารางสรุปบน) -->
+        <table class="table-excel mb-3">
             <thead>
                 <tr>
-                    <th class="w-1/3">รายการ<br><span class="text-[10px] font-normal">Description</span></th>
-                    <th>จำนวน/Quantity<br><span class="text-[10px] font-normal">LOADED</span></th>
-                    <th>ราคาต่อหน่วย<br><span class="text-[10px] font-normal">Unit Price</span></th>
-                    <th>จำนวนเงิน:บาท<br><span class="text-[10px] font-normal">Amount</span></th>
-                    <th class="w-1/4">เลขที่ คชจ.สำรอง<br><span class="text-[10px] font-normal text-red-600">AR No.</span></th>
+                    <th class="w-2/5">รายการ<br><span class="text-[9px] font-normal">Description</span></th>
+                    <th class="w-24">จำนวน/Quantity<br><span class="text-[9px] font-normal">LOADED</span></th>
+                    <th class="w-28">ราคาต่อหน่วย<br><span class="text-[9px] font-normal">Unit Price</span></th>
+                    <th class="w-32">จำนวนเงิน:บาท<br><span class="text-[9px] font-normal">Amount</span></th>
+                    <th class="w-36 text-red-600">เลขที่ คชจ.สำรอง<br><span class="text-[9px] font-normal">AR No.</span></th>
+                    <th class="w-28">รวม คชจ.สำรอง</th>
+                    <th class="w-32">ประเภทรถ/คนขับ</th>
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td id="sum-desc" class="font-bold text-center">ค่าขนส่ง ตู้เปิด+ตู้บรรจุ ตุลาคม 2026</td>
-                    <td id="sum-qty" class="text-center font-bold">0.00</td>
-                    <td id="sum-unit-price" class="text-right font-bold">0.00</td>
-                    <td id="sum-amount" class="text-right font-bold">0.00</td>
-                    <td id="sum-ar-no" class="text-center font-bold text-red-600">...</td>
+                <tr class="font-bold text-center">
+                    <td id="sum-desc" class="text-left px-2">ค่าขนส่ง ตู้เปิด+ตู้บรรจุ</td>
+                    <td id="sum-qty">0.00</td>
+                    <td id="sum-unit-price" class="text-right px-2">0.00</td>
+                    <td id="sum-amount" class="text-right px-2 font-bold">0.00</td>
+                    <td id="sum-ar-no" class="text-red-600">...</td>
+                    <td id="sum-ar-total" class="text-right px-2">0.00</td>
+                    <td id="sum-price-type" class="text-slate-700 font-semibold text-[10px]">รถร่วม เงินสด</td>
                 </tr>
             </tbody>
         </table>
 
-        <!-- Detail Table (ตารางรายละเอียด) -->
+        <!-- Detail Table (17 คอลัมน์ ครบถ้วนตามแบบ Excel) -->
         <table class="table-excel" id="detail-table">
-            <thead id="detail-thead">
-                <!-- หัวคอลัมน์จะถูกสร้างด้วย Javascript (เพื่อให้เปิดปิดได้) -->
+            <thead>
+                <tr>
+                    <th style="width: 25px;">ลำดับที่</th>
+                    <th style="width: 55px;">วันที่</th>
+                    <th style="width: 55px;">ทะเบียนรถ</th>
+                    <th style="width: 80px;">เบอร์ตู้</th>
+                    <th style="width: 40px;">ขนาดตู้</th>
+                    <th style="width: 45px;">จาก</th>
+                    <th style="width: 45px;">ถึง</th>
+                    <th style="width: 60px;">น้ำหนัก</th>
+                    <th style="width: 60px;">ค่าบรรทุก</th>
+                    <th style="width: 50px;">ค่าผ่านท่า</th>
+                    <th style="width: 45px;">ค่าฝากตู้</th>
+                    <th style="width: 45px;">ค่ายกตู้</th>
+                    <th style="width: 55px;">ค่าชอร์</th>
+                    <th style="width: 50px; background-color: #e2e8f0;">ภาษีค่าผ่านท่า</th>
+                    <th style="width: 45px; background-color: #e2e8f0;">ภาษีค่ายกตู้</th>
+                    <th style="width: 50px; background-color: #e2e8f0;">ภาษีค่าชอร์</th>
+                    <th style="width: 70px;">หมายเหตุ</th>
+                </tr>
             </thead>
             <tbody id="detail-tbody">
-                <!-- ข้อมูลจะถูกเติมที่นี่ -->
+                <tr><td colspan="17" class="text-center py-4 text-slate-400">กำลังโหลดข้อมูล...</td></tr>
             </tbody>
-            <tfoot id="detail-tfoot" class="font-bold">
-                <!-- สรุปผลรวมจะถูกสร้างด้วย Javascript -->
-            </tfoot>
+            <tfoot id="detail-tfoot" class="font-bold bg-slate-50"></tfoot>
         </table>
     </div>
 
-    <!-- Modal ตั้งค่าคอลัมน์ (No Print) -->
-    <div id="col-settings-modal" class="no-print hidden fixed inset-0 bg-black/60 z-[100] flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
-            <h2 class="text-xl font-bold text-slate-800 mb-4 border-b pb-2"><i class="fa-solid fa-list-check"></i> ตั้งค่าคอลัมน์สำหรับลูกค้า</h2>
-            <p class="text-sm text-slate-500 mb-4">ติ๊กเลือกคอลัมน์ที่ต้องการให้แสดงในใบแนบของลูกค้า <strong id="setting-cust-name" class="text-blue-600">...</strong></p>
-            
-            <div id="column-checkboxes" class="grid grid-cols-2 gap-3 mb-6 bg-slate-50 p-4 border rounded">
-                <!-- Checkbox จะถูกเติมด้วย Javascript -->
-            </div>
-
-            <div class="flex justify-end gap-2">
-                <button onclick="document.getElementById('col-settings-modal').classList.add('hidden')" class="px-4 py-2 rounded font-bold text-slate-600 bg-slate-200 hover:bg-slate-300 transition-colors">ยกเลิก</button>
-                <button onclick="applyAndSaveLayout()" class="px-4 py-2 rounded font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"><i class="fa-solid fa-floppy-disk"></i> อัปเดตและบันทึกค่าลูกค้า</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // คอลัมน์ทั้งหมดที่มีให้เลือก
-        const availableColumns = [
-            { key: 'no', label: 'ลำดับที่', type: 'text', align: 'center', default: true },
-            { key: 'date', label: 'วันที่', type: 'text', align: 'center', default: true },
-            { key: 'plate', label: 'ทะเบียนรถ', type: 'text', align: 'center', default: true },
-            { key: 'container', label: 'เบอร์ตู้', type: 'text', align: 'center', default: true },
-            { key: 'size', label: 'ขนาดตู้', type: 'text', align: 'center', default: true },
-            { key: 'origin', label: 'จาก', type: 'text', align: 'center', default: true },
-            { key: 'dest', label: 'ถึง', type: 'text', align: 'center', default: true },
-            { key: 'weight', label: 'น้ำหนัก', type: 'money', align: 'right', default: true, sum: true },
-            { key: 'trip_fee', label: 'ค่าบรรทุก', type: 'money', align: 'right', default: true, sum: true },
-            { key: 'port_fee', label: 'ค่าผ่านท่า', type: 'money', align: 'right', default: true, sum: true },
-            { key: 'deposit_fee', label: 'ค่าฝากตู้', type: 'money', align: 'right', default: true, sum: true },
-            { key: 'lift_fee', label: 'ค่ายกตู้', type: 'money', align: 'right', default: false, sum: true },
-            { key: 'shore_fee', label: 'ค่าชอร์', type: 'money', align: 'right', default: false, sum: true },
-            { key: 'remark', label: 'หมายเหตุบัญชี', type: 'text', align: 'left', default: false }
-        ];
-
         let printData = [];
-        let currentCustomerId = null;
-        let activeColumns = [];
 
         window.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const booking = urlParams.get('booking');
-            const iv = urlParams.get('iv');
+            const booking = urlParams.get('booking') || urlParams.get('booking_no');
+            const iv = urlParams.get('iv') || urlParams.get('iv_no');
             
-            if(!booking && !iv) { alert("ข้อมูลไม่ครบถ้วน ไม่สามารถแสดงใบแจ้งหนี้ได้"); return; }
+            if(!booking && !iv) { 
+                alert("ข้อมูลไม่ครบถ้วน ไม่พบเลข Booking หรือ เลข IV"); 
+                return; 
+            }
 
             try {
-                // ยิง API ไปดึงข้อมูลเต็มๆ
-                const res = await fetch(`/api/billing/print-data?booking=${booking||''}&iv_no=${iv||''}`);
+                const res = await fetch(`/api/billing/print-data?booking=${encodeURIComponent(booking||'')}&iv_no=${encodeURIComponent(iv||'')}`);
                 const result = await res.json();
                 
-                if(result.success && result.data.length > 0) {
+                if(result.success && result.data && result.data.length > 0) {
                     printData = result.data;
                     const firstRow = printData[0];
-                    currentCustomerId = firstRow.customer_id;
 
-                    // เติมข้อมูล Header
                     document.getElementById('doc-customer-name').innerText = firstRow.customer_name || '-';
-                    document.getElementById('setting-cust-name').innerText = firstRow.customer_name || '-';
                     document.getElementById('doc-customer-address').innerText = firstRow.address || '-';
                     document.getElementById('doc-customer-tax').innerText = firstRow.tax_id || '-';
-                    
                     document.getElementById('doc-booking-no').innerText = firstRow.booking_no || '-';
-                    if(firstRow.run_date) {
-                        const d = new Date(firstRow.run_date);
-                        document.getElementById('doc-run-date').innerText = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+
+                    // วันที่
+                    const dateVal = firstRow.billing_date || firstRow.run_date;
+                    if(dateVal) {
+                        const d = new Date(dateVal);
+                        document.getElementById('doc-run-date').innerText = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+                    } else {
+                        document.getElementById('doc-run-date').innerText = '-';
                     }
+
                     document.getElementById('doc-iv-no').innerText = firstRow.iv_no || 'ยังไม่ออกเลข IV';
                     document.getElementById('sum-ar-no').innerText = firstRow.ar_no || '-';
+                    document.getElementById('sum-price-type').innerText = firstRow.price_type || 'รถร่วม เงินสด';
 
-                    // โหลดการตั้งค่า Layout ของลูกค้าคนนี้ (ถ้าเคยเซฟไว้)
-                    if(firstRow.invoice_layout && firstRow.invoice_layout.columns) {
-                        activeColumns = firstRow.invoice_layout.columns;
-                    } else {
-                        // ถ้าไม่มีให้ดึงค่า default
-                        activeColumns = availableColumns.filter(c => c.default).map(c => c.key);
-                    }
+                    // คำชื่องานในตารางบน
+                    const monthTh = dateVal ? new Date(dateVal).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : '';
+                    document.getElementById('sum-desc').innerText = `ค่าขนส่ง ตู้เปิด+ตู้บรรจุ ${firstRow.destination || ''} ${monthTh}`;
 
-                    renderCheckboxes();
-                    renderDetailTable();
-
+                    renderPrintTable();
                 } else {
+                    document.getElementById('detail-tbody').innerHTML = `<tr><td colspan="17" class="text-center py-6 text-red-500 font-bold">ไม่พบข้อมูลสำหรับพิมพ์เอกสารนี้</td></tr>`;
                     alert("ไม่พบข้อมูลสำหรับการพิมพ์");
                 }
             } catch(e) {
@@ -220,123 +198,104 @@
             }
         });
 
-        // 1. สร้าง Checkbox ใน Modal ตั้งค่า
-        function renderCheckboxes() {
-            const container = document.getElementById('column-checkboxes');
-            container.innerHTML = '';
-            availableColumns.forEach(col => {
-                const isChecked = activeColumns.includes(col.key);
-                container.innerHTML += `
-                    <label class="flex items-center gap-2 cursor-pointer p-1 hover:bg-slate-200 rounded">
-                        <input type="checkbox" value="${col.key}" class="layout-cb w-4 h-4 text-blue-600 rounded" ${isChecked ? 'checked' : ''}>
-                        <span class="text-[13px] font-semibold text-slate-700">${col.label}</span>
-                    </label>
-                `;
-            });
-        }
-
-        // 2. สร้างตารางแสดงผล A4
-        function renderDetailTable() {
-            const thead = document.getElementById('detail-thead');
+        function renderPrintTable() {
             const tbody = document.getElementById('detail-tbody');
             const tfoot = document.getElementById('detail-tfoot');
-            
-            // กรองเฉพาะคอลัมน์ที่เปิดใช้เรียงตามลำดับเดิม
-            const colsToShow = availableColumns.filter(c => activeColumns.includes(c.key));
-
-            // สร้าง Header
-            let thHtml = '<tr>';
-            colsToShow.forEach(c => thHtml += `<th>${c.label}</th>`);
-            thHtml += '</tr>';
-            thead.innerHTML = thHtml;
-
-            // ตัวแปรเก็บผลรวม
-            const sums = {};
-            colsToShow.forEach(c => { if(c.sum) sums[c.key] = 0; });
-
-            // สร้าง Body (รายการตู้)
             tbody.innerHTML = '';
-            let totalTripAmt = 0;
+
+            let sumWeight = 0;
+            let sumTrip = 0;
+            let sumPort = 0;
+            let sumDeposit = 0;
+            let sumLift = 0;
+            let sumShore = 0;
+            let sumVatPort = 0;
+            let sumVatLift = 0;
+            let sumVatShore = 0;
+
+            const fmtMoney = (v) => Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+            const calcVat = (amt) => (Number(amt) > 0) ? (Number(amt) * 7 / 107) : 0;
 
             printData.forEach((row, idx) => {
-                let trHtml = '<tr>';
-                
-                colsToShow.forEach(c => {
-                    let val = '';
-                    if (c.key === 'no') val = idx + 1;
-                    else if (c.key === 'date') val = row.run_date ? row.run_date.split('T')[0] : '';
-                    else if (c.key === 'plate') val = row.leg1_plate || row.leg2_plate || '';
-                    else if (c.key === 'container') val = row.container_1_no || row.container_2_no || '';
-                    else if (c.key === 'size') val = row.container_size || '';
-                    else if (c.key === 'origin') val = row.origin || '';
-                    else if (c.key === 'dest') val = row.destination || '';
-                    else if (c.key === 'remark') val = row.billing_remark || '';
-                    else {
-                        // ดึงค่าการเงิน
-                        const amt = Number(row[c.key] || 0);
-                        if(c.sum) sums[c.key] += amt;
-                        val = amt > 0 ? amt.toLocaleString('en-US', {minimumFractionDigits: 2}) : '-';
-                    }
+                const weight = Number(row.gross_weight) || 0;
+                const trip = Number(row.trip_fee) || 0;
+                const port = Number(row.port_pass_fee) || 0;
+                const deposit = Number(row.deposit_fee) || 0;
+                const lift = Number(row.lift_fee) || 0;
+                const shore = Number(row.shore_fee) || 0;
 
-                    trHtml += `<td class="text-${c.align}">${val}</td>`;
-                });
-                
-                trHtml += '</tr>';
-                tbody.innerHTML += trHtml;
-                totalTripAmt += Number(row.trip_fee || 0);
+                const vatPort = calcVat(port);
+                const vatLift = calcVat(lift);
+                const vatShore = calcVat(shore);
+
+                sumWeight += weight;
+                sumTrip += trip;
+                sumPort += port;
+                sumDeposit += deposit;
+                sumLift += lift;
+                sumShore += shore;
+                sumVatPort += vatPort;
+                sumVatLift += vatLift;
+                sumVatShore += vatShore;
+
+                // แปลงวันที่สั้น D/M/YYYY
+                let dateStr = '-';
+                if(row.run_date) {
+                    const d = new Date(row.run_date);
+                    dateStr = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+                }
+
+                tbody.innerHTML += `
+                    <tr class="text-center">
+                        <td>${idx + 1}</td>
+                        <td>${dateStr}</td>
+                        <td class="font-bold">${row.plate || '-'}</td>
+                        <td class="font-bold text-left px-1">${row.container_1_no || row.container_2_no || '-'}</td>
+                        <td>${row.container_size || ''}</td>
+                        <td>${row.origin || ''}</td>
+                        <td>${row.destination || ''}</td>
+                        <td class="text-right px-1">${fmtMoney(weight)}</td>
+                        <td class="text-right px-1 font-bold">${fmtMoney(trip)}</td>
+                        <td class="text-right px-1">${fmtMoney(port)}</td>
+                        <td class="text-right px-1">${fmtMoney(deposit)}</td>
+                        <td class="text-right px-1">${fmtMoney(lift)}</td>
+                        <td class="text-right px-1">${fmtMoney(shore)}</td>
+                        <td class="text-right px-1 text-slate-700 bg-slate-50">${vatPort > 0 ? fmtMoney(vatPort) : '-'}</td>
+                        <td class="text-right px-1 text-slate-700 bg-slate-50">${vatLift > 0 ? fmtMoney(vatLift) : '-'}</td>
+                        <td class="text-right px-1 text-slate-700 bg-slate-50">${vatShore > 0 ? fmtMoney(vatShore) : '-'}</td>
+                        <td class="text-left px-1 text-[9.5px]">${row.billing_remark || row.price_type || 'รถร่วม เงินสด'}</td>
+                    </tr>
+                `;
             });
 
-            // อัปเดต Summary Table ด้านบน
-            document.getElementById('sum-qty').innerText = printData.length.toLocaleString('en-US', {minimumFractionDigits: 2});
-            const unitPrice = printData.length > 0 ? (totalTripAmt / printData.length) : 0;
-            document.getElementById('sum-unit-price').innerText = unitPrice.toLocaleString('en-US', {minimumFractionDigits: 2});
-            document.getElementById('sum-amount').innerText = totalTripAmt.toLocaleString('en-US', {minimumFractionDigits: 2});
-            
-            // สร้าง Footer (บรรทัด รวมทั้งสิ้น)
-            let tfHtml = '<tr>';
-            colsToShow.forEach((c, idx) => {
-                if (idx === 0) {
-                    // Span ให้ถึงก่อนคอลัมน์ผลรวม
-                    let emptyCols = colsToShow.findIndex(col => col.sum);
-                    if(emptyCols === -1) emptyCols = colsToShow.length - 1; // ถ้าไม่มีช่องผลรวมเลย
-                    
-                    if (emptyCols > 1) {
-                        tfHtml += `<td colspan="${emptyCols}" class="text-center font-bold">รวมทั้งสิ้น</td>`;
-                    } else {
-                        tfHtml += `<td class="text-center font-bold">รวม</td>`;
-                    }
-                }
-                
-                if (c.sum) {
-                    const total = sums[c.key];
-                    tfHtml += `<td class="text-right font-bold">${total > 0 ? total.toLocaleString('en-US', {minimumFractionDigits: 2}) : '-'}</td>`;
-                } else if (idx >= colsToShow.findIndex(col => col.sum) && colsToShow.findIndex(col => col.sum) !== -1) {
-                    // ช่องว่างหลังช่องผลรวม
-                    tfHtml += `<td></td>`;
-                }
-            });
-            tfHtml += '</tr>';
-            tfoot.innerHTML = tfHtml;
-        }
+            // อัปเดตตารางสรุปด้านบน
+            const totalQty = printData.length;
+            const unitPrice = totalQty > 0 ? (sumTrip / totalQty) : 0;
+            const totalArAmt = sumPort + sumDeposit + sumLift + sumShore;
 
-        // 3. กดบันทึกการตั้งค่าตาราง (เซฟลง DB)
-        async function applyAndSaveLayout() {
-            const checkboxes = document.querySelectorAll('.layout-cb');
-            activeColumns = [];
-            checkboxes.forEach(cb => { if(cb.checked) activeColumns.push(cb.value); });
-            
-            // Re-render ทันที
-            renderDetailTable();
-            document.getElementById('col-settings-modal').classList.add('hidden');
+            document.getElementById('sum-qty').innerText = totalQty.toFixed(2);
+            document.getElementById('sum-unit-price').innerText = unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 });
+            document.getElementById('sum-amount').innerText = sumTrip.toLocaleString('en-US', { minimumFractionDigits: 2 });
+            document.getElementById('sum-ar-total').innerText = totalArAmt.toLocaleString('en-US', { minimumFractionDigits: 2 });
 
-            // บันทึกยิง API
-            if(!currentCustomerId) return;
-            try {
-                await fetch('/api/billing/save-layout', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customer_id: currentCustomerId, layout: { columns: activeColumns } })
-                });
-            } catch(e) { console.error("Save layout failed", e); }
+            const totalVatAll = sumVatPort + sumVatLift + sumVatShore;
+
+            // แถวสรุปท้ายตาราง (รวมทั้งสิ้น)
+            tfoot.innerHTML = `
+                <tr class="font-bold">
+                    <td colspan="7" class="text-center font-bold">รวมทั้งสิ้น</td>
+                    <td class="text-right px-1">${fmtMoney(sumWeight)}</td>
+                    <td class="text-right px-1">${fmtMoney(sumTrip)}</td>
+                    <td class="text-right px-1">${fmtMoney(sumPort)}</td>
+                    <td class="text-right px-1">${fmtMoney(sumDeposit)}</td>
+                    <td class="text-right px-1">${fmtMoney(sumLift)}</td>
+                    <td class="text-right px-1">${fmtMoney(sumShore)}</td>
+                    <td class="text-right px-1 bg-slate-100">${fmtMoney(sumVatPort)}</td>
+                    <td class="text-right px-1 bg-slate-100">${fmtMoney(sumVatLift)}</td>
+                    <td class="text-right px-1 bg-slate-100">${fmtMoney(sumVatShore)}</td>
+                    <td class="text-right px-1 text-[10px] text-red-600 font-bold">${totalVatAll > 0 ? totalVatAll.toLocaleString('en-US', {minimumFractionDigits: 2}) : ''}</td>
+                </tr>
+            `;
         }
     </script>
 </body>

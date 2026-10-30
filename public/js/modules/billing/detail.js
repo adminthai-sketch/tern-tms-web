@@ -1,10 +1,13 @@
 let hotDetailInstance = null;
-let allRawShipments = [];       // ข้อมูลตู้ทั้งหมดในเดือน
-let filteredShipments = [];     // ข้อมูลตู้ที่ผ่านการกรอง
+let allRawShipments = [];       
+let filteredShipments = [];     
 
 window.addEventListener('DOMContentLoaded', async () => {
     const savedUser = localStorage.getItem('tms_user');
-    if (savedUser) document.getElementById('user-fullname').innerText = JSON.parse(savedUser).fullName || 'Admin';
+    if (savedUser) {
+        const u = JSON.parse(savedUser);
+        document.getElementById('user-fullname').innerText = u.fullName || u.username || 'Admin';
+    }
 
     const today = new Date();
     document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -23,7 +26,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 window.loadDetailData = async function() {
     const [year, month] = document.getElementById('filter-month').value.split('-');
-    document.getElementById('detail-loading-overlay').classList.remove('hidden');
+    const overlay = document.getElementById('detail-loading-overlay');
+    if (overlay) overlay.classList.remove('hidden');
 
     try {
         const res = await fetch(`/api/billing/shipments?year=${year}&month=${month}`);
@@ -31,7 +35,7 @@ window.loadDetailData = async function() {
         
         if (result.success && result.data) {
             allRawShipments = result.data.filter(i => i.order_id).map(item => {
-                item._selected = true; // ติ๊กเป็นค่าเริ่มต้น
+                item._selected = true; 
                 return item;
             });
             updateDetailFilterDropdowns();
@@ -44,11 +48,10 @@ window.loadDetailData = async function() {
         console.error(e); 
         initDetailGrid([]);
     } finally { 
-        document.getElementById('detail-loading-overlay').classList.add('hidden'); 
+        if (overlay) overlay.classList.add('hidden'); 
     }
 };
 
-// 🌟 Cross-Filtering สำหรับหน้า Detail
 window.handleCrossFilterDetail = function() {
     updateDetailFilterDropdowns();
     applyDetailFilter();
@@ -94,15 +97,14 @@ function applyDetailFilter() {
 
     if (filteredShipments.length > 0) {
         const first = filteredShipments[0];
-        document.getElementById('info-customer-name').innerText = first.full_customer_name || first.customer_name;
+        document.getElementById('info-customer-name').innerText = first.full_customer_name || first.customer_name || '-';
         document.getElementById('info-tax-id').innerText = first.tax_id || '-';
         document.getElementById('info-address').innerText = first.address || '-';
         
-        // ถ้ากรองเหลือ 1 Booking ดึงค่า IV/AR มาหยอดใส่ฟอร์ม
         if (b) {
             const hasIv = filteredShipments.find(s => s.iv_no);
             if (hasIv) {
-                document.getElementById('input-iv-no').value = hasIv.iv_no;
+                document.getElementById('input-iv-no').value = hasIv.iv_no || '';
                 document.getElementById('input-ar-no').value = hasIv.ar_no || '';
             }
         }
@@ -129,7 +131,6 @@ window.toggleSelectAll = function(isChecked) {
     calculateDetailSummary();
 };
 
-// 🌟 คำนวณสรุปยอดรวม ค่าขนส่ง + ค่าผ่านท่า/ฝาก/ยก/ชอร์
 window.calculateDetailSummary = function() {
     if (!hotDetailInstance) return;
     let selectedCount = 0;
@@ -137,7 +138,7 @@ window.calculateDetailSummary = function() {
     let sumOther = 0;
 
     hotDetailInstance.getSourceData().forEach(row => {
-        if (row._selected) { 
+        if (row._selected === true || row._selected === 'true' || row._selected == 1) { 
             selectedCount += 1; 
             sumTrip += (Number(row.trip_fee) || 0);
             sumOther += (Number(row.port_pass_fee) || 0) + 
@@ -150,11 +151,20 @@ window.calculateDetailSummary = function() {
 
     const grandTotal = sumTrip + sumOther;
 
-    document.getElementById('selected-containers-badge').innerText = `เลือกอยู่ ${selectedCount} ตู้`;
-    document.getElementById('sum-qty').innerText = selectedCount.toLocaleString();
-    document.getElementById('sum-trip-fee').innerText = sumTrip.toLocaleString('en-US', {minimumFractionDigits: 2});
-    document.getElementById('sum-other-fee').innerText = sumOther.toLocaleString('en-US', {minimumFractionDigits: 2});
-    document.getElementById('sum-grand-total').innerText = grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
+    const elBadge = document.getElementById('selected-containers-badge');
+    if (elBadge) elBadge.innerText = `เลือกอยู่ ${selectedCount} ตู้`;
+
+    const elQty = document.getElementById('sum-qty');
+    if (elQty) elQty.innerText = selectedCount.toLocaleString();
+
+    const elTrip = document.getElementById('sum-trip-fee');
+    if (elTrip) elTrip.innerText = sumTrip.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+    const elOther = document.getElementById('sum-other-fee');
+    if (elOther) elOther.innerText = sumOther.toLocaleString('en-US', {minimumFractionDigits: 2});
+
+    const elGrand = document.getElementById('sum-grand-total');
+    if (elGrand) elGrand.innerText = grandTotal.toLocaleString('en-US', {minimumFractionDigits: 2});
 };
 
 function initDetailGrid(data) {
@@ -193,12 +203,8 @@ function initDetailGrid(data) {
             { data: 'container_1_no', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-600 bg-slate-50' },
             { data: 'container_size', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
             { data: 'leg1_plate', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
-            
-            // เลข IV / AR แก้ไขได้เฉพาะแถว
             { data: 'iv_no', type: 'text', renderer: ivRenderer },
             { data: 'ar_no', type: 'text', className: 'htCenter htMiddle font-bold text-red-700 uppercase bg-white' },
-            
-            // การเงินและค่าใช้จ่ายสำรอง
             { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle font-bold text-emerald-700 bg-emerald-50/30' },
             { data: 'port_pass_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },
             { data: 'deposit_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },
@@ -215,23 +221,22 @@ function initDetailGrid(data) {
     });
 }
 
-// 🌟 บันทึกเลข IV / AR ลงเฉพาะตู้ที่ติ๊กเลือก [✔]
-window.applyBatchIvToSelected = async function() {
-    if (!hotDetailInstance) return;
-    const ivNo = document.getElementById('input-iv-no').value.trim();
-    const arNo = document.getElementById('input-ar-no').value.trim();
-    const billingDate = document.getElementById('input-billing-date').value;
-
-    const sourceData = hotDetailInstance.getSourceData();
-    const selectedRows = sourceData.filter(r => r._selected && r.order_id);
-
-    if (selectedRows.length === 0) {
-        alert('กรุณาติ๊กเลือกตู้อย่างน้อย 1 ตู้ที่ต้องการวางบิลครับ');
+// 🌟 ป้องกันปัญหาปุ่มไม่ตอบสนอง: ผูกทั้งสองชื่อเข้าฟังก์ชันเดียวกัน
+window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
+    if (!hotDetailInstance) {
+        alert('⚠️ ไม่พบข้อมูลตารางตู้');
         return;
     }
+    const ivNo = (document.getElementById('input-iv-no')?.value || '').trim();
+    const arNo = (document.getElementById('input-ar-no')?.value || '').trim();
+    const billingDate = document.getElementById('input-billing-date')?.value || '';
 
-    if (!ivNo) {
-        if (!confirm('คุณไม่ได้ระบุเลขที่ IV ต้องการบันทึกเป็นตู้รอวางบิล (ล้างเลข IV) ใช่หรือไม่?')) return;
+    const sourceData = hotDetailInstance.getSourceData() || [];
+    const selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
+
+    if (selectedRows.length === 0) {
+        alert('⚠️ กรุณาติ๊กเลือกตู้อย่างน้อย 1 ตู้ที่ต้องการวางบิลครับ');
+        return;
     }
 
     selectedRows.forEach(row => {
@@ -239,6 +244,9 @@ window.applyBatchIvToSelected = async function() {
         row.ar_no = arNo;
         row.billing_date = billingDate;
     });
+
+    const overlay = document.getElementById('detail-loading-overlay');
+    if (overlay) overlay.classList.remove('hidden');
 
     try {
         const res = await fetch('/api/billing/shipments', { 
@@ -248,18 +256,22 @@ window.applyBatchIvToSelected = async function() {
         });
         const result = await res.json();
         if (result.success) {
-            alert(`✅ บันทึกเลข IV: ${ivNo || 'ล้างเลข'} ให้กับตู้ที่เลือกจำนวน ${selectedRows.length} ตู้เรียบร้อย!`);
+            alert(`✅ บันทึกเลข IV: ${ivNo || 'ล้างเลข'} และ AR: ${arNo || 'ล้างเลข'} ให้กับตู้ที่เลือกจำนวน ${selectedRows.length} ตู้เรียบร้อย!`);
             hotDetailInstance.render();
             calculateDetailSummary();
+        } else {
+            alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));
         }
     } catch (err) {
-        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้');
+        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message);
+    } finally {
+        if (overlay) overlay.classList.add('hidden');
     }
 };
 
 window.printCurrentInvoice = function() {
-    const ivNo = document.getElementById('input-iv-no').value.trim();
-    const bookingNo = document.getElementById('select-booking-no').value.trim();
+    const ivNo = document.getElementById('input-iv-no')?.value.trim();
+    const bookingNo = document.getElementById('select-booking-no')?.value.trim();
 
     if (ivNo) window.open(`/print-invoice.html?iv=${encodeURIComponent(ivNo)}`, '_blank');
     else if (bookingNo) window.open(`/print-invoice.html?booking=${encodeURIComponent(bookingNo)}`, '_blank');

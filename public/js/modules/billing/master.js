@@ -5,13 +5,11 @@ let filteredMasterList = [];
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyBillingCSS();
-    
     const savedUser = localStorage.getItem('tms_user');
     if (savedUser) document.getElementById('user-fullname').innerText = JSON.parse(savedUser).fullName || 'Admin';
     
     const today = new Date();
     document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    
     await loadBillingMasterData();
 });
 
@@ -25,6 +23,7 @@ function applyBillingCSS() {
             .badge-pending { background-color: #fef2f2; color: #ef4444; border: 1px solid #fca5a5; padding: 1px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; }
             .badge-partial { background-color: #fffbeb; color: #d97706; border: 1px solid #fcd34d; padding: 1px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; }
             .badge-billed { background-color: #f0fdf4; color: #10b981; border: 1px solid #6ee7b7; padding: 1px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+            .iv-pill { display: inline-block; background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 1px 4px; border-radius: 4px; font-weight: 700; margin: 1px; font-size: 10px; }
         `;
         document.head.appendChild(style);
     }
@@ -35,8 +34,7 @@ window.loadBillingMasterData = async function() {
     if (!monthInput) return;
     const [year, month] = monthInput.split('-');
     
-    const overlay = document.getElementById('master-loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
+    document.getElementById('master-loading-overlay').classList.remove('hidden');
 
     try {
         const response = await fetch(`/api/billing/shipments?year=${year}&month=${month}`);
@@ -54,49 +52,59 @@ window.loadBillingMasterData = async function() {
                     bkMap[bk] = {
                         booking_no: bk, 
                         run_date: item.run_date ? String(item.run_date).split('T')[0] : '',
-                        customer_name: item.customer_name || item.full_customer_name || '-', 
+                        customer_name: item.customer_name || '-', 
                         origin: item.origin || '-', 
                         destination: item.destination || '-',
                         total_count: 0, 
                         billed_count: 0, 
                         total_amount: 0,
-                        iv_numbers: new Set(), 
-                        ar_numbers: new Set(), 
+                        billed_amount: 0,
+                        pending_amount: 0,
+                        iv_map: {}, // { "IV2026-001": [ตู้1, ตู้2] }
+                        ar_numbers: new Set(),
                         shipments: []
                     };
                 }
                 
-                // ถ้ารายการมี order_id ถือว่าจัดตู้แล้ว
                 if (item.order_id) {
                     bkMap[bk].total_count += 1;
-                    bkMap[bk].total_amount += (Number(item.trip_fee) || 0);
+                    const fee = Number(item.trip_fee) || 0;
+                    bkMap[bk].total_amount += fee;
                     
-                    // นับตู้ที่มีเลข IV แล้ว
                     if (item.iv_no && item.iv_no.trim() !== '') {
+                        const ivClean = item.iv_no.trim();
                         bkMap[bk].billed_count += 1;
-                        bkMap[bk].iv_numbers.add(item.iv_no.trim());
+                        bkMap[bk].billed_amount += fee;
+                        if (!bkMap[bk].iv_map[ivClean]) bkMap[bk].iv_map[ivClean] = [];
+                        bkMap[bk].iv_map[ivClean].push(item.container_1_no || item.order_id);
+                    } else {
+                        bkMap[bk].pending_amount += fee;
                     }
-                    if (item.ar_no && item.ar_no.trim() !== '') {
-                        bkMap[bk].ar_numbers.add(item.ar_no.trim());
-                    }
+                    
+                    if (item.ar_no && item.ar_no.trim() !== '') bkMap[bk].ar_numbers.add(item.ar_no.trim());
                 }
                 bkMap[bk].shipments.push(item);
             });
 
             masterBookingList = Object.values(bkMap).map(b => {
-                // คำนวณสถานะ
+                const pendingCount = b.total_count - b.billed_count;
+                b.pending_count = pendingCount;
+                
+                // คำนวณ Badge สถานะ
                 if (b.total_count === 0) b.billing_status = 'ยังไม่จัดตู้';
-                else if (b.billed_count === 0) b.billing_status = 'รอวางบิล';
-                else if (b.billed_count < b.total_count) b.billing_status = `วางบิลแล้ว ${b.billed_count}/${b.total_count} ตู้`;
-                else b.billing_status = `วางบิลครบ ${b.total_count}/${b.total_count} ตู้`;
+                else if (b.billed_count === 0) b.billing_status = `รอวางบิล (${b.total_count} ตู้)`;
+                else if (b.billed_count < b.total_count) b.billing_status = `วางบิลแล้ว ${b.billed_count}/${b.total_count} ตู้ (ค้าง ${pendingCount})`;
+                else b.billing_status = `วางบิลครบแล้ว (${b.total_count} ตู้)`;
 
-                b.disp_iv = Array.from(b.iv_numbers).join(', ');
+                // รวมชื่อ IV พร้อมบอกจำนวนตู้ในแต่ละ IV เช่น "IV-01 (2), IV-02 (1)"
+                b.disp_iv = Object.keys(b.iv_map).map(iv => `${iv} (${b.iv_map[iv].length} ตู้)`).join(', ');
                 b.disp_ar = Array.from(b.ar_numbers).join(', ');
                 
-                // กรณียังไม่มี order_id ให้ยึดตามหน้าสร้าง Booking ไปก่อน
+                // กรณียังไม่มี order_id ให้ fallback ตาม booking_count
                 if (b.total_count === 0 && b.shipments.length > 0) {
-                    b.total_count = Number(b.shipments[0].container_count) || 1;
+                    b.total_count = Number(b.shipments[0].booking_container_count) || 1;
                     b.total_amount = (Number(b.shipments[0].booking_trip_fee) || 0) * b.total_count;
+                    b.pending_amount = b.total_amount;
                 }
                 return b;
             });
@@ -110,29 +118,47 @@ window.loadBillingMasterData = async function() {
         console.error(err); 
         initMasterGrid([]);
     } finally { 
-        if (overlay) overlay.classList.add('hidden'); 
+        document.getElementById('master-loading-overlay').classList.add('hidden'); 
     }
 };
 
+// 🌟 Cross-Filtering สัมพันธ์กัน 3 ช่อง
+window.handleCrossFilter = function() {
+    updateMasterFilterDropdowns();
+    handleMasterFilter();
+};
+
 function updateMasterFilterDropdowns() {
+    const dVal = (document.getElementById('filter-run-date')?.value || '').trim();
+    const cVal = (document.getElementById('filter-customer')?.value || '').trim();
+    const bVal = (document.getElementById('filter-booking-no')?.value || '').trim();
+
     const dates = new Set(), custs = new Set(), books = new Set();
-    masterBookingList.forEach(i => {
-        if (i.run_date) dates.add(i.run_date);
-        if (i.customer_name) custs.add(i.customer_name.trim());
-        if (i.booking_no) books.add(i.booking_no.trim());
+
+    masterBookingList.forEach(item => {
+        const iD = item.run_date ? String(item.run_date).trim() : '';
+        const iC = item.customer_name ? String(item.customer_name).trim() : '';
+        const iB = item.booking_no ? String(item.booking_no).trim() : '';
+
+        if ((!cVal || iC === cVal) && (!bVal || iB === bVal) && iD) dates.add(iD);
+        if ((!dVal || iD === dVal) && (!bVal || iB === bVal) && iC && iC !== '-') custs.add(iC);
+        if ((!dVal || iD === dVal) && (!cVal || iC === cVal) && iB) books.add(iB);
     });
-    
-    const dlDate = document.getElementById('dl-run-date'), dlCust = document.getElementById('dl-customer'), dlBook = document.getElementById('dl-booking-no');
-    if(dlDate) { dlDate.innerHTML = ''; Array.from(dates).sort().forEach(v => dlDate.innerHTML += `<option value="${v}">`); }
-    if(dlCust) { dlCust.innerHTML = ''; Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`); }
-    if(dlBook) { dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`); }
+
+    const dlDate = document.getElementById('dl-run-date');
+    const dlCust = document.getElementById('dl-customer');
+    const dlBook = document.getElementById('dl-booking-no');
+
+    if (dlDate) { dlDate.innerHTML = ''; Array.from(dates).sort().forEach(v => dlDate.innerHTML += `<option value="${v}">`); }
+    if (dlCust) { dlCust.innerHTML = ''; Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`); }
+    if (dlBook) { dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`); }
 }
 
 window.handleMasterFilter = function() {
-    const d = document.getElementById('filter-run-date') ? document.getElementById('filter-run-date').value : '';
-    const c = document.getElementById('filter-customer') ? document.getElementById('filter-customer').value : '';
-    const b = document.getElementById('filter-booking-no') ? document.getElementById('filter-booking-no').value : '';
-    const searchTxt = document.getElementById('global-search') ? document.getElementById('global-search').value.toLowerCase().trim() : '';
+    const d = document.getElementById('filter-run-date')?.value || '';
+    const c = document.getElementById('filter-customer')?.value || '';
+    const b = document.getElementById('filter-booking-no')?.value || '';
+    const searchTxt = document.getElementById('global-search')?.value.toLowerCase().trim() || '';
 
     filteredMasterList = masterBookingList.filter(item => {
         return (!d || item.run_date === d) && 
@@ -147,19 +173,17 @@ window.handleMasterFilter = function() {
 
 window.clearMasterFilters = function() {
     ['filter-run-date', 'filter-customer', 'filter-booking-no', 'global-search'].forEach(id => {
-        if (document.getElementById(id)) document.getElementById(id).value = '';
+        const el = document.getElementById(id);
+        if (el) el.value = '';
     });
+    updateMasterFilterDropdowns();
     handleMasterFilter();
 };
 
 window.setQuickMasterFilter = function(type) {
-    if (type === 'all') {
-        filteredMasterList = [...masterBookingList];
-    } else if (type === 'pending') {
-        filteredMasterList = masterBookingList.filter(item => item.billed_count < item.total_count || item.total_count === 0);
-    } else if (type === 'billed') {
-        filteredMasterList = masterBookingList.filter(item => item.billed_count > 0);
-    }
+    if (type === 'all') filteredMasterList = [...masterBookingList];
+    else if (type === 'pending') filteredMasterList = masterBookingList.filter(item => item.pending_count > 0 || item.total_count === 0);
+    else if (type === 'billed') filteredMasterList = masterBookingList.filter(item => item.billed_count > 0);
     updateMasterKPI(filteredMasterList);
     initMasterGrid(filteredMasterList);
 };
@@ -169,28 +193,25 @@ function updateMasterKPI(dataList) {
     let billedBk = 0, billedCt = 0, billedAmt = 0;
     
     dataList.forEach(item => {
-        if (item.billed_count === 0 || item.billed_count < item.total_count) { 
+        if (item.pending_count > 0) { 
             pendingBk++; 
-            pendingCt += (item.total_count - item.billed_count); 
-            // ประมาณการเงินค้าง (เฉลี่ยต่อตู้)
-            const unitPrice = item.total_count > 0 ? (item.total_amount / item.total_count) : 0;
-            pendingAmt += (unitPrice * (item.total_count - item.billed_count)); 
+            pendingCt += item.pending_count; 
+            pendingAmt += item.pending_amount; 
         } 
         if (item.billed_count > 0) { 
             billedBk++; 
             billedCt += item.billed_count; 
-            const unitPrice = item.total_count > 0 ? (item.total_amount / item.total_count) : 0;
-            billedAmt += (unitPrice * item.billed_count); 
+            billedAmt += item.billed_amount; 
         }
     });
     
-    if(document.getElementById('stat-pending-bk')) document.getElementById('stat-pending-bk').innerText = `${pendingBk} Booking`;
-    if(document.getElementById('stat-pending-ct')) document.getElementById('stat-pending-ct').innerText = `${pendingCt} ตู้`;
-    if(document.getElementById('stat-pending-amt')) document.getElementById('stat-pending-amt').innerText = `${pendingAmt.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`;
+    document.getElementById('stat-pending-bk').innerText = `${pendingBk} Booking`;
+    document.getElementById('stat-pending-ct').innerText = `${pendingCt} ตู้`;
+    document.getElementById('stat-pending-amt').innerText = `${pendingAmt.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`;
     
-    if(document.getElementById('stat-billed-bk')) document.getElementById('stat-billed-bk').innerText = `${billedBk} Booking`;
-    if(document.getElementById('stat-billed-ct')) document.getElementById('stat-billed-ct').innerText = `${billedCt} ตู้`;
-    if(document.getElementById('stat-billed-amt')) document.getElementById('stat-billed-amt').innerText = `${billedAmt.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`;
+    document.getElementById('stat-billed-bk').innerText = `${billedBk} Booking`;
+    document.getElementById('stat-billed-ct').innerText = `${billedCt} ตู้`;
+    document.getElementById('stat-billed-amt').innerText = `${billedAmt.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`;
 }
 
 window.openBookingDetail = function(bookingNo) {
@@ -201,21 +222,21 @@ window.openBookingDetail = function(bookingNo) {
 function initMasterGrid(data) {
     const container = document.getElementById('master-grid-container');
     if (!container) return;
-    if (hotMasterInstance) { hotMasterInstance.destroy(); }
+    if (hotMasterInstance) hotMasterInstance.destroy();
 
     const bookingLinkRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         const valStr = value ? String(value) : '';
         if (valStr.includes('ไม่พบ')) { td.innerHTML = `<span class="text-slate-400 italic">${valStr}</span>`; return; }
         
-        td.innerHTML = valStr ? `
+        td.innerHTML = `
             <div class="flex items-center justify-between w-full h-full px-2">
                 <span class="font-bold text-purple-700">${valStr}</span>
-                <button onclick="openBookingDetail('${valStr}')" class="bg-purple-100 hover:bg-purple-600 text-purple-700 hover:text-white border border-purple-300 px-3 py-1 rounded text-[10px] font-bold transition-colors shadow-sm cursor-pointer">
+                <button onclick="openBookingDetail('${valStr}')" class="bg-purple-100 hover:bg-purple-600 text-purple-700 hover:text-white border border-purple-300 px-2 py-0.5 rounded text-[10px] font-bold transition-colors shadow-sm cursor-pointer">
                     เปิดวางบิล 🔍
                 </button>
             </div>
-        ` : '';
+        `;
     };
 
     const statusRenderer = function(instance, td, row, col, prop, value) {
@@ -227,63 +248,38 @@ function initMasterGrid(data) {
         else td.innerHTML = `<span class="badge-pending"><i class="fa-regular fa-clock"></i> ${value}</span>`; 
     };
 
+    const ivListRenderer = function(instance, td, row, col, prop, value) {
+        Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+        if (!value || value === '-') { td.innerHTML = '<span class="text-slate-300 italic text-[10px]">-</span>'; return; }
+        const ivs = String(value).split(', ');
+        td.innerHTML = ivs.map(iv => `<span class="iv-pill">${iv}</span>`).join(' ');
+    };
+
     const tableData = data.length > 0 ? data : [
-        { booking_no: 'ไม่พบรายการข้อมูล', billing_status: '-', run_date: '-', customer_name: '-', origin: '-', destination: '-', total_count: 0, total_amount: 0, disp_iv: '-', disp_ar: '-' }
+        { booking_no: 'ไม่พบรายการข้อมูล', billing_status: '-', run_date: '-', customer_name: '-', total_count: 0, pending_count: 0, disp_iv: '-', total_amount: 0, billed_amount: 0, pending_amount: 0 }
     ];
 
     hotMasterInstance = new Handsontable(container, {
         data: tableData,
         wordWrap: false, autoRowSize: false, rowHeights: 36, fixedColumnsLeft: 1,
-        colHeaders: ['Booking No. (กดปุ่มเพื่อเปิดบิล)', 'สถานะ', 'วันที่วิ่งงาน', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 'จำนวนตู้', 'ค่าบรรทุกรวม (บาท)', 'เลขที่ IV ✏️', 'เลขที่ AR ✏️'],
+        colHeaders: [
+            'Booking No.', 'สถานะการวางบิล', 'วันที่วิ่งงาน', 'ลูกค้า', 
+            'จำนวนตู้ทั้งหมด', 'ตู้ที่ยังค้าง', 'เลขที่ IV ที่ออกแล้ว (แยกตู้)', 
+            'ยอดรวมสุทธิ (บาท)', 'วางบิลแล้ว (บาท)', 'ยอดเงินคงค้าง (บาท)'
+        ],
         columns: [
             { data: 'booking_no', readOnly: true, className: 'htMiddle bg-slate-50', renderer: bookingLinkRenderer },
             { data: 'billing_status', type: 'text', readOnly: true, className: 'htCenter htMiddle bg-slate-50', renderer: statusRenderer },
             { data: 'run_date', type: 'text', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
             { data: 'customer_name', type: 'text', readOnly: true, className: 'font-bold text-slate-700 htMiddle bg-slate-50' },
-            { data: 'origin', type: 'text', readOnly: true, className: 'text-slate-500 htMiddle bg-slate-50' },
-            { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-500 htMiddle bg-slate-50' },
-            { data: 'total_count', type: 'numeric', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700 bg-slate-50' },
-            { data: 'total_amount', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-emerald-700 bg-slate-50' },
-            { data: 'disp_iv', type: 'text', className: 'htCenter htMiddle font-bold text-emerald-800 uppercase bg-white' },
-            { data: 'disp_ar', type: 'text', className: 'htCenter htMiddle font-bold text-red-700 uppercase bg-white' }
+            { data: 'total_count', type: 'numeric', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/20' },
+            { data: 'pending_count', type: 'numeric', readOnly: true, className: 'htCenter htMiddle font-bold text-red-600 bg-red-50/30' },
+            { data: 'disp_iv', readOnly: true, className: 'htLeft htMiddle bg-white', renderer: ivListRenderer },
+            { data: 'total_amount', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-slate-800' },
+            { data: 'billed_amount', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-emerald-700 bg-emerald-50/20' },
+            { data: 'pending_amount', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-red-600 bg-red-50/20' }
         ],
-        colWidths: [220, 110, 100, 180, 120, 120, 80, 140, 150, 150],
+        colWidths: [220, 150, 95, 160, 85, 80, 200, 110, 110, 110],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation'
     });
 }
-
-window.saveMasterBillingChanges = async function() {
-    if (!hotMasterInstance) return;
-    
-    const masterData = hotMasterInstance.getSourceData();
-    const dataToSave = [];
-    
-    masterData.forEach(bkRow => {
-        if (!bkRow || !bkRow.booking_no || bkRow.booking_no.includes('ไม่พบรายการ')) return;
-        const shipments = rawShipmentList.filter(s => s.booking_no === bkRow.booking_no);
-        shipments.forEach(s => {
-            if (bkRow.disp_iv !== undefined) s.iv_no = bkRow.disp_iv.trim();
-            if (bkRow.disp_ar !== undefined) s.ar_no = bkRow.disp_ar.trim();
-            dataToSave.push(s);
-        });
-    });
-
-    if (dataToSave.length === 0) return;
-
-    try {
-        const res = await fetch('/api/billing/shipments', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ data: dataToSave }) 
-        });
-        const result = await res.json();
-        if (result.success) { 
-            alert('✅ บันทึกเลข IV และ AR เรียบร้อยแล้ว!'); 
-            loadBillingMasterData(); 
-        } else {
-            alert('❌ เกิดข้อผิดพลาด: ' + result.message);
-        }
-    } catch (err) { 
-        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้'); 
-    }
-};

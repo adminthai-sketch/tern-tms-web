@@ -19,13 +19,13 @@
 </head>
 <body class="flex flex-col h-screen">
 
+    <!-- Header Navigation -->
     <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-6 shrink-0 shadow-sm z-50">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center text-sm shadow-sm"><i class="fa-solid fa-file-invoice-dollar"></i></div>
             <span class="font-bold text-lg text-slate-800">ระบบวางบิล & บัญชี</span>
             <div class="h-5 w-px bg-slate-300 mx-2"></div>
             
-            <!-- เมนูแท็บ -->
             <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs gap-1">
                 <a href="/billing.html" class="tab-btn-active px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-list-check"></i> 1. หน้ารายการ Booking</a>
                 <a href="/billing-detail.html" class="tab-btn-inactive px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-file-lines"></i> 2. รายละเอียดตู้/เปิดบิล</a>
@@ -37,12 +37,12 @@
         </div>
         
         <div class="flex items-center gap-4">
-            <div id="user-fullname" class="text-xs font-bold text-slate-700">Loading...</div>
+            <div id="user-fullname" class="text-xs font-bold text-slate-700">Admin</div>
             <button onclick="logout()" class="text-slate-400 hover:text-red-500 p-2"><i class="fa-solid fa-power-off"></i></button>
         </div>
     </header>
 
-    <!-- Toolbar (ตัวกรอง และ KPI) -->
+    <!-- Toolbar: Cross-Filtering & KPI -->
     <div class="bg-white border-b border-slate-200 px-6 py-2 shrink-0 shadow-sm z-40 flex flex-col gap-2">
         <div class="flex flex-wrap items-center gap-2 text-xs">
             <div class="flex items-center bg-slate-100 border border-slate-300 rounded-lg overflow-hidden h-8">
@@ -50,50 +50,46 @@
                 <input type="month" id="filter-month" onchange="loadBillingMasterData()" class="px-3 py-1 font-bold text-slate-700 bg-transparent outline-none cursor-pointer h-full">
             </div>
             
-            <input type="text" id="filter-run-date" list="dl-run-date" onchange="handleMasterFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-purple-400">
+            <input type="text" id="filter-run-date" list="dl-run-date" oninput="handleCrossFilter()" onchange="handleCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-purple-400">
             <datalist id="dl-run-date"></datalist>
 
-            <input type="text" id="filter-customer" list="dl-customer" onchange="handleMasterFilter()" placeholder="🏢 ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-purple-400">
+            <input type="text" id="filter-customer" list="dl-customer" oninput="handleCrossFilter()" onchange="handleCrossFilter()" placeholder="🏢 ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-purple-400">
             <datalist id="dl-customer"></datalist>
 
-            <input type="text" id="filter-booking-no" list="dl-booking-no" onchange="handleMasterFilter()" placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-40 focus:bg-white focus:border-purple-400">
+            <input type="text" id="filter-booking-no" list="dl-booking-no" oninput="handleCrossFilter()" onchange="handleCrossFilter()" placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-40 focus:bg-white focus:border-purple-400">
             <datalist id="dl-booking-no"></datalist>
 
             <div class="relative">
                 <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
-                <input type="text" id="global-search" onkeyup="handleMasterFilter()" placeholder="ค้นหารวม..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs outline-none bg-white h-8 w-48 focus:border-purple-400 shadow-sm">
+                <input type="text" id="global-search" onkeyup="handleMasterFilter()" placeholder="ค้นหาทั่วไป..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs outline-none bg-white h-8 w-44 focus:border-purple-400 shadow-sm">
             </div>
             <button onclick="clearMasterFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser"></i></button>
 
             <div class="flex-1"></div>
             <button onclick="saveMasterBillingChanges()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 h-8">
-                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล IV/AR
+                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลด่วน
             </button>
         </div>
         
-        <!-- KPI Summary (ยอดสรุป) -->
-        <div class="flex items-center gap-4 text-xs bg-slate-50 p-2 rounded border border-slate-200 shadow-inner">
-            <button onclick="setQuickMasterFilter('all')" class="font-bold text-slate-600 hover:text-purple-700"><i class="fa-solid fa-chart-pie mr-1"></i> สรุปยอด:</button>
-            <div onclick="setQuickMasterFilter('pending')" class="cursor-pointer flex gap-4 items-center bg-red-50 border border-red-200 px-3 py-1 rounded text-red-700 font-bold hover:bg-red-100 transition-colors">
-                <span class="text-[10px] uppercase text-red-500">รอวางบิล</span>
-                <div class="flex gap-3">
-                    <span id="stat-pending-bk">0 Booking</span>
-                    <span id="stat-pending-ct">0 ตู้</span>
-                    <span id="stat-pending-amt" class="text-sm">0.00 ฿</span>
-                </div>
+        <!-- KPI สรุปภาพรวม -->
+        <div class="flex items-center gap-4 text-xs bg-slate-50 p-2 rounded border border-slate-200">
+            <button onclick="setQuickMasterFilter('all')" class="font-bold text-slate-600 hover:text-purple-700"><i class="fa-solid fa-chart-pie mr-1 text-purple-600"></i> สรุปภาพรวม:</button>
+            <div onclick="setQuickMasterFilter('pending')" class="cursor-pointer flex gap-3 items-center bg-red-50 border border-red-200 px-3 py-1 rounded text-red-700 font-bold hover:bg-red-100 transition-colors">
+                <span class="text-[10px] uppercase text-red-500 bg-red-100 px-1.5 py-0.5 rounded">ค้างวางบิล</span>
+                <span id="stat-pending-bk">0 Booking</span>
+                <span id="stat-pending-ct">0 ตู้</span>
+                <span id="stat-pending-amt" class="text-sm text-red-600">0.00 ฿</span>
             </div>
-            <div onclick="setQuickMasterFilter('billed')" class="cursor-pointer flex gap-4 items-center bg-emerald-50 border border-emerald-200 px-3 py-1 rounded text-emerald-700 font-bold hover:bg-emerald-100 transition-colors">
-                <span class="text-[10px] uppercase text-emerald-500">วางบิลแล้ว</span>
-                <div class="flex gap-3">
-                    <span id="stat-billed-bk">0 Booking</span>
-                    <span id="stat-billed-ct">0 ตู้</span>
-                    <span id="stat-billed-amt" class="text-sm">0.00 ฿</span>
-                </div>
+            <div onclick="setQuickMasterFilter('billed')" class="cursor-pointer flex gap-3 items-center bg-emerald-50 border border-emerald-200 px-3 py-1 rounded text-emerald-700 font-bold hover:bg-emerald-100 transition-colors">
+                <span class="text-[10px] uppercase text-emerald-500 bg-emerald-100 px-1.5 py-0.5 rounded">วางบิลแล้ว</span>
+                <span id="stat-billed-bk">0 Booking</span>
+                <span id="stat-billed-ct">0 ตู้</span>
+                <span id="stat-billed-amt" class="text-sm text-emerald-600">0.00 ฿</span>
             </div>
         </div>
     </div>
 
-    <!-- พื้นที่ตาราง -->
+    <!-- Table Container -->
     <div class="flex-1 overflow-hidden relative p-4">
         <div id="master-loading-overlay" class="absolute inset-0 bg-white/80 z-50 flex flex-col items-center justify-center hidden">
             <div class="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-2"></div>

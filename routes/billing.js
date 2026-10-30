@@ -2,8 +2,13 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 
-// 1. ดึงข้อมูลสำหรับหน้าวางบิล (ทั้ง Master และ Detail)
+// 1. ดึงข้อมูลตู้และบิล (ใส่ Header ปิดแคช 100%)
 router.get('/shipments', async (req, res) => {
+    // 🌟 ป้องกัน Vercel และ Browser แคชข้อมูลเก่า
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
@@ -36,7 +41,8 @@ router.get('/shipments', async (req, res) => {
             FROM bookings b
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            LEFT JOIN financials f ON s.order_id = f.order_id
+            -- 🌟 เชื่อมโยงผ่าน ::text เพื่อความเข้ากันได้ของชนิดข้อมูล
+            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
             WHERE b.run_date BETWEEN $1 AND $2
             ORDER BY b.run_date DESC, b.booking_no ASC, s.order_id ASC
         `, [startDate, endDate]);
@@ -48,7 +54,7 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-// 2. บันทึกข้อมูลวางบิลรายตู้ (IV / AR / น้ำหนัก / ค่าขนส่ง และ คชจ.สำรองทั้งหมด)
+// 2. 🌟 บันทึกข้อมูลวางบิลรายตู้ (ใช้ ON CONFLICT บน order_id ที่เซ็ต UNIQUE แล้ว)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -58,6 +64,22 @@ router.post('/shipments', async (req, res) => {
         await client.query('BEGIN');
         for (const row of data) {
             if (!row.order_id) continue;
+
+            const params = [
+                row.order_id, 
+                row.gross_weight ? parseFloat(row.gross_weight) : 0,
+                row.ar_no ? String(row.ar_no).trim() : null, 
+                row.iv_no ? String(row.iv_no).trim() : null, 
+                row.billing_remark || null, 
+                row.billing_date || null,
+                row.trip_fee !== undefined && row.trip_fee !== null && row.trip_fee !== '' ? parseFloat(row.trip_fee) : null,
+                row.port_pass_fee !== undefined && row.port_pass_fee !== null && row.port_pass_fee !== '' ? parseFloat(row.port_pass_fee) : null,
+                row.deposit_fee !== undefined && row.deposit_fee !== null && row.deposit_fee !== '' ? parseFloat(row.deposit_fee) : null,
+                row.lift_fee !== undefined && row.lift_fee !== null && row.lift_fee !== '' ? parseFloat(row.lift_fee) : null,
+                row.shore_fee !== undefined && row.shore_fee !== null && row.shore_fee !== '' ? parseFloat(row.shore_fee) : null,
+                row.other_expense !== undefined && row.other_expense !== null && row.other_expense !== '' ? parseFloat(row.other_expense) : null
+            ];
+
             await client.query(`
                 INSERT INTO financials (
                     order_id, gross_weight, ar_no, iv_no, billing_remark, billing_date,
@@ -77,20 +99,7 @@ router.post('/shipments', async (req, res) => {
                     lift_fee = COALESCE(EXCLUDED.lift_fee, financials.lift_fee),
                     shore_fee = COALESCE(EXCLUDED.shore_fee, financials.shore_fee),
                     other_expense = COALESCE(EXCLUDED.other_expense, financials.other_expense)
-            `, [
-                row.order_id, 
-                row.gross_weight ? parseFloat(row.gross_weight) : 0,
-                row.ar_no ? String(row.ar_no).trim() : null, 
-                row.iv_no ? String(row.iv_no).trim() : null, 
-                row.billing_remark || null, 
-                row.billing_date || null,
-                row.trip_fee !== undefined ? parseFloat(row.trip_fee) : null,
-                row.port_pass_fee !== undefined ? parseFloat(row.port_pass_fee) : null,
-                row.deposit_fee !== undefined ? parseFloat(row.deposit_fee) : null,
-                row.lift_fee !== undefined ? parseFloat(row.lift_fee) : null,
-                row.shore_fee !== undefined ? parseFloat(row.shore_fee) : null,
-                row.other_expense !== undefined ? parseFloat(row.other_expense) : null
-            ]);
+            `, params);
         }
         await client.query('COMMIT');
         res.json({ success: true, message: 'บันทึกข้อมูลสำเร็จ' });
@@ -105,6 +114,7 @@ router.post('/shipments', async (req, res) => {
 
 // 3. ค้นหาตู้ตกค้าง / งานพิเศษที่ยังไม่ได้วางบิล 
 router.get('/unbilled-containers', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const { customer_id, run_date, booking_no } = req.query;
     if (!customer_id) return res.status(400).json({ success: false, message: 'ต้องระบุ customer_id' });
 
@@ -124,7 +134,7 @@ router.get('/unbilled-containers', async (req, res) => {
             FROM bookings b
             JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            LEFT JOIN financials f ON s.order_id = f.order_id
+            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
             WHERE b.customer_id = $1 AND (f.iv_no IS NULL OR TRIM(f.iv_no) = '')
         `;
         const params = [customer_id];
@@ -140,8 +150,9 @@ router.get('/unbilled-containers', async (req, res) => {
     }
 });
 
-// 4. สรุปรายการตามเลข IV (สำหรับหน้า IV List - ครอบ COALESCE ทุกช่องป้องกันผลรวมเป็น NULL)
+// 4. สรุปรายการตามเลข IV (สำหรับหน้า IV List)
 router.get('/iv-summary', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
 
@@ -175,7 +186,7 @@ router.get('/iv-summary', async (req, res) => {
                     COALESCE(f.other_expense::NUMERIC, 0)
                 ) AS grand_total
             FROM financials f
-            JOIN shipment_operations s ON f.order_id = s.order_id
+            JOIN shipment_operations s ON f.order_id::text = s.order_id::text
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             WHERE f.iv_no IS NOT NULL AND TRIM(f.iv_no) != '' AND b.run_date BETWEEN $1 AND $2
@@ -190,8 +201,9 @@ router.get('/iv-summary', async (req, res) => {
     }
 });
 
-// 5. ดึงข้อมูลสำหรับพิมพ์ใบแนบ A4 (รองรับทั้ง booking และ booking_no, iv และ iv_no)
+// 5. ดึงข้อมูลสำหรับพิมพ์ใบแนบ A4
 router.get('/print-data', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const bookingNo = req.query.booking_no || req.query.booking;
     const ivNo = req.query.iv_no || req.query.iv;
 
@@ -231,7 +243,7 @@ router.get('/print-data', async (req, res) => {
             FROM bookings b 
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no 
             LEFT JOIN customers c ON b.customer_id = c.id 
-            LEFT JOIN financials f ON s.order_id = f.order_id
+            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
             WHERE ${condition} 
             ORDER BY s.order_id ASC
         `, [param]);
@@ -243,7 +255,7 @@ router.get('/print-data', async (req, res) => {
     }
 });
 
-// 6. บันทึกการตั้งค่าคอลัมน์ใบแจ้งหนี้สำหรับลูกค้าแต่ละราย
+// 6. บันทึก Layout ใบแนบ
 router.post('/save-layout', async (req, res) => {
     const { customer_id, layout } = req.body;
     if (!customer_id) return res.status(400).json({ success: false, message: 'กรุณาระบุ customer_id' });

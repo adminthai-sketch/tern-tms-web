@@ -13,8 +13,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     document.getElementById('input-billing-date').value = today.toISOString().split('T')[0];
 
+    // 🌟 1. ดึง Booking จาก URL หรือที่เคยเลือกไว้ล่าสุด (ป้องกันรีเฟรชแล้วหลุด)
     const urlParams = new URLSearchParams(window.location.search);
-    const initialBooking = urlParams.get('booking');
+    const initialBooking = urlParams.get('booking') || localStorage.getItem('billing_active_booking');
 
     await loadDetailData();
 
@@ -24,18 +25,20 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// 🌟 2. ดึงข้อมูลสดใหม่ ป้องกัน Browser / Vercel Cache ด้วย Timestamp (_t)
 window.loadDetailData = async function() {
     const [year, month] = document.getElementById('filter-month').value.split('-');
     const overlay = document.getElementById('detail-loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
 
     try {
-        const res = await fetch(`/api/billing/shipments?year=${year}&month=${month}`);
+        const res = await fetch(`/api/billing/shipments?year=${year}&month=${month}&_t=${Date.now()}`);
         const result = await res.json();
         
         if (result.success && result.data) {
             allRawShipments = result.data.filter(i => i.order_id).map(item => {
-                item._selected = true; 
+                // คงสถานะติ๊กเลือกตู้ไว้
+                item._selected = item._selected !== undefined ? item._selected : true; 
                 return item;
             });
             updateDetailFilterDropdowns();
@@ -45,7 +48,7 @@ window.loadDetailData = async function() {
             initDetailGrid([]);
         }
     } catch(e) { 
-        console.error(e); 
+        console.error("LoadDetailData Error:", e); 
         initDetailGrid([]);
     } finally { 
         if (overlay) overlay.classList.add('hidden'); 
@@ -88,6 +91,12 @@ function applyDetailFilter() {
     const c = document.getElementById('filter-customer')?.value || '';
     const b = document.getElementById('select-booking-no')?.value || '';
 
+    // 🌟 จำ Booking ล่าสุดลง URL และ LocalStorage
+    if (b) {
+        localStorage.setItem('billing_active_booking', b);
+        window.history.replaceState(null, '', `?booking=${encodeURIComponent(b)}`);
+    }
+
     filteredShipments = allRawShipments.filter(item => {
         const iD = item.run_date ? String(item.run_date).split('T')[0] : '';
         const iC = item.customer_name ? String(item.customer_name).trim() : '';
@@ -101,11 +110,13 @@ function applyDetailFilter() {
         document.getElementById('info-tax-id').innerText = first.tax_id || '-';
         document.getElementById('info-address').innerText = first.address || '-';
         
-        if (b) {
-            const hasIv = filteredShipments.find(s => s.iv_no);
-            if (hasIv) {
-                document.getElementById('input-iv-no').value = hasIv.iv_no || '';
-                document.getElementById('input-ar-no').value = hasIv.ar_no || '';
+        // ดึงเลข IV / AR จากตู้ที่มีข้อมูลมาแสดงในกล่องข้างบน
+        const hasIv = filteredShipments.find(s => s.iv_no && String(s.iv_no).trim() !== '');
+        if (hasIv) {
+            document.getElementById('input-iv-no').value = hasIv.iv_no;
+            document.getElementById('input-ar-no').value = hasIv.ar_no || '';
+            if (hasIv.billing_date) {
+                document.getElementById('input-billing-date').value = String(hasIv.billing_date).split('T')[0];
             }
         }
     }
@@ -119,6 +130,8 @@ window.clearDetailFilters = function() {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
+    localStorage.removeItem('billing_active_booking');
+    window.history.replaceState(null, '', window.location.pathname);
     updateDetailFilterDropdowns();
     applyDetailFilter();
 };
@@ -177,9 +190,10 @@ function initDetailGrid(data) {
         td.style.fontWeight = 'bold';
         td.style.textAlign = 'center';
         td.style.verticalAlign = 'middle';
-        if (value) {
+        if (value && String(value).trim() !== '') {
             td.style.backgroundColor = '#ecfdf5';
             td.style.color = '#065f46';
+            td.innerText = value;
         } else {
             td.style.backgroundColor = '#fff1f2';
             td.style.color = '#be123c';
@@ -221,7 +235,7 @@ function initDetailGrid(data) {
     });
 }
 
-// 🌟 ป้องกันปัญหาปุ่มไม่ตอบสนอง: ผูกทั้งสองชื่อเข้าฟังก์ชันเดียวกัน
+// 🌟 3. ปรับฟังก์ชันบันทึก ไม่ให้ค่าว่างไปทับ และโหลดข้อมูลใหม่ทันทีหลังเซฟ
 window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
     if (!hotDetailInstance) {
         alert('⚠️ ไม่พบข้อมูลตารางตู้');
@@ -240,9 +254,10 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     }
 
     selectedRows.forEach(row => {
-        row.iv_no = ivNo;
-        row.ar_no = arNo;
-        row.billing_date = billingDate;
+        // ใช้ค่าจากกล่องข้างบน ถ้าไม่มีให้คงค่าเดิมที่อยู่ในตารางไว้
+        if (ivNo) row.iv_no = ivNo;
+        if (arNo) row.ar_no = arNo;
+        if (billingDate) row.billing_date = billingDate;
     });
 
     const overlay = document.getElementById('detail-loading-overlay');
@@ -256,9 +271,9 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         });
         const result = await res.json();
         if (result.success) {
-            alert(`✅ บันทึกเลข IV: ${ivNo || 'ล้างเลข'} และ AR: ${arNo || 'ล้างเลข'} ให้กับตู้ที่เลือกจำนวน ${selectedRows.length} ตู้เรียบร้อย!`);
-            hotDetailInstance.render();
-            calculateDetailSummary();
+            alert(`✅ บันทึกข้อมูล ${selectedRows.length} ตู้เรียบร้อย!`);
+            // 🌟 โหลดข้อมูลสดจากฐานข้อมูลทันที ไม่รอรีเฟรช
+            await loadDetailData();
         } else {
             alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));
         }

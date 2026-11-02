@@ -284,7 +284,7 @@ window.applyTopBoxToGrid = function() {
     }
 };
 
-// ปุ่ม "บันทึกข้อมูลตาราง (Save)"
+// 🌟 ปุ่ม "บันทึกข้อมูลตาราง (Save)" 
 window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
     if (!hotDetailInstance) {
         alert('⚠️ ไม่พบข้อมูลตารางตู้');
@@ -292,17 +292,22 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     }
 
     const sourceData = hotDetailInstance.getSourceData() || [];
+    
+    // 🌟 ดึงมาเฉพาะแถวที่ผู้ใช้ "ติ๊กถูก" เท่านั้น (เพื่อบอกว่าตั้งใจจะแก้ไขแถวพวกนี้)
     const selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
 
     if (selectedRows.length === 0) {
-        alert('⚠️ กรุณาติ๊กเลือกตู้อย่างน้อย 1 ตู้เพื่อบันทึกข้อมูลครับ');
+        alert('⚠️ กรุณาติ๊กเลือก [✔] หน้าตู้ที่ต้องการบันทึกข้อมูลครับ (ตู้ที่ไม่ติ๊ก จะไม่ถูกบันทึก)');
         return;
     }
 
     let hasCleared = false;
+    
+    // แปลงค่าว่างให้เป็น null ชัดเจนก่อนส่ง
     selectedRows.forEach(row => {
         if (row.iv_no !== undefined && row.iv_no !== null) {
             row.iv_no = String(row.iv_no).trim();
+            // 🌟 ถ้าผู้ใช้ลบข้อความในตารางจนว่างเปล่า ให้ส่งค่า null กลับไปเพื่อลบในฐานข้อมูล
             if (row.iv_no === '' || row.iv_no === 'รอออก IV' || row.iv_no.toLowerCase() === 'null') {
                 row.iv_no = null;
                 hasCleared = true;
@@ -321,7 +326,7 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     });
 
     if (hasCleared) {
-        if (!confirm('มีการลบเลข IV ในตารางออก ตู้ที่เลือกจะกลับสถานะเป็น "รอดำเนินการ" ยืนยันการบันทึกหรือไม่?')) return;
+        if (!confirm('มีตู้ที่ถูกลบเลข IV/AR ออก (เป็นช่องว่าง) ตู้เหล่านั้นจะถูกเคลียร์ค่าในระบบและกลับสู่สถานะ "รอดำเนินการ"\n\nยืนยันการบันทึกหรือไม่?')) return;
     }
 
     const overlay = document.getElementById('detail-loading-overlay');
@@ -331,11 +336,12 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         const res = await fetch('/api/billing/shipments', { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
+            // ส่งเฉพาะแถวที่ติ๊กเลือก ไปให้ Backend บันทึก
             body: JSON.stringify({ data: selectedRows }) 
         });
         const result = await res.json();
         if (result.success) {
-            alert(`✅ บันทึกข้อมูลตารางเรียบร้อย!`);
+            alert(`✅ บันทึกข้อมูล ${selectedRows.length} ตู้เรียบร้อย!`);
             await loadDetailData(); 
         } else {
             alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));

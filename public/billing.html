@@ -50,14 +50,20 @@
                 <input type="month" id="filter-month" onchange="loadBillingMasterData()" class="px-3 py-1 font-bold text-slate-700 bg-transparent outline-none cursor-pointer h-full">
             </div>
             
-            <!-- ผูก Event เป็น handleMasterCrossFilter ทั้งหมด -->
-            <input type="text" id="filter-run-date" list="dl-run-date" oninput="handleMasterCrossFilter()" onchange="handleMasterCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-purple-400">
+            <!-- ปิด autocomplete="off" เพื่อไม่ให้ Chrome จำประวัติเก่ามาแสดง -->
+            <input type="text" id="filter-run-date" list="dl-run-date" autocomplete="off"
+                   oninput="handleCrossFilter('date')" onchange="handleCrossFilter('date')" 
+                   placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-purple-400">
             <datalist id="dl-run-date"></datalist>
 
-            <input type="text" id="filter-customer" list="dl-customer" oninput="handleMasterCrossFilter()" onchange="handleMasterCrossFilter()" placeholder="🏢 ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-purple-400">
+            <input type="text" id="filter-customer" list="dl-customer" autocomplete="off"
+                   oninput="handleCrossFilter('customer')" onchange="handleCrossFilter('customer')" 
+                   placeholder="🏢 ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-purple-400">
             <datalist id="dl-customer"></datalist>
 
-            <input type="text" id="filter-booking-no" list="dl-booking-no" oninput="handleMasterCrossFilter()" onchange="handleMasterCrossFilter()" placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-40 focus:bg-white focus:border-purple-400">
+            <input type="text" id="filter-booking-no" list="dl-booking-no" autocomplete="off"
+                   oninput="handleCrossFilter('booking')" onchange="handleCrossFilter('booking')" 
+                   placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-40 focus:bg-white focus:border-purple-400">
             <datalist id="dl-booking-no"></datalist>
 
             <div class="relative">

@@ -119,13 +119,52 @@ window.loadBillingMasterData = async function() {
     }
 };
 
-// 🌟 1. ฟังก์ชันตัวกรอง (เรียกทุกครั้งที่มีการพิมพ์หรือเลือก)
-window.handleMasterCrossFilter = function() {
-    updateMasterFilterDropdowns(); // ตัดช้อยส์ตัวเลือกให้สัมพันธ์กัน
-    handleMasterFilter();          // กรองข้อมูลตาราง
+// 🌟 ตัวกรองอัจฉริยะแบบ 2 ทาง (ตัดช้อยส์และล้างค่าขัดแย้งอัตโนมัติ)
+window.handleCrossFilter = window.handleMasterCrossFilter = function(trigger) {
+    const elDate = document.getElementById('filter-run-date');
+    const elCust = document.getElementById('filter-customer');
+    const elBook = document.getElementById('filter-booking-no');
+
+    const dVal = (elDate?.value || '').trim();
+    const cVal = (elCust?.value || '').trim().toLowerCase();
+    const bVal = (elBook?.value || '').trim().toLowerCase();
+
+    // กรณี A: เลือก Booking -> ดึงลูกค้าและวันที่ของ Booking นั้นมาใส่ทันที
+    if (trigger === 'booking' && bVal) {
+        const found = masterBookingList.find(b => 
+            b.booking_no && b.booking_no.toLowerCase() === bVal
+        );
+        if (found) {
+            if (elCust && found.customer_name && found.customer_name !== '-') {
+                elCust.value = found.customer_name;
+            }
+            if (elDate && found.run_date) {
+                elDate.value = found.run_date;
+            }
+        }
+    }
+
+    // กรณี B: เปลี่ยนลูกค้าหรือวันที่ แล้ว Booking เดิมไม่ตรง -> ล้าง Booking ออกทันที
+    if ((trigger === 'customer' || trigger === 'date') && bVal) {
+        const stillValid = masterBookingList.some(item => {
+            const iD = item.run_date ? String(item.run_date).trim() : '';
+            const iC = item.customer_name ? String(item.customer_name).toLowerCase().trim() : '';
+            const iB = item.booking_no ? String(item.booking_no).toLowerCase().trim() : '';
+
+            const matchDate = !dVal || iD === dVal;
+            const matchCust = !cVal || iC.includes(cVal);
+            return matchDate && matchCust && (iB === bVal);
+        });
+
+        if (!stillValid && elBook) {
+            elBook.value = '';
+        }
+    }
+
+    updateMasterFilterDropdowns();
+    handleMasterFilter();
 };
 
-// 🌟 2. ตัวกรองอัจฉริยะ (ตัดช้อยส์ใน Dropdown ตามสิ่งที่เลือก)
 function updateMasterFilterDropdowns() {
     const dVal = (document.getElementById('filter-run-date')?.value || '').trim();
     const cVal = (document.getElementById('filter-customer')?.value || '').toLowerCase().trim();
@@ -142,22 +181,15 @@ function updateMasterFilterDropdowns() {
         const iB = item.booking_no ? String(item.booking_no).trim() : '';
         const iBLower = iB.toLowerCase();
 
-        // เช็คว่าแถวนี้ ตรงกับที่ผู้ใช้พิมพ์ค้นหาหรือไม่
         const matchDate = !dVal || iD === dVal;
-        const matchCust = !cVal || iCLower.includes(cVal) || iCLower === cVal;
-        const matchBook = !bVal || iBLower.includes(bVal) || iBLower === bVal;
+        const matchCust = !cVal || iCLower.includes(cVal);
+        const matchBook = !bVal || iBLower.includes(bVal);
 
-        // 1. ถ้าตรงกับ ลูกค้า และ Booking -> แสดงตัวเลือก "วันที่" ของงานนี้
         if (matchCust && matchBook && iD) dates.add(iD);
-
-        // 2. ถ้าตรงกับ วันที่ และ Booking -> แสดงตัวเลือก "ลูกค้า" ของงานนี้
         if (matchDate && matchBook && iC && iC !== '-') custs.add(iC);
-
-        // 3. ถ้าตรงกับ วันที่ และ ลูกค้า -> แสดงตัวเลือก "Booking" ของงานนี้
         if (matchDate && matchCust && iB) books.add(iB);
     });
 
-    // นำค่าที่กรองเหลือเฉพาะที่เกี่ยวข้อง ไปหยอดลงใน Datalist
     const dlDate = document.getElementById('dl-run-date');
     const dlCust = document.getElementById('dl-customer');
     const dlBook = document.getElementById('dl-booking-no');
@@ -176,7 +208,6 @@ function updateMasterFilterDropdowns() {
     }
 }
 
-// 🌟 3. กรองตาราง Handsontable และอัปเดต KPI ด้านบน
 window.handleMasterFilter = function() {
     const dVal = (document.getElementById('filter-run-date')?.value || '').trim();
     const cVal = (document.getElementById('filter-customer')?.value || '').toLowerCase().trim();
@@ -200,7 +231,6 @@ window.handleMasterFilter = function() {
     initMasterGrid(filteredMasterList);
 };
 
-// 🌟 4. ล้างตัวกรองทั้งหมด
 window.clearMasterFilters = function() {
     ['filter-run-date', 'filter-customer', 'filter-booking-no', 'global-search'].forEach(id => {
         const el = document.getElementById(id);

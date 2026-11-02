@@ -1,201 +1,99 @@
-let hotIvInstance = null;
-let allIvData = [];
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3. รายการ IV (ใบแจ้งหนี้) - TERN TMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] } } } }</script>
+    <link href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
+    <style>
+        body { font-family: 'Prompt', sans-serif; background-color: #f1f5f9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .tab-btn-active { background-color: #8b5cf6; color: white; font-weight: bold; border-color: #7c3aed; }
+        .tab-btn-inactive { background-color: #f1f5f9; color: #64748b; font-weight: 600; transition: all 0.2s; }
+        .tab-btn-inactive:hover { background-color: #e2e8f0; color: #334155; }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
 
-window.addEventListener('DOMContentLoaded', async () => {
-    const savedUser = localStorage.getItem('tms_user');
-    if (savedUser) {
-        const u = JSON.parse(savedUser);
-        document.getElementById('user-fullname').innerText = u.fullName || u.username || 'Admin';
-    }
+    <!-- Header Navigation -->
+    <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-6 shrink-0 shadow-sm z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center text-sm shadow-sm"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+            <span class="font-bold text-lg text-slate-800">ระบบวางบิล & บัญชี</span>
+            <div class="h-5 w-px bg-slate-300 mx-2"></div>
+            
+            <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs gap-1">
+                <a href="/billing.html" class="tab-btn-inactive px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-list-check"></i> 1. หน้ารายการ Booking</a>
+                <a href="/billing-detail.html" class="tab-btn-inactive px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-table-list"></i> 2. บันทึกข้อมูลตู้ (Data Entry)</a>
+                <a href="/billing-iv.html" class="tab-btn-active px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-receipt"></i> 3. รายการ IV (ใบแจ้งหนี้)</a>
+            </div>
+            <div class="h-5 w-px bg-slate-300 mx-2"></div>
+            <a href="/index.html" class="text-slate-500 hover:text-slate-800 font-semibold text-xs flex items-center gap-1"><i class="fa-solid fa-house"></i> หน้าแรก</a>
+        </div>
+        <div class="flex items-center gap-4">
+            <div id="user-fullname" class="text-xs font-bold text-slate-700">Loading...</div>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-500 p-2"><i class="fa-solid fa-power-off"></i></button>
+        </div>
+    </header>
 
-    const today = new Date();
-    document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    
-    await loadIvData();
-});
+    <!-- Filter Bar -->
+    <div class="bg-white border-b border-slate-200 px-6 py-2 shrink-0 shadow-sm z-40 flex flex-wrap items-center gap-2 text-xs justify-between">
+        <div class="flex items-center gap-2">
+            <div class="flex items-center bg-slate-100 border border-slate-300 rounded-lg overflow-hidden h-8">
+                <div class="px-3 py-1 bg-slate-200 border-r border-slate-300 text-slate-600 font-bold flex items-center h-full"><i class="fa-regular fa-calendar-check text-purple-600 mr-1"></i> เดือน:</div>
+                <input type="month" id="filter-month" onchange="loadIvData()" class="px-3 py-1 font-bold text-slate-700 bg-transparent outline-none cursor-pointer h-full">
+            </div>
+            <input type="text" id="filter-customer" placeholder="🏢 ค้นหาลูกค้า..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-48 focus:bg-white focus:border-purple-400">
+            <select id="filter-status" onchange="filterIvGrid()" class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 focus:bg-white focus:border-purple-400 font-semibold">
+                <option value="">-- ทุกสถานะบิล --</option>
+                <option value="รอวางบิล">🟡 รอวางบิล</option>
+                <option value="วางบิลแล้ว">🔵 วางบิลแล้ว</option>
+                <option value="รับชำระแล้ว">🟢 รับชำระแล้ว</option>
+                <option value="ยกเลิก">🔴 ยกเลิก</option>
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="saveIvChanges()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded shadow text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลตาราง
+            </button>
+        </div>
+    </div>
 
-window.loadIvData = async function() {
-    const [year, month] = document.getElementById('filter-month').value.split('-');
-    const overlay = document.getElementById('iv-loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
+    <!-- Summary Box -->
+    <div class="px-6 py-3 shrink-0 flex gap-4">
+        <div class="bg-white px-5 py-2.5 rounded-xl shadow-sm border border-slate-200 flex-1 flex justify-between items-center">
+            <div>
+                <div class="text-[10px] text-slate-400 font-bold tracking-wide">จำนวนใบแจ้งหนี้รวม</div>
+                <div class="text-xl font-bold text-slate-700"><span id="sum-iv-count">0</span> <span class="text-xs font-normal text-slate-500">บิล</span></div>
+            </div>
+            <div class="w-px h-8 bg-slate-200"></div>
+            <div>
+                <div class="text-[10px] text-slate-400 font-bold tracking-wide">ยอดหนี้ค้างชำระ (รอวางบิล + วางบิลแล้ว)</div>
+                <div class="text-xl font-bold text-blue-600"><span id="sum-pending-amt">0.00</span> <span class="text-xs font-normal text-slate-500">บาท</span></div>
+            </div>
+            <div class="w-px h-8 bg-slate-200"></div>
+            <div>
+                <div class="text-[10px] text-slate-400 font-bold tracking-wide">ยอดรับชำระเงินแล้ว (Paid)</div>
+                <div class="text-xl font-bold text-emerald-600"><span id="sum-paid-amt">0.00</span> <span class="text-xs font-normal text-slate-500">บาท</span></div>
+            </div>
+        </div>
+    </div>
 
-    try {
-        const res = await fetch(`/api/billing/iv-summary?year=${year}&month=${month}&_t=${Date.now()}`);
-        const result = await res.json();
-        
-        if (result.success && result.data) {
-            allIvData = result.data.map(item => {
-                if (!item.billing_status || item.billing_status === 'รอดำเนินการ') {
-                    item.billing_status = item.billing_date ? 'วางบิลแล้ว' : 'รอวางบิล';
-                }
-                if (item.billing_date) item.billing_date = String(item.billing_date).split('T')[0];
-                if (item.payment_date) item.payment_date = String(item.payment_date).split('T')[0];
-                return item;
-            });
-            filterIvGrid();
-        } else {
-            allIvData = [];
-            initIvGrid([]);
-        }
-    } catch(e) { 
-        console.error("Load IV Error:", e); 
-        initIvGrid([]);
-    } finally { 
-        if (overlay) overlay.classList.add('hidden'); 
-    }
-};
+    <!-- Main Grid -->
+    <div class="flex-1 flex flex-col p-6 pt-0">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-2 flex-1 flex flex-col relative">
+            <div id="iv-loading-overlay" class="absolute inset-0 bg-white/80 z-50 flex items-center justify-center hidden backdrop-blur-sm rounded-xl">
+                <i class="fa-solid fa-spinner fa-spin text-3xl text-purple-600"></i>
+            </div>
+            <div id="iv-grid-container" class="flex-1 w-full rounded"></div>
+        </div>
+    </div>
 
-window.filterIvGrid = function() {
-    const cust = (document.getElementById('filter-customer')?.value || '').toLowerCase();
-    const stat = document.getElementById('filter-status')?.value || '';
-
-    const filtered = allIvData.filter(i => {
-        const cName = String(i.customer_name || '').toLowerCase();
-        const matchCust = !cust || cName.includes(cust);
-        const matchStat = !stat || i.billing_status === stat;
-        return matchCust && matchStat;
-    });
-
-    initIvGrid(filtered);
-    calculateIvSummary(filtered);
-};
-
-window.calculateIvSummary = function(data) {
-    let pendingAmt = 0;
-    let paidAmt = 0;
-
-    data.forEach(r => {
-        const amt = Number(r.grand_total) || 0;
-        if (r.billing_status === 'รับชำระแล้ว') {
-            paidAmt += amt;
-        } else if (r.billing_status !== 'ยกเลิก') {
-            pendingAmt += amt;
-        }
-    });
-
-    document.getElementById('sum-iv-count').innerText = data.length.toLocaleString();
-    document.getElementById('sum-pending-amt').innerText = pendingAmt.toLocaleString('en-US', {minimumFractionDigits: 2});
-    document.getElementById('sum-paid-amt').innerText = paidAmt.toLocaleString('en-US', {minimumFractionDigits: 2});
-};
-
-function initIvGrid(data) {
-    const container = document.getElementById('iv-grid-container');
-    if (!container) return;
-    if (hotIvInstance) hotIvInstance.destroy();
-
-    const statusRenderer = function(instance, td, row, col, prop, value) {
-        Handsontable.renderers.DropdownRenderer.apply(this, arguments);
-        td.style.fontWeight = 'bold';
-        td.style.textAlign = 'center';
-        td.style.verticalAlign = 'middle';
-        
-        if (value === 'รอวางบิล') { td.style.color = '#ca8a04'; td.style.backgroundColor = '#fefce8'; }
-        else if (value === 'วางบิลแล้ว') { td.style.color = '#2563eb'; td.style.backgroundColor = '#eff6ff'; }
-        else if (value === 'รับชำระแล้ว') { td.style.color = '#16a34a'; td.style.backgroundColor = '#f0fdf4'; }
-        else if (value === 'ยกเลิก') { td.style.color = '#dc2626'; td.style.backgroundColor = '#fef2f2'; td.style.textDecoration = 'line-through'; }
-    };
-
-    // ปุ่มเปิดดูรายละเอียดหน้า 4
-    const actionRenderer = function(instance, td, row, col, prop, value) {
-        td.innerHTML = '';
-        const ivNo = instance.getDataAtRowProp(row, 'iv_no');
-        if (ivNo) {
-            const btn = document.createElement('button');
-            btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i> รายละเอียด';
-            btn.className = 'bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold px-2 py-1 rounded text-[11px] transition-colors border border-purple-300';
-            btn.onclick = () => window.location.href = `/billing-iv-detail.html?iv=${encodeURIComponent(ivNo)}`;
-            td.appendChild(btn);
-        }
-        td.style.textAlign = 'center';
-        td.style.verticalAlign = 'middle';
-    };
-
-    // ปุ่มพิมพ์ด่วน
-    const printRenderer = function(instance, td, row, col, prop, value) {
-        td.innerHTML = '';
-        const ivNo = instance.getDataAtRowProp(row, 'iv_no');
-        if (ivNo) {
-            const btn = document.createElement('button');
-            btn.innerHTML = '<i class="fa-solid fa-print"></i>';
-            btn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded text-xs transition-colors border border-slate-300';
-            btn.title = 'พิมพ์ใบแนบ A4 ทันที';
-            btn.onclick = () => window.open(`/print-invoice.html?iv=${encodeURIComponent(ivNo)}`, '_blank');
-            td.appendChild(btn);
-        }
-        td.style.textAlign = 'center';
-        td.style.verticalAlign = 'middle';
-    };
-
-    hotIvInstance = new Handsontable(container, {
-        data: data.length > 0 ? data : [{}],
-        wordWrap: false, autoRowSize: false, rowHeights: 32, fixedColumnsLeft: 3,
-        colHeaders: [
-            'จัดการ', 'พิมพ์', 'เลขที่ IV (Invoice)', 'ลูกค้า', 'รวมตู้', 'ยอดรวมสุทธิ (บาท)', 
-            'สถานะบิล', 'วันที่วางบิล', 'วันที่รับเงิน (Paid)', 'เลขที่ใบเสร็จ (RV)', 'หมายเหตุบัญชี'
-        ],
-        columns: [
-            { data: 'action_btn', renderer: actionRenderer, readOnly: true },
-            { data: 'print_btn', renderer: printRenderer, readOnly: true },
-            { data: 'iv_no', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700 bg-slate-50' },
-            { data: 'customer_name', readOnly: true, className: 'htLeft htMiddle font-bold bg-slate-50' },
-            { data: 'total_containers', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
-            { data: 'grand_total', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-slate-800 bg-slate-100' },
-            { 
-                data: 'billing_status', type: 'dropdown', 
-                source: ['รอวางบิล', 'วางบิลแล้ว', 'รับชำระแล้ว', 'ยกเลิก'], 
-                renderer: statusRenderer 
-            },
-            { data: 'billing_date', type: 'date', dateFormat: 'YYYY-MM-DD', correctFormat: true, className: 'htCenter htMiddle' },
-            { data: 'payment_date', type: 'date', dateFormat: 'YYYY-MM-DD', correctFormat: true, className: 'htCenter htMiddle text-emerald-700 font-bold bg-emerald-50/30' },
-            { data: 'receipt_no', type: 'text', className: 'htCenter htMiddle uppercase' },
-            { data: 'account_remark', type: 'text', className: 'htLeft htMiddle' }
-        ],
-        colWidths: [95, 45, 130, 180, 55, 120, 110, 100, 110, 110, 180],
-        rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation',
-        afterChange: function(changes, src) {
-            if (src !== 'loadData' && changes) {
-                changes.forEach(([row, prop, oldVal, newVal]) => {
-                    const rowData = this.getSourceDataAtRow(row);
-                    if (prop === 'billing_date' && newVal && rowData.billing_status === 'รอวางบิล') {
-                        this.setDataAtRowProp(row, 'billing_status', 'วางบิลแล้ว', 'auto');
-                    }
-                    if (prop === 'payment_date' && newVal && rowData.billing_status !== 'รับชำระแล้ว') {
-                        this.setDataAtRowProp(row, 'billing_status', 'รับชำระแล้ว', 'auto');
-                    }
-                });
-                calculateIvSummary(this.getSourceData());
-            }
-        }
-    });
-}
-
-window.saveIvChanges = async function() {
-    if (!hotIvInstance) return;
-    const sourceData = hotIvInstance.getSourceData().filter(r => r.iv_no);
-
-    if (sourceData.length === 0) {
-        alert('⚠️ ไม่มีข้อมูลให้บันทึก'); return;
-    }
-
-    const overlay = document.getElementById('iv-loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
-
-    try {
-        const res = await fetch('/api/billing/update-iv', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ data: sourceData }) 
-        });
-        const result = await res.json();
-        if (result.success) {
-            alert(`✅ บันทึกสถานะบัญชีเรียบร้อย!`);
-            await loadIvData(); 
-        } else {
-            alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));
-        }
-    } catch (err) {
-        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message);
-    } finally {
-        if (overlay) overlay.classList.add('hidden');
-    }
-};
+    <script src="/js/modules/billing/iv.js"></script>
+    <script>function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }</script>
+</body>
+</html>

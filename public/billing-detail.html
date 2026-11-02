@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายละเอียดตู้/จัดกลุ่มบิล - TERN TMS</title>
+    <title>รายละเอียดตู้ (บันทึกข้อมูล) - TERN TMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -27,7 +27,7 @@
             
             <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs gap-1">
                 <a href="/billing.html" class="tab-btn-inactive px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-list-check"></i> 1. หน้ารายการ Booking</a>
-                <a href="/billing-detail.html" class="tab-btn-active px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-file-lines"></i> 2. รายละเอียดตู้/จัดกลุ่มบิล</a>
+                <a href="/billing-detail.html" class="tab-btn-active px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-table-list"></i> 2. บันทึกข้อมูลตู้ (Data Entry)</a>
                 <a href="/billing-iv.html" class="tab-btn-inactive px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-receipt"></i> 3. รายการ IV (ใบแจ้งหนี้)</a>
             </div>
             <div class="h-5 w-px bg-slate-300 mx-2"></div>
@@ -54,80 +54,50 @@
     </div>
 
     <div class="flex-1 flex flex-col overflow-y-auto p-4 space-y-3">
+        
+        <!-- ตารางสรุปยอด -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 shrink-0">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="space-y-1.5">
-                    <div class="flex items-center gap-2 text-purple-700 font-bold text-xs border-b pb-1.5"><i class="fa-solid fa-building"></i> ข้อมูลลูกค้า & บุคกิ้ง</div>
-                    <div class="grid grid-cols-2 gap-2 text-xs pt-1">
-                        <div><span class="text-slate-400 font-medium">ลูกค้า:</span> <strong id="info-customer-name" class="text-slate-800 font-bold">-</strong></div>
-                        <div><span class="text-slate-400 font-medium">เลขภาษี:</span> <strong id="info-tax-id" class="text-slate-700">-</strong></div>
-                        <div class="col-span-2"><span class="text-slate-400 font-medium">ที่อยู่:</span> <span id="info-address" class="text-slate-600">-</span></div>
-                    </div>
-                </div>
-
-                <!-- 🌟 เอาช่องวันที่ออก เปลี่ยนโครงสร้างเป็น 3 คอลัมน์ -->
-                <div class="bg-purple-50/50 rounded-lg p-3 border border-purple-200 space-y-2 text-xs">
-                    <div class="flex justify-between items-center border-b border-purple-200 pb-1.5">
-                        <span class="font-bold text-purple-900"><i class="fa-solid fa-file-pen mr-1"></i> กำหนดกลุ่มเลข IV / AR (ตัวช่วยกรอก)</span>
-                        <span id="selected-containers-badge" class="font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded text-[11px]">เลือกอยู่ 0 ตู้</span>
-                    </div>
-                    <div class="grid grid-cols-3 gap-3 pt-1 items-end">
-                        <div>
-                            <label class="text-[11px] font-bold text-emerald-800 block mb-1">เลขที่ IV:</label>
-                            <input type="text" id="input-iv-no" placeholder="เช่น IV2026-003914" class="w-full border border-emerald-300 rounded px-2 py-1.5 font-bold text-emerald-800 uppercase outline-none bg-white">
-                        </div>
-                        <div>
-                            <label class="text-[11px] font-bold text-red-700 block mb-1">เลขที่ AR:</label>
-                            <input type="text" id="input-ar-no" placeholder="เช่น AR2026-002595" class="w-full border border-red-300 rounded px-2 py-1.5 font-bold text-red-700 uppercase outline-none bg-white">
-                        </div>
-                        <div>
-                            <button onclick="applyTopBoxToGrid()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-1.5 rounded transition-colors shadow-sm text-[11px] flex items-center justify-center gap-1">
-                                <i class="fa-solid fa-arrow-down-long"></i> นำเลขใส่ตู้ที่เลือก
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div class="flex items-center justify-between text-purple-700 font-bold text-xs border-b pb-2 mb-3">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-calculator"></i> สรุปยอดรวมค่าใช้จ่าย (เฉพาะตู้ที่ติ๊กถูก)</span>
+                <span id="selected-containers-badge" class="font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded text-[11px]">เลือกอยู่ 0 ตู้</span>
             </div>
-
-            <div class="mt-3 pt-3 border-t border-slate-200">
-                <table class="w-full text-xs border-collapse border border-slate-300">
-                    <tr class="bg-slate-100 text-slate-700 font-bold text-center">
-                        <th class="border border-slate-300 py-1.5 px-3 text-left">รายการ</th>
-                        <th class="border border-slate-300 py-1.5 px-3 w-28">จำนวนตู้</th>
-                        <th class="border border-slate-300 py-1.5 px-3 w-36">รวมค่าบรรทุก</th>
-                        <th class="border border-slate-300 py-1.5 px-3 w-40">รวม คชจ.สำรอง (ผ่านท่า/ฝาก/ยก/ชอร์)</th>
-                        <th class="border border-slate-300 py-1.5 px-3 w-40">รวมยอดเงินสุทธิ (บาท)</th>
-                    </tr>
-                    <tr class="font-bold text-slate-800">
-                        <td class="border border-slate-300 py-1.5 px-3 text-slate-500 font-normal">คำนวณเฉพาะตู้ที่ติ๊กเลือก [✔]</td>
-                        <td id="sum-qty" class="border border-slate-300 py-1.5 px-3 text-center text-blue-700 font-bold text-sm">0</td>
-                        <td id="sum-trip-fee" class="border border-slate-300 py-1.5 px-3 text-right text-emerald-700 font-bold text-sm">0.00</td>
-                        <td id="sum-other-fee" class="border border-slate-300 py-1.5 px-3 text-right text-amber-700 font-bold text-sm">0.00</td>
-                        <td id="sum-grand-total" class="border border-slate-300 py-1.5 px-3 text-right text-purple-700 font-bold text-base bg-purple-50">0.00</td>
-                    </tr>
-                </table>
-            </div>
+            <table class="w-full text-xs border-collapse border border-slate-300">
+                <tr class="bg-slate-100 text-slate-700 font-bold text-center">
+                    <th class="border border-slate-300 py-1.5 px-3 w-28">จำนวนตู้</th>
+                    <th class="border border-slate-300 py-1.5 px-3 w-36">รวมค่าบรรทุก</th>
+                    <th class="border border-slate-300 py-1.5 px-3 w-40">รวม คชจ.สำรอง (ผ่านท่า/ฝาก/ยก/ชอร์)</th>
+                    <th class="border border-slate-300 py-1.5 px-3 w-40 text-purple-700 bg-purple-50">รวมยอดเงินสุทธิ (บาท)</th>
+                </tr>
+                <tr class="font-bold text-slate-800">
+                    <td id="sum-qty" class="border border-slate-300 py-2 px-3 text-center text-blue-700 font-bold text-base">0</td>
+                    <td id="sum-trip-fee" class="border border-slate-300 py-2 px-3 text-right text-emerald-700 font-bold text-sm">0.00</td>
+                    <td id="sum-other-fee" class="border border-slate-300 py-2 px-3 text-right text-amber-700 font-bold text-sm">0.00</td>
+                    <td id="sum-grand-total" class="border border-slate-300 py-2 px-3 text-right text-purple-700 font-bold text-lg bg-purple-50">0.00</td>
+                </tr>
+            </table>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col h-[460px] relative shrink-0">
-            <div id="detail-loading-overlay" class="absolute inset-0 bg-white/80 z-50 flex items-center justify-center hidden backdrop-blur-sm">
+        <!-- ตาราง Grid (ขยายใหญ่ขึ้น) -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col flex-1 min-h-[500px] relative shrink-0">
+            <div id="detail-loading-overlay" class="absolute inset-0 bg-white/80 z-50 flex items-center justify-center hidden backdrop-blur-sm rounded-xl">
                 <i class="fa-solid fa-spinner fa-spin text-3xl text-purple-600"></i>
             </div>
             <div class="text-xs font-bold text-slate-600 mb-2 flex justify-between items-center">
                 <div class="flex items-center gap-2">
-                    <span><i class="fa-solid fa-boxes-stacked text-purple-600"></i> รายการตู้คอนเทนเนอร์</span>
+                    <span><i class="fa-solid fa-boxes-stacked text-purple-600"></i> บันทึกข้อมูลรายการตู้คอนเทนเนอร์ (Data Entry)</span>
                     <button onclick="toggleSelectAll(true)" class="text-blue-600 hover:underline text-[11px] ml-2">เลือกทั้งหมด</button>
                     <span class="text-slate-300">|</span>
                     <button onclick="toggleSelectAll(false)" class="text-slate-500 hover:underline text-[11px]">ไม่เลือกเลย</button>
-                    <button onclick="openUnbilledModal()" class="ml-4 bg-amber-500 hover:bg-amber-600 text-white font-bold px-2 py-1 rounded shadow text-[10px]"><i class="fa-solid fa-plus-circle"></i> ดึงตู้ตกค้างเข้า IV นี้ (ข้าม Booking)</button>
+                    <button onclick="openUnbilledModal()" class="ml-4 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1 rounded shadow text-[10px]"><i class="fa-solid fa-plus-circle"></i> ดึงตู้ตกค้างเข้าตาราง (ข้าม Booking)</button>
                 </div>
                 <div class="flex gap-2">
-                    <!-- 🌟 เอาปุ่ม พิมพ์ใบแนบ ออกไปแล้ว ให้เหลือแค่ปุ่มบันทึก -->
-                    <button onclick="saveDetailBillingChanges()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-1.5 rounded shadow text-[11px] flex items-center gap-1.5">
-                        <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลตาราง (Save)
+                    <!-- ปุ่มบันทึก -->
+                    <button onclick="saveDetailBillingChanges()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-6 py-2 rounded shadow text-[12px] flex items-center gap-1.5">
+                        <i class="fa-solid fa-floppy-disk border-r border-purple-400 pr-2"></i> บันทึกข้อมูลตาราง (Save All)
                     </button>
                 </div>
             </div>
+            <!-- พื้นที่ตารางกว้างๆ -->
             <div id="detail-grid-container" class="flex-1 w-full h-full border border-slate-200 rounded"></div>
         </div>
     </div>

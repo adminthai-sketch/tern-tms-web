@@ -119,55 +119,125 @@ window.loadBillingMasterData = async function() {
     }
 };
 
-// 🌟 ฟังก์ชันรวมศูนย์สำหรับตัวกรองหน้า 1
+// 🌟 1. ฟังก์ชันตัวกรองอัจฉริยะ (ผูกไว้กับ oninput / onchange ทุกช่อง)
 window.handleMasterCrossFilter = function() {
-    updateMasterFilterDropdowns();
-    handleMasterFilter();
+    autoFillLinkedFields();         // ช่วยเติมช่องอื่นให้อัตโนมัติถ้าเหลือความเป็นไปได้เดียว
+    updateMasterFilterDropdowns();  // ปรับตัวเลือกใน datalist ให้เหลือเฉพาะข้อมูลที่เข้าพวก
+    handleMasterFilter();           // กรองข้อมูลในตาราง Handsontable และอัปเดตตัวเลข
 };
 
+// 🌟 2. ตัวช่วยกรอกอัตโนมัติ (เช่น เลือก Booking ปุ๊บ เติมลูกค้ากับวันที่ให้ทันที)
+function autoFillLinkedFields() {
+    const elDate = document.getElementById('filter-run-date');
+    const elCust = document.getElementById('filter-customer');
+    const elBook = document.getElementById('filter-booking-no');
+
+    const dVal = (elDate?.value || '').trim();
+    const cVal = (elCust?.value || '').trim();
+    const bVal = (elBook?.value || '').trim();
+
+    // กรองหาแถวที่ตรงกับค่าที่กรอกเข้ามาในปัจจุบัน
+    const matched = masterBookingList.filter(item => {
+        const iD = item.run_date ? String(item.run_date).trim() : '';
+        const iC = item.customer_name ? String(item.customer_name).trim() : '';
+        const iB = item.booking_no ? String(item.booking_no).trim() : '';
+
+        return (!dVal || iD === dVal) &&
+               (!cVal || iC === cVal) &&
+               (!bVal || iB === bVal);
+    });
+
+    // ถ้าเหลือผลลัพธ์จากข้อมูลเพียง 1 รายการ ให้ช่วยเติมช่องที่ยังว่างให้เลยอัตโนมัติ
+    if (matched.length > 0) {
+        const uniqueDates = [...new Set(matched.map(m => m.run_date).filter(Boolean))];
+        const uniqueCusts = [...new Set(matched.map(m => m.customer_name).filter(c => c && c !== '-'))];
+        const uniqueBooks = [...new Set(matched.map(m => m.booking_no).filter(Boolean))];
+
+        // ถ้าเลือก Booking แล้วเหลือลูกค้าคนเดียว -> เติมลูกค้าให้
+        if (bVal && uniqueCusts.length === 1 && !cVal && elCust) {
+            elCust.value = uniqueCusts[0];
+        }
+        // ถ้าเหลือวันที่เดียว -> เติมวันที่ให้
+        if (uniqueDates.length === 1 && !dVal && elDate) {
+            elDate.value = uniqueDates[0];
+        }
+    }
+}
+
+// 🌟 3. อัปเดตรายการตัวเลือกใน Dropdown/Datalist ให้กรองตามเงื่อนไขที่เลือก
 function updateMasterFilterDropdowns() {
     const dVal = (document.getElementById('filter-run-date')?.value || '').trim();
     const cVal = (document.getElementById('filter-customer')?.value || '').trim();
     const bVal = (document.getElementById('filter-booking-no')?.value || '').trim();
 
-    const dates = new Set(), custs = new Set(), books = new Set();
+    const dates = new Set();
+    const custs = new Set();
+    const books = new Set();
 
     masterBookingList.forEach(item => {
         const iD = item.run_date ? String(item.run_date).trim() : '';
         const iC = item.customer_name ? String(item.customer_name).trim() : '';
         const iB = item.booking_no ? String(item.booking_no).trim() : '';
 
-        if ((!cVal || iC === cVal) && (!bVal || iB === bVal) && iD) dates.add(iD);
-        if ((!dVal || iD === dVal) && (!bVal || iB === bVal) && iC && iC !== '-') custs.add(iC);
-        if ((!dVal || iD === dVal) && (!cVal || iC === cVal) && iB) books.add(iB);
+        // รายการวันที่: จะแสดงเฉพาะแถวที่ตรงกับ ลูกค้า และ Booking ที่เลือกไว้
+        if ((!cVal || iC === cVal) && (!bVal || iB === bVal) && iD) {
+            dates.add(iD);
+        }
+
+        // รายการลูกค้า: จะแสดงเฉพาะแถวที่ตรงกับ วันที่ และ Booking ที่เลือกไว้
+        if ((!dVal || iD === dVal) && (!bVal || iB === bVal) && iC && iC !== '-') {
+            custs.add(iC);
+        }
+
+        // รายการ Booking: จะแสดงเฉพาะแถวที่ตรงกับ วันที่ และ ลูกค้า ที่เลือกไว้
+        if ((!dVal || iD === dVal) && (!cVal || iC === cVal) && iB) {
+            books.add(iB);
+        }
     });
 
     const dlDate = document.getElementById('dl-run-date');
     const dlCust = document.getElementById('dl-customer');
     const dlBook = document.getElementById('dl-booking-no');
 
-    if (dlDate) { dlDate.innerHTML = ''; Array.from(dates).sort().forEach(v => dlDate.innerHTML += `<option value="${v}">`); }
-    if (dlCust) { dlCust.innerHTML = ''; Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`); }
-    if (dlBook) { dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`); }
+    if (dlDate) {
+        dlDate.innerHTML = '';
+        Array.from(dates).sort().reverse().forEach(v => dlDate.innerHTML += `<option value="${v}">`);
+    }
+    if (dlCust) {
+        dlCust.innerHTML = '';
+        Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`);
+    }
+    if (dlBook) {
+        dlBook.innerHTML = '';
+        Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`);
+    }
 }
 
+// 🌟 4. กรองตารางแสดงผลตามเงื่อนไขทุกช่อง
 window.handleMasterFilter = function() {
-    const d = document.getElementById('filter-run-date')?.value || '';
-    const c = document.getElementById('filter-customer')?.value || '';
-    const b = document.getElementById('filter-booking-no')?.value || '';
-    const searchTxt = document.getElementById('global-search')?.value.toLowerCase().trim() || '';
+    const d = (document.getElementById('filter-run-date')?.value || '').trim();
+    const c = (document.getElementById('filter-customer')?.value || '').trim();
+    const b = (document.getElementById('filter-booking-no')?.value || '').trim();
+    const searchTxt = (document.getElementById('global-search')?.value || '').toLowerCase().trim();
 
     filteredMasterList = masterBookingList.filter(item => {
-        return (!d || item.run_date === d) && 
-               (!c || (item.customer_name && item.customer_name.trim() === c)) && 
-               (!b || (item.booking_no && item.booking_no.trim() === b)) && 
-               (!searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt));
+        const iD = item.run_date ? String(item.run_date).trim() : '';
+        const iC = item.customer_name ? String(item.customer_name).trim() : '';
+        const iB = item.booking_no ? String(item.booking_no).trim() : '';
+
+        const matchDate = !d || iD === d;
+        const matchCust = !c || iC === c;
+        const matchBook = !b || iB === b;
+        const matchSearch = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
+
+        return matchDate && matchCust && matchBook && matchSearch;
     });
-    
+
     updateMasterKPI(filteredMasterList);
     initMasterGrid(filteredMasterList);
 };
 
+// 🌟 5. ล้างตัวกรองทั้งหมด คืนค่าตัวเลือกเริ่มต้น
 window.clearMasterFilters = function() {
     ['filter-run-date', 'filter-customer', 'filter-booking-no', 'global-search'].forEach(id => {
         const el = document.getElementById(id);

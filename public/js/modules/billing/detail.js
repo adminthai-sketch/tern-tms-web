@@ -9,12 +9,19 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('user-fullname').innerText = u.fullName || u.username || 'Admin';
     }
 
-    const today = new Date();
-    document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    document.getElementById('input-billing-date').value = today.toISOString().split('T')[0];
-
     const urlParams = new URLSearchParams(window.location.search);
     const initialBooking = urlParams.get('booking') || localStorage.getItem('billing_active_booking');
+    const urlMonth = urlParams.get('month');
+
+    // 🌟 ถ้ารับค่าเดือนมาจากหน้า 1 ให้ใช้เดือนนั้นเลย แต่ถ้าไม่มีให้ใช้เดือนปัจจุบัน
+    if (urlMonth) {
+        document.getElementById('filter-month').value = urlMonth;
+    } else {
+        const today = new Date();
+        document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    }
+    
+    document.getElementById('input-billing-date').value = new Date().toISOString().split('T')[0];
 
     await loadDetailData();
 

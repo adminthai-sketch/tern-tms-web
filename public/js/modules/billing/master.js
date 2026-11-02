@@ -214,9 +214,11 @@ function updateMasterKPI(dataList) {
     document.getElementById('stat-billed-amt').innerText = `${billedAmt.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`;
 }
 
+// 🌟 เปลี่ยนให้หน้า 1 ส่ง "เดือน" ข้ามไปให้หน้า 2 ด้วย
 window.openBookingDetail = function(bookingNo) {
     if (!bookingNo) return;
-    window.location.href = `/billing-detail.html?booking=${encodeURIComponent(bookingNo)}`;
+    const currentMonth = document.getElementById('filter-month').value;
+    window.location.href = `/billing-detail.html?booking=${encodeURIComponent(bookingNo)}&month=${currentMonth}`;
 };
 
 function initMasterGrid(data) {

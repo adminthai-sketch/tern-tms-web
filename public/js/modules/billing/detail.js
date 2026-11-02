@@ -24,7 +24,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 🌟 ดึงข้อมูลสดใหม่ ป้องกัน Browser / Vercel Cache
+// 🌟 ดึงข้อมูลสดใหม่ และคลีนคำว่า "null" ออกตั้งแต่ตอนโหลด
 window.loadDetailData = async function() {
     const [year, month] = document.getElementById('filter-month').value.split('-');
     const overlay = document.getElementById('detail-loading-overlay');
@@ -37,6 +37,9 @@ window.loadDetailData = async function() {
         if (result.success && result.data) {
             allRawShipments = result.data.filter(i => i.order_id).map(item => {
                 item._selected = item._selected !== undefined ? item._selected : true; 
+                // คลีนคำว่า "null" ที่อาจหลุดมาจากฐานข้อมูล
+                if (item.iv_no && String(item.iv_no).toLowerCase() === 'null') item.iv_no = '';
+                if (item.ar_no && String(item.ar_no).toLowerCase() === 'null') item.ar_no = '';
                 return item;
             });
             updateDetailFilterDropdowns();
@@ -107,8 +110,7 @@ function applyDetailFilter() {
         document.getElementById('info-tax-id').innerText = first.tax_id || '-';
         document.getElementById('info-address').innerText = first.address || '-';
         
-        // 🌟 แก้ไขจุดที่ 1: ถ้ามีตู้ที่มี IV ให้โชว์ แต่ถ้าทุกลบหมดแล้ว ให้ล้างกล่องด้านบนเป็นค่าว่างทันที!
-        const hasIv = filteredShipments.find(s => s.iv_no && String(s.iv_no).trim() !== '');
+        const hasIv = filteredShipments.find(s => s.iv_no && String(s.iv_no).trim() !== '' && String(s.iv_no).toLowerCase() !== 'null');
         if (hasIv) {
             document.getElementById('input-iv-no').value = hasIv.iv_no;
             document.getElementById('input-ar-no').value = hasIv.ar_no || '';
@@ -186,19 +188,37 @@ function initDetailGrid(data) {
     if (!container) return;
     if (hotDetailInstance) hotDetailInstance.destroy();
 
+    // 🌟 อัปเดต Renderer ไม่ให้โชว์คำว่า "null" ตรงๆ
     const ivRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.TextRenderer.apply(this, arguments);
         td.style.fontWeight = 'bold';
         td.style.textAlign = 'center';
         td.style.verticalAlign = 'middle';
-        if (value && String(value).trim() !== '') {
+        
+        const valStr = value !== null && value !== undefined ? String(value).trim() : '';
+        
+        if (valStr !== '' && valStr.toLowerCase() !== 'null' && valStr !== 'รอออก IV') {
             td.style.backgroundColor = '#ecfdf5';
             td.style.color = '#065f46';
-            td.innerText = value;
+            td.innerText = valStr;
         } else {
             td.style.backgroundColor = '#fff1f2';
             td.style.color = '#be123c';
             td.innerText = 'รอออก IV';
+        }
+    };
+
+    const arRenderer = function(instance, td, row, col, prop, value) {
+        Handsontable.renderers.TextRenderer.apply(this, arguments);
+        td.style.fontWeight = 'bold';
+        td.style.textAlign = 'center';
+        td.style.verticalAlign = 'middle';
+        const valStr = value !== null && value !== undefined ? String(value).trim() : '';
+        if (valStr !== '' && valStr.toLowerCase() !== 'null') {
+            td.style.color = '#b91c1c';
+            td.innerText = valStr;
+        } else {
+            td.innerText = '';
         }
     };
 
@@ -219,7 +239,7 @@ function initDetailGrid(data) {
             { data: 'container_size', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
             { data: 'leg1_plate', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
             { data: 'iv_no', type: 'text', renderer: ivRenderer },
-            { data: 'ar_no', type: 'text', className: 'htCenter htMiddle font-bold text-red-700 uppercase bg-white' },
+            { data: 'ar_no', type: 'text', renderer: arRenderer, className: 'uppercase bg-white' },
             { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle font-bold text-emerald-700 bg-emerald-50/30' },
             { data: 'port_pass_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },
             { data: 'deposit_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },
@@ -236,7 +256,7 @@ function initDetailGrid(data) {
     });
 }
 
-// 🌟 1. ปุ่ม "⬇️ ใส่เลขให้ตู้ที่เลือก" (ฟังก์ชันสาดข้อมูลลงตาราง)
+// ปุ่ม "⬇️ ใส่เลขให้ตู้ที่เลือก" (ฟังก์ชันสาดข้อมูลลงตาราง)
 window.applyTopBoxToGrid = function() {
     if (!hotDetailInstance) return;
     const ivNo = (document.getElementById('input-iv-no')?.value || '').trim();
@@ -257,20 +277,19 @@ window.applyTopBoxToGrid = function() {
     hotDetailInstance.render();
 
     if (appliedCount > 0) {
-        alert(`✅ ใส่เลขให้ ${appliedCount} ตู้ในตารางเรียบร้อย\\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง (Save)" เพื่อเซฟลงฐานข้อมูลนะครับ)`);
+        alert(`✅ ใส่เลขให้ ${appliedCount} ตู้ในตารางเรียบร้อย\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง (Save)" เพื่อเซฟลงฐานข้อมูลนะครับ)`);
     } else {
         alert('⚠️ กรุณาติ๊กถูก [✔] หน้าตู้ที่ต้องการใส่เลขก่อนครับ');
     }
 };
 
-// 🌟 2. ปุ่ม "บันทึกข้อมูลตาราง (Save)" (เซฟข้อมูลตามจริงในตารางเป๊ะๆ ลบคือลบ)
+// ปุ่ม "บันทึกข้อมูลตาราง (Save)"
 window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
     if (!hotDetailInstance) {
         alert('⚠️ ไม่พบข้อมูลตารางตู้');
         return;
     }
 
-    // ดึงข้อมูลตรงๆ จาก Handsontable (ผู้ใช้เห็นอะไรในตาราง ก็เซฟแบบนั้นเลย)
     const sourceData = hotDetailInstance.getSourceData() || [];
     const selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
 
@@ -279,12 +298,11 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         return;
     }
 
-    // คลีนค่าว่างให้เป็น null ชัดเจนก่อนส่งไป Backend
     let hasCleared = false;
     selectedRows.forEach(row => {
         if (row.iv_no !== undefined && row.iv_no !== null) {
             row.iv_no = String(row.iv_no).trim();
-            if (row.iv_no === '' || row.iv_no === 'รอออก IV') {
+            if (row.iv_no === '' || row.iv_no === 'รอออก IV' || row.iv_no.toLowerCase() === 'null') {
                 row.iv_no = null;
                 hasCleared = true;
             }
@@ -295,14 +313,14 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
 
         if (row.ar_no !== undefined && row.ar_no !== null) {
             row.ar_no = String(row.ar_no).trim();
-            if (row.ar_no === '') row.ar_no = null;
+            if (row.ar_no === '' || row.ar_no.toLowerCase() === 'null') row.ar_no = null;
         } else {
             row.ar_no = null;
         }
     });
 
     if (hasCleared) {
-        if (!confirm('มีตู้ที่ถูกลบเลข IV ออก ตู้เหล่านั้นจะถูกเปลี่ยนสถานะกลับเป็น "รอดำเนินการ" ยืนยันการบันทึกหรือไม่?')) return;
+        if (!confirm('มีการลบเลข IV ในตารางออก ตู้ที่เลือกจะกลับสถานะเป็น "รอดำเนินการ" ยืนยันการบันทึกหรือไม่?')) return;
     }
 
     const overlay = document.getElementById('detail-loading-overlay');
@@ -328,64 +346,6 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     }
 };
 
-// 🌟 แก้ไขจุดที่ 2: ฟังก์ชันบันทึกข้อมูล (เซฟตามข้อมูลในตารางจริง ไม่เขียนทับค่าที่ลบไป)
-window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
-    if (!hotDetailInstance) {
-        alert('⚠️ ไม่พบข้อมูลตารางตู้');
-        return;
-    }
-
-    const sourceData = hotDetailInstance.getSourceData() || [];
-    const selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
-
-    if (selectedRows.length === 0) {
-        alert('⚠️ กรุณาติ๊กเลือกตู้อย่างน้อย 1 ตู้เพื่อบันทึกข้อมูลครับ');
-        return;
-    }
-
-    // แปลงค่าว่างให้เป็น null ชัดเจน
-    selectedRows.forEach(row => {
-        if (row.iv_no !== undefined) {
-            row.iv_no = String(row.iv_no).trim();
-            if (row.iv_no === '' || row.iv_no === 'รอออก IV') row.iv_no = null;
-        }
-        if (row.ar_no !== undefined) {
-            row.ar_no = String(row.ar_no).trim();
-            if (row.ar_no === '') row.ar_no = null;
-        }
-    });
-
-    const hasCleared = selectedRows.some(r => !r.iv_no);
-    if (hasCleared) {
-        if (!confirm('มีตู้ที่ไม่มีเลข IV (หรือถูกลบออก) ตู้เหล่านั้นจะถูกเปลี่ยนสถานะกลับเป็น "รอดำเนินการ" ยืนยันการบันทึกหรือไม่?')) return;
-    }
-
-    const overlay = document.getElementById('detail-loading-overlay');
-    if (overlay) overlay.classList.remove('hidden');
-
-    try {
-        const res = await fetch('/api/billing/shipments', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ data: selectedRows }) 
-        });
-        const result = await res.json();
-        if (result.success) {
-            alert(`✅ บันทึกข้อมูลเรียบร้อย!`);
-            await loadDetailData(); 
-        } else {
-            alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));
-        }
-    } catch (err) {
-        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message);
-    } finally {
-        if (overlay) overlay.classList.add('hidden');
-    }
-};
-
-// ==========================================
-// 📌 MODAL: ดึงตู้ตกค้างข้าม Booking
-// ==========================================
 let currentUnbilledData = [];
 
 window.openUnbilledModal = async function() {

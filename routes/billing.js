@@ -51,7 +51,6 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-// 2. 🌟 บันทึกข้อมูลวางบิลรายตู้ (ดักกรองข้อความ 'รอออก IV' และเคลียร์วันที่อัตโนมัติ)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -62,15 +61,14 @@ router.post('/shipments', async (req, res) => {
         for (const row of data) {
             if (!row.order_id) continue;
 
-            // กรองข้อความ 'รอออก IV' หรือค่าว่าง ให้กลายเป็น null อย่างแท้จริง
-            const rawIv = row.iv_no ? String(row.iv_no).trim() : '';
-            const cleanIv = (rawIv !== '' && rawIv !== 'รอออก IV') ? rawIv : null;
+            // 🌟 กรองข้อความ 'รอออก IV' และ 'null' ที่เป็น String ให้กลายเป็น null ที่แท้จริง
+            const rawIv = row.iv_no !== null && row.iv_no !== undefined ? String(row.iv_no).trim() : '';
+            const cleanIv = (rawIv !== '' && rawIv !== 'รอออก IV' && rawIv.toLowerCase() !== 'null') ? rawIv : null;
             
-            const rawAr = row.ar_no ? String(row.ar_no).trim() : '';
-            const cleanAr = rawAr !== '' ? rawAr : null;
+            const rawAr = row.ar_no !== null && row.ar_no !== undefined ? String(row.ar_no).trim() : '';
+            const cleanAr = (rawAr !== '' && rawAr.toLowerCase() !== 'null') ? rawAr : null;
 
             const status = cleanIv ? 'วางบิลแล้ว' : 'รอดำเนินการ';
-            // ถ้าไม่มี IV ให้เคลียร์ billing_date เป็น null
             const billingDate = cleanIv ? (row.billing_date || null) : null;
 
             const params = [

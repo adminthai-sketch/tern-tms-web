@@ -24,7 +24,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 🌟 ดึงข้อมูลสดใหม่ และคลีนคำว่า "null" ออกตั้งแต่ตอนโหลด
+// 🌟 ดึงข้อมูลสดใหม่ และตั้งค่าการติ๊กถูกอัตโนมัติ
 window.loadDetailData = async function() {
     const [year, month] = document.getElementById('filter-month').value.split('-');
     const overlay = document.getElementById('detail-loading-overlay');
@@ -36,10 +36,14 @@ window.loadDetailData = async function() {
         
         if (result.success && result.data) {
             allRawShipments = result.data.filter(i => i.order_id).map(item => {
-                item._selected = item._selected !== undefined ? item._selected : true; 
                 // คลีนคำว่า "null" ที่อาจหลุดมาจากฐานข้อมูล
                 if (item.iv_no && String(item.iv_no).toLowerCase() === 'null') item.iv_no = '';
                 if (item.ar_no && String(item.ar_no).toLowerCase() === 'null') item.ar_no = '';
+                
+                // 🌟 ปรับลอจิกใหม่: ถ้ามีเลข IV ให้ติ๊กถูก ถ้าว่างเปล่า(รอออกบิล) ให้เอาติ๊กถูกออกอัตโนมัติ
+                const hasRealIv = (item.iv_no && String(item.iv_no).trim() !== '');
+                item._selected = hasRealIv; 
+                
                 return item;
             });
             updateDetailFilterDropdowns();

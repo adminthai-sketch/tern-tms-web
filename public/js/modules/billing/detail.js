@@ -313,7 +313,7 @@ window.applyTopBoxToGrid = function(silent = false) {
     return appliedCount;
 };
 
-// 🌟 ปุ่ม "บันทึกข้อมูลตาราง (Save)"
+// 🌟 ปุ่ม "บันทึกข้อมูลตาราง (Save)" ปลดล็อกเงื่อนไขติ๊กถูก เซฟทุกอย่างตามตาเห็น
 window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
     if (!hotDetailInstance) {
         alert('⚠️ ไม่พบข้อมูลตารางตู้');
@@ -321,49 +321,37 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     }
 
     const sourceData = hotDetailInstance.getSourceData() || [];
-    let selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
+    
+    // 🌟 ปลดล็อกเงื่อนไขติ๊กถูก: ดึงทุกตู้ที่มีในตารางไปเซฟเลย!
+    const rowsToSave = sourceData.filter(r => r.order_id);
+
+    if (rowsToSave.length === 0) {
+        alert('⚠️ ไม่พบข้อมูลสำหรับบันทึกครับ');
+        return;
+    }
 
     const topIv = (document.getElementById('input-iv-no')?.value || '').trim();
     const topAr = (document.getElementById('input-ar-no')?.value || '').trim();
 
-    // 🌟 ระบบฉลาดขั้น 2: พิมพ์เลขด้านบนแล้ว แต่ลืมกดสาดเลข และ ลืมติ๊กถูก
-    if (selectedRows.length === 0 && (topIv !== '' || topAr !== '')) {
-        if (confirm('💡 ระบบพบว่าคุณพิมพ์เลข IV/AR ไว้ แต่ลืมติ๊กเลือกตู้\n\nต้องการให้ระบบ "ติ๊กเลือกตู้ที่ยังไม่มีบิล" และ "สาดเลขพร้อมบันทึก" ให้เลยหรือไม่?')) {
-            window.applyTopBoxToGrid(true); // สาดเลขแบบไม่แจ้งเตือนซ้ำซ้อน
-            selectedRows = hotDetailInstance.getSourceData().filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
-        } else {
-            return;
-        }
-    } 
-    // 🌟 ระบบฉลาดขั้น 3: ติ๊กถูกไว้แล้ว แต่ลืมสาดเลข 
-    else if (selectedRows.length > 0 && (topIv !== '' || topAr !== '')) {
-        const hasUnapplied = selectedRows.some(r => r.iv_no !== topIv && (!r.iv_no || String(r.iv_no).trim() === '' || String(r.iv_no).trim() === 'รอออก IV'));
+    // 🌟 ระบบแจ้งเตือนกันลืม: ถ้าพิมพ์เลขข้างบนไว้ แต่ลืมกดสาดเลขลงตาราง
+    if (topIv !== '' || topAr !== '') {
+        const hasUnapplied = rowsToSave.some(r => r.iv_no !== topIv && (!r.iv_no || String(r.iv_no).trim() === '' || String(r.iv_no).trim() === 'รอออก IV'));
         if (hasUnapplied) {
-            if (confirm('💡 คุณพิมพ์เลขด้านบนไว้ แต่ยังไม่ได้กดนำเลขลงตาราง\n\nต้องการให้ระบบสาดเลขให้ตู้ที่ติ๊กไว้ แล้วบันทึกทันทีเลยหรือไม่?')) {
-                window.applyTopBoxToGrid(true);
-                selectedRows = hotDetailInstance.getSourceData().filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
+            if (confirm('💡 คุณพิมพ์เลข IV ด้านบนไว้ แต่ยังมีตู้ในตารางที่ยังว่างอยู่\n\nต้องการให้ระบบสาดเลขใส่ตู้ที่ว่างให้ แล้วบันทึกทันทีเลยหรือไม่?\n(กด Cancel หากต้องการบันทึกตารางตามที่เห็นปัจจุบันโดยไม่สาดเลข)')) {
+                window.applyTopBoxToGrid(true); // สาดเลขแบบไม่แจ้งเตือนซ้ำ
             }
         }
     }
 
-    // ถ้าระบบช่วยแล้วยังไม่มีตู้ไหนถูกเลือกอีก แสดงว่าตารางว่างจริงๆ
-    if (selectedRows.length === 0) {
-        alert('⚠️ กรุณาติ๊กเลือก [✔] หน้าตู้ที่ต้องการบันทึกข้อมูลครับ');
-        return;
-    }
-
-    let hasCleared = false;
-    
-    selectedRows.forEach(row => {
+    // คลีนค่าว่างให้เป็น null ชัดเจนก่อนส่ง
+    rowsToSave.forEach(row => {
         if (row.iv_no !== undefined && row.iv_no !== null) {
             row.iv_no = String(row.iv_no).trim();
             if (row.iv_no === '' || row.iv_no === 'รอออก IV' || row.iv_no.toLowerCase() === 'null') {
                 row.iv_no = null;
-                hasCleared = true;
             }
         } else {
             row.iv_no = null;
-            hasCleared = true;
         }
 
         if (row.ar_no !== undefined && row.ar_no !== null) {
@@ -374,10 +362,6 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         }
     });
 
-    if (hasCleared) {
-        if (!confirm('มีตู้ที่ถูกลบเลข IV/AR ออก (เป็นช่องว่าง) ตู้เหล่านั้นจะถูกเคลียร์ค่าในระบบและกลับสู่สถานะ "รอดำเนินการ"\n\nยืนยันการบันทึกหรือไม่?')) return;
-    }
-
     const overlay = document.getElementById('detail-loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
 
@@ -385,11 +369,12 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         const res = await fetch('/api/billing/shipments', { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ data: selectedRows }) 
+            // 🌟 ส่งทุกแถวไปบันทึก
+            body: JSON.stringify({ data: rowsToSave }) 
         });
         const result = await res.json();
         if (result.success) {
-            alert(`✅ บันทึกข้อมูล ${selectedRows.length} ตู้เรียบร้อย!`);
+            alert(`✅ บันทึกข้อมูลตารางเรียบร้อย!`);
             await loadDetailData(); 
         } else {
             alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));

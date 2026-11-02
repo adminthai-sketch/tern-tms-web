@@ -23,7 +23,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         handleCrossFilterDetail();
     }
 });
-
 // 🌟 ดึงข้อมูลสดใหม่ และตั้งค่าการติ๊กถูกอัตโนมัติ
 window.loadDetailData = async function() {
     const [year, month] = document.getElementById('filter-month').value.split('-');

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 
-// 1. ดึงข้อมูลตู้และบิลทั้งหมดในเดือน
+// 1. ดึงข้อมูลตู้และบิลทั้งหมดในเดือน (เอา COALESCE ออกเพื่อให้แสดงค่าว่างได้)
 router.get('/shipments', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
@@ -27,14 +27,19 @@ router.get('/shipments', async (req, res) => {
                 s.order_id, s.container_1_no, s.container_2_no,
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS plate,
                 s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg3_plate,
+                
+                -- 🌟 คง COALESCE ไว้เฉพาะค่าบรรทุก (trip_fee) เพราะห้ามว่าง
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee,
                 COALESCE(f.trans_fee, b.trans_fee, 0) AS trans_fee,
-                COALESCE(f.port_pass_fee, 0) AS port_pass_fee,
-                COALESCE(f.shore_fee, 0) AS shore_fee,
-                COALESCE(f.lift_fee, 0) AS lift_fee,
-                COALESCE(f.deposit_fee, 0) AS deposit_fee,
-                COALESCE(f.other_expense, 0) AS other_expense,
-                COALESCE(f.bill_weight, f.gross_weight, 0) AS gross_weight,
+                
+                -- 🌟 ปลดล็อกให้ค่าพวกนี้เป็น NULL (ช่องว่าง) ได้
+                f.port_pass_fee,
+                f.shore_fee,
+                f.lift_fee,
+                f.deposit_fee,
+                f.other_expense,
+                COALESCE(f.bill_weight, f.gross_weight) AS gross_weight,
+                
                 f.ar_no, f.iv_no, f.billing_date, f.billing_remark, f.billing_status
             FROM bookings b
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
@@ -51,6 +56,7 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
+// 2. บันทึกข้อมูลวางบิลรายตู้
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -70,7 +76,6 @@ router.post('/shipments', async (req, res) => {
             const status = cleanIv ? 'วางบิลแล้ว' : 'รอดำเนินการ';
             const billingDate = cleanIv ? (row.billing_date || null) : null;
 
-            // 🌟 ฟังก์ชันแปลงค่าว่างให้เป็น null ชัดเจนสำหรับคอลัมน์ตัวเลข
             const getNum = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? parseFloat(val) : null;
 
             const params = [
@@ -98,9 +103,9 @@ router.post('/shipments', async (req, res) => {
                     billing_remark = $5, 
                     billing_date = $6,
                     billing_status = $13,
-                    trip_fee = COALESCE($7, trip_fee), /* 🌟 ล็อกค่าบรรทุก ห้ามให้เป็นค่าว่างเด็ดขาด */
-                    port_pass_fee = $8, /* 🌟 ปลดล็อกให้ลบเป็นค่าว่างได้ */
-                    deposit_fee = $9, 
+                    trip_fee = COALESCE($7, trip_fee),
+                    port_pass_fee = $8,
+                    deposit_fee = $9,
                     lift_fee = $10,
                     shore_fee = $11,
                     other_expense = $12
@@ -141,12 +146,12 @@ router.get('/unbilled-containers', async (req, res) => {
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS leg1_plate, 
                 b.run_date, b.origin, b.destination, c.short_name AS customer_name,
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, 
-                COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
-                COALESCE(f.deposit_fee, 0) AS deposit_fee, 
-                COALESCE(f.lift_fee, 0) AS lift_fee, 
-                COALESCE(f.shore_fee, 0) AS shore_fee, 
-                COALESCE(f.other_expense, 0) AS other_expense,
-                COALESCE(f.bill_weight, f.gross_weight, 0) AS gross_weight
+                f.port_pass_fee, 
+                f.deposit_fee, 
+                f.lift_fee, 
+                f.shore_fee, 
+                f.other_expense,
+                COALESCE(f.bill_weight, f.gross_weight) AS gross_weight
             FROM bookings b
             JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
@@ -254,12 +259,12 @@ router.get('/print-data', async (req, res) => {
                 c.address, c.tax_id, c.invoice_layout, 
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, 
                 COALESCE(f.trans_fee, b.trans_fee, 0) AS trans_fee, 
-                COALESCE(f.port_pass_fee, 0) AS port_pass_fee, 
-                COALESCE(f.shore_fee, 0) AS shore_fee, 
-                COALESCE(f.lift_fee, 0) AS lift_fee, 
-                COALESCE(f.deposit_fee, 0) AS deposit_fee, 
-                COALESCE(f.other_expense, 0) AS other_expense,
-                COALESCE(f.bill_weight, f.gross_weight, 0) AS gross_weight,
+                f.port_pass_fee, 
+                f.shore_fee, 
+                f.lift_fee, 
+                f.deposit_fee, 
+                f.other_expense,
+                COALESCE(f.bill_weight, f.gross_weight) AS gross_weight,
                 f.ar_no, f.iv_no, f.billing_date, f.billing_remark
             FROM bookings b 
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no 

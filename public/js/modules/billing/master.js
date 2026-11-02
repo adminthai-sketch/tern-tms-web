@@ -60,7 +60,7 @@ window.loadBillingMasterData = async function() {
                         total_amount: 0,
                         billed_amount: 0,
                         pending_amount: 0,
-                        iv_map: {}, // { "IV2026-001": [ตู้1, ตู้2] }
+                        iv_map: {}, 
                         ar_numbers: new Set(),
                         shipments: []
                     };
@@ -90,17 +90,14 @@ window.loadBillingMasterData = async function() {
                 const pendingCount = b.total_count - b.billed_count;
                 b.pending_count = pendingCount;
                 
-                // คำนวณ Badge สถานะ
                 if (b.total_count === 0) b.billing_status = 'ยังไม่จัดตู้';
                 else if (b.billed_count === 0) b.billing_status = `รอวางบิล (${b.total_count} ตู้)`;
                 else if (b.billed_count < b.total_count) b.billing_status = `วางบิลแล้ว ${b.billed_count}/${b.total_count} ตู้ (ค้าง ${pendingCount})`;
                 else b.billing_status = `วางบิลครบแล้ว (${b.total_count} ตู้)`;
 
-                // รวมชื่อ IV พร้อมบอกจำนวนตู้ในแต่ละ IV เช่น "IV-01 (2), IV-02 (1)"
                 b.disp_iv = Object.keys(b.iv_map).map(iv => `${iv} (${b.iv_map[iv].length} ตู้)`).join(', ');
                 b.disp_ar = Array.from(b.ar_numbers).join(', ');
                 
-                // กรณียังไม่มี order_id ให้ fallback ตาม booking_count
                 if (b.total_count === 0 && b.shipments.length > 0) {
                     b.total_count = Number(b.shipments[0].booking_container_count) || 1;
                     b.total_amount = (Number(b.shipments[0].booking_trip_fee) || 0) * b.total_count;
@@ -122,8 +119,8 @@ window.loadBillingMasterData = async function() {
     }
 };
 
-// 🌟 Cross-Filtering สัมพันธ์กัน 3 ช่อง
-window.handleCrossFilter = function() {
+// 🌟 ฟังก์ชันรวมศูนย์สำหรับตัวกรองหน้า 1
+window.handleMasterCrossFilter = function() {
     updateMasterFilterDropdowns();
     handleMasterFilter();
 };
@@ -214,7 +211,6 @@ function updateMasterKPI(dataList) {
     document.getElementById('stat-billed-amt').innerText = `${billedAmt.toLocaleString('en-US', {minimumFractionDigits: 2})} ฿`;
 }
 
-// 🌟 เปลี่ยนให้หน้า 1 ส่ง "เดือน" ข้ามไปให้หน้า 2 ด้วย
 window.openBookingDetail = function(bookingNo) {
     if (!bookingNo) return;
     const currentMonth = document.getElementById('filter-month').value;

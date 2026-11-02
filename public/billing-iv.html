@@ -44,11 +44,15 @@
     <div class="bg-white border-b border-slate-200 px-6 py-2 shrink-0 shadow-sm z-40 flex flex-wrap items-center gap-2 text-xs justify-between">
         <div class="flex items-center gap-2">
             <div class="flex items-center bg-slate-100 border border-slate-300 rounded-lg overflow-hidden h-8">
-                <div class="px-3 py-1 bg-slate-200 border-r border-slate-300 text-slate-600 font-bold flex items-center h-full"><i class="fa-regular fa-calendar-check text-purple-600 mr-1"></i> เดือน:</div>
+                <div class="px-3 py-1 bg-slate-200 border-r border-slate-300 text-slate-600 font-bold flex items-center h-full"><i class="fa-regular fa-calendar-check text-blue-600 mr-1"></i> เดือน:</div>
                 <input type="month" id="filter-month" onchange="loadIvData()" class="px-3 py-1 font-bold text-slate-700 bg-transparent outline-none cursor-pointer h-full">
             </div>
-            <input type="text" id="filter-customer" placeholder="🏢 ค้นหาลูกค้า..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-48 focus:bg-white focus:border-purple-400">
-            <select id="filter-status" onchange="filterIvGrid()" class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 focus:bg-white focus:border-purple-400 font-semibold">
+            
+            <!-- 🌟 เพิ่มช่องค้นหา 2 ช่อง: ลูกค้า และ Booking -->
+            <input type="text" id="filter-customer" placeholder="🏢 ค้นหาลูกค้า..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-36 focus:bg-white focus:border-blue-400">
+            <input type="text" id="filter-booking" placeholder="📝 ค้นหา Booking..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-36 focus:bg-white focus:border-blue-400">
+            
+            <select id="filter-status" onchange="filterIvGrid()" class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 focus:bg-white focus:border-blue-400 font-semibold">
                 <option value="">-- ทุกสถานะบิล --</option>
                 <option value="รอวางบิล">🟡 รอวางบิล</option>
                 <option value="วางบิลแล้ว">🔵 วางบิลแล้ว</option>

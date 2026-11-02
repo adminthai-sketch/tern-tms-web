@@ -74,25 +74,30 @@
                 <!-- Form ออกเลข IV / AR -->
                 <div class="bg-purple-50/50 rounded-lg p-3 border border-purple-200 space-y-2 text-xs">
                     <div class="flex justify-between items-center border-b border-purple-200 pb-1.5">
-                        <span class="font-bold text-purple-900"><i class="fa-solid fa-file-pen mr-1"></i> กำหนดเลข IV / AR ให้ตู้ที่เลือก</span>
+                        <span class="font-bold text-purple-900"><i class="fa-solid fa-file-pen mr-1"></i> กำหนดเลข IV / AR (ตัวช่วยกรอก)</span>
                         <span id="selected-containers-badge" class="font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded text-[11px]">เลือกอยู่ 0 ตู้</span>
                     </div>
-                    <div class="grid grid-cols-3 gap-2 pt-1">
+                    <div class="grid grid-cols-4 gap-2 pt-1 items-end">
                         <div>
-                            <label class="text-[11px] font-bold text-emerald-800 block">เลขที่ IV:</label>
-                            <input type="text" id="input-iv-no" placeholder="เช่น IV2026-003914" class="w-full border border-emerald-300 rounded px-2 py-1 font-bold text-emerald-800 uppercase outline-none bg-white">
+                            <label class="text-[11px] font-bold text-emerald-800 block mb-1">เลขที่ IV:</label>
+                            <input type="text" id="input-iv-no" placeholder="เช่น IV2026-003914" class="w-full border border-emerald-300 rounded px-2 py-1.5 font-bold text-emerald-800 uppercase outline-none bg-white">
                         </div>
                         <div>
-                            <label class="text-[11px] font-bold text-red-700 block">เลขที่ AR:</label>
-                            <input type="text" id="input-ar-no" placeholder="เช่น AR2026-002595" class="w-full border border-red-300 rounded px-2 py-1 font-bold text-red-700 uppercase outline-none bg-white">
+                            <label class="text-[11px] font-bold text-red-700 block mb-1">เลขที่ AR:</label>
+                            <input type="text" id="input-ar-no" placeholder="เช่น AR2026-002595" class="w-full border border-red-300 rounded px-2 py-1.5 font-bold text-red-700 uppercase outline-none bg-white">
                         </div>
                         <div>
-                            <label class="text-[11px] font-bold text-slate-700 block">วันที่วางบิล:</label>
-                            <input type="date" id="input-billing-date" class="w-full border border-slate-300 rounded px-2 py-1 font-bold text-slate-700 outline-none bg-white">
+                            <label class="text-[11px] font-bold text-slate-700 block mb-1">วันที่วางบิล:</label>
+                            <input type="date" id="input-billing-date" class="w-full border border-slate-300 rounded px-2 py-1.5 font-bold text-slate-700 outline-none bg-white">
+                        </div>
+                        <div>
+                            <!-- 🌟 ปุ่มใหม่: สาดข้อมูลลงตาราง -->
+                            <button onclick="applyTopBoxToGrid()" class="w-full bg-purple-200 hover:bg-purple-600 text-purple-800 hover:text-white font-bold py-1.5 rounded transition-colors border border-purple-300 shadow-sm text-[11px]">
+                                ⬇️ นำเลขใส่ตู้ที่เลือก
+                            </button>
                         </div>
                     </div>
                 </div>
-            </div>
 
             <!-- กล่องสรุปยอดรวม -->
             <div class="mt-3 pt-3 border-t border-slate-200">

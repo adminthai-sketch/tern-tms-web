@@ -13,7 +13,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     document.getElementById('input-billing-date').value = today.toISOString().split('T')[0];
 
-    // 🌟 1. ดึง Booking จาก URL หรือที่เคยเลือกไว้ล่าสุด
     const urlParams = new URLSearchParams(window.location.search);
     const initialBooking = urlParams.get('booking') || localStorage.getItem('billing_active_booking');
 
@@ -25,7 +24,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 🌟 2. ดึงข้อมูลสดใหม่ ป้องกัน Cache
+// 🌟 ดึงข้อมูลสดใหม่ ป้องกัน Browser / Vercel Cache
 window.loadDetailData = async function() {
     const [year, month] = document.getElementById('filter-month').value.split('-');
     const overlay = document.getElementById('detail-loading-overlay');
@@ -108,12 +107,19 @@ function applyDetailFilter() {
         document.getElementById('info-tax-id').innerText = first.tax_id || '-';
         document.getElementById('info-address').innerText = first.address || '-';
         
+        // 🌟 แก้ไขจุดที่ 1: ถ้ามีตู้ที่มี IV ให้โชว์ แต่ถ้าทุกลบหมดแล้ว ให้ล้างกล่องด้านบนเป็นค่าว่างทันที!
         const hasIv = filteredShipments.find(s => s.iv_no && String(s.iv_no).trim() !== '');
         if (hasIv) {
             document.getElementById('input-iv-no').value = hasIv.iv_no;
             document.getElementById('input-ar-no').value = hasIv.ar_no || '';
             if (hasIv.billing_date) document.getElementById('input-billing-date').value = String(hasIv.billing_date).split('T')[0];
+        } else {
+            document.getElementById('input-iv-no').value = '';
+            document.getElementById('input-ar-no').value = '';
         }
+    } else {
+        document.getElementById('input-iv-no').value = '';
+        document.getElementById('input-ar-no').value = '';
     }
 
     initDetailGrid(filteredShipments);
@@ -230,33 +236,74 @@ function initDetailGrid(data) {
     });
 }
 
-// 🌟 3. ปรับฟังก์ชันบันทึก ให้ยอมรับค่าว่างเพื่อลบข้อมูลได้
+// 🌟 1. ปุ่ม "⬇️ ใส่เลขให้ตู้ที่เลือก" (ฟังก์ชันสาดข้อมูลลงตาราง)
+window.applyTopBoxToGrid = function() {
+    if (!hotDetailInstance) return;
+    const ivNo = (document.getElementById('input-iv-no')?.value || '').trim();
+    const arNo = (document.getElementById('input-ar-no')?.value || '').trim();
+    const billingDate = document.getElementById('input-billing-date')?.value || '';
+
+    const sourceData = hotDetailInstance.getSourceData();
+    let appliedCount = 0;
+
+    sourceData.forEach((row, index) => {
+        if (row._selected === true || row._selected === 'true' || row._selected == 1) {
+            hotDetailInstance.setDataAtRowProp(index, 'iv_no', ivNo, 'auto');
+            hotDetailInstance.setDataAtRowProp(index, 'ar_no', arNo, 'auto');
+            row.billing_date = billingDate; 
+            appliedCount++;
+        }
+    });
+    hotDetailInstance.render();
+
+    if (appliedCount > 0) {
+        alert(`✅ ใส่เลขให้ ${appliedCount} ตู้ในตารางเรียบร้อย\\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง (Save)" เพื่อเซฟลงฐานข้อมูลนะครับ)`);
+    } else {
+        alert('⚠️ กรุณาติ๊กถูก [✔] หน้าตู้ที่ต้องการใส่เลขก่อนครับ');
+    }
+};
+
+// 🌟 2. ปุ่ม "บันทึกข้อมูลตาราง (Save)" (เซฟข้อมูลตามจริงในตารางเป๊ะๆ ลบคือลบ)
 window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
     if (!hotDetailInstance) {
         alert('⚠️ ไม่พบข้อมูลตารางตู้');
         return;
     }
-    const ivNo = document.getElementById('input-iv-no')?.value.trim();
-    const arNo = document.getElementById('input-ar-no')?.value.trim();
-    const billingDate = document.getElementById('input-billing-date')?.value || '';
 
+    // ดึงข้อมูลตรงๆ จาก Handsontable (ผู้ใช้เห็นอะไรในตาราง ก็เซฟแบบนั้นเลย)
     const sourceData = hotDetailInstance.getSourceData() || [];
     const selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
 
     if (selectedRows.length === 0) {
-        alert('⚠️ กรุณาติ๊กเลือกตู้อย่างน้อย 1 ตู้ที่ต้องการวางบิลครับ');
+        alert('⚠️ กรุณาติ๊กเลือกตู้อย่างน้อย 1 ตู้เพื่อบันทึกข้อมูลครับ');
         return;
     }
 
-    if (ivNo === '') {
-        if (!confirm('คุณได้ลบเลข IV ออก ตู้ที่ถูกเลือกจะถูกเคลียร์ค่า IV เป็นค่าว่าง (รอดำเนินการ) ยืนยันหรือไม่?')) return;
-    }
-
+    // คลีนค่าว่างให้เป็น null ชัดเจนก่อนส่งไป Backend
+    let hasCleared = false;
     selectedRows.forEach(row => {
-        row.iv_no = ivNo;
-        row.ar_no = arNo;
-        row.billing_date = billingDate;
+        if (row.iv_no !== undefined && row.iv_no !== null) {
+            row.iv_no = String(row.iv_no).trim();
+            if (row.iv_no === '' || row.iv_no === 'รอออก IV') {
+                row.iv_no = null;
+                hasCleared = true;
+            }
+        } else {
+            row.iv_no = null;
+            hasCleared = true;
+        }
+
+        if (row.ar_no !== undefined && row.ar_no !== null) {
+            row.ar_no = String(row.ar_no).trim();
+            if (row.ar_no === '') row.ar_no = null;
+        } else {
+            row.ar_no = null;
+        }
     });
+
+    if (hasCleared) {
+        if (!confirm('มีตู้ที่ถูกลบเลข IV ออก ตู้เหล่านั้นจะถูกเปลี่ยนสถานะกลับเป็น "รอดำเนินการ" ยืนยันการบันทึกหรือไม่?')) return;
+    }
 
     const overlay = document.getElementById('detail-loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
@@ -269,7 +316,62 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         });
         const result = await res.json();
         if (result.success) {
-            alert(`✅ บันทึกข้อมูล ${selectedRows.length} ตู้เรียบร้อย!`);
+            alert(`✅ บันทึกข้อมูลตารางเรียบร้อย!`);
+            await loadDetailData(); 
+        } else {
+            alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));
+        }
+    } catch (err) {
+        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message);
+    } finally {
+        if (overlay) overlay.classList.add('hidden');
+    }
+};
+
+// 🌟 แก้ไขจุดที่ 2: ฟังก์ชันบันทึกข้อมูล (เซฟตามข้อมูลในตารางจริง ไม่เขียนทับค่าที่ลบไป)
+window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
+    if (!hotDetailInstance) {
+        alert('⚠️ ไม่พบข้อมูลตารางตู้');
+        return;
+    }
+
+    const sourceData = hotDetailInstance.getSourceData() || [];
+    const selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
+
+    if (selectedRows.length === 0) {
+        alert('⚠️ กรุณาติ๊กเลือกตู้อย่างน้อย 1 ตู้เพื่อบันทึกข้อมูลครับ');
+        return;
+    }
+
+    // แปลงค่าว่างให้เป็น null ชัดเจน
+    selectedRows.forEach(row => {
+        if (row.iv_no !== undefined) {
+            row.iv_no = String(row.iv_no).trim();
+            if (row.iv_no === '' || row.iv_no === 'รอออก IV') row.iv_no = null;
+        }
+        if (row.ar_no !== undefined) {
+            row.ar_no = String(row.ar_no).trim();
+            if (row.ar_no === '') row.ar_no = null;
+        }
+    });
+
+    const hasCleared = selectedRows.some(r => !r.iv_no);
+    if (hasCleared) {
+        if (!confirm('มีตู้ที่ไม่มีเลข IV (หรือถูกลบออก) ตู้เหล่านั้นจะถูกเปลี่ยนสถานะกลับเป็น "รอดำเนินการ" ยืนยันการบันทึกหรือไม่?')) return;
+    }
+
+    const overlay = document.getElementById('detail-loading-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/api/billing/shipments', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ data: selectedRows }) 
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert(`✅ บันทึกข้อมูลเรียบร้อย!`);
             await loadDetailData(); 
         } else {
             alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));
@@ -382,7 +484,7 @@ window.appendSelectedUnbilled = function() {
     hotDetailInstance.loadData(existingData); 
     calculateDetailSummary(); 
     closeUnbilledModal();
-    alert(`✅ ดึงตู้ข้าม Booking เข้ามา ${itemsToAdd.length} รายการแล้ว! (อย่าลืมกดปุ่มบันทึก IV ลงตู้)`);
+    alert(`✅ ดึงตู้ข้าม Booking เข้ามา ${itemsToAdd.length} รายการแล้ว!`);
 };
 
 window.printCurrentInvoice = function() {

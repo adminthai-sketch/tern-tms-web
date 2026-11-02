@@ -34,11 +34,12 @@ router.get('/shipments', async (req, res) => {
                 COALESCE(f.lift_fee, 0) AS lift_fee,
                 COALESCE(f.deposit_fee, 0) AS deposit_fee,
                 COALESCE(f.other_expense, 0) AS other_expense,
-                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_remark, f.billing_status
+                COALESCE(f.bill_weight, f.gross_weight, 0) AS gross_weight,
+                f.ar_no, f.iv_no, f.billing_date, f.billing_remark, f.billing_status
             FROM bookings b
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            LEFT JOIN financials f ON s.order_id = f.order_id
+            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
             WHERE b.run_date BETWEEN $1 AND $2
             ORDER BY b.run_date DESC, b.booking_no ASC, s.order_id ASC
         `, [startDate, endDate]);
@@ -50,7 +51,7 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-// 2. 🌟 บันทึกข้อมูลวางบิลรายตู้ (ใช้ UPDATE สลับ INSERT มั่นใจชัวร์ 100%)
+// 2. 🌟 บันทึกข้อมูลวางบิลรายตู้ (ดักกรองข้อความ 'รอออก IV' และเคลียร์วันที่อัตโนมัติ)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -61,16 +62,24 @@ router.post('/shipments', async (req, res) => {
         for (const row of data) {
             if (!row.order_id) continue;
 
-            const cleanIv = row.iv_no ? String(row.iv_no).trim() : null;
-            const status = (cleanIv && cleanIv !== '') ? 'วางบิลแล้ว' : 'รอดำเนินการ';
+            // กรองข้อความ 'รอออก IV' หรือค่าว่าง ให้กลายเป็น null อย่างแท้จริง
+            const rawIv = row.iv_no ? String(row.iv_no).trim() : '';
+            const cleanIv = (rawIv !== '' && rawIv !== 'รอออก IV') ? rawIv : null;
+            
+            const rawAr = row.ar_no ? String(row.ar_no).trim() : '';
+            const cleanAr = rawAr !== '' ? rawAr : null;
+
+            const status = cleanIv ? 'วางบิลแล้ว' : 'รอดำเนินการ';
+            // ถ้าไม่มี IV ให้เคลียร์ billing_date เป็น null
+            const billingDate = cleanIv ? (row.billing_date || null) : null;
 
             const params = [
-                row.order_id, 
+                String(row.order_id).trim(), 
                 row.gross_weight ? parseFloat(row.gross_weight) : 0,
-                row.ar_no ? String(row.ar_no).trim() : null, 
+                cleanAr, 
                 cleanIv, 
                 row.billing_remark || null, 
-                row.billing_date || null,
+                billingDate,
                 row.trip_fee !== undefined && row.trip_fee !== null && row.trip_fee !== '' ? parseFloat(row.trip_fee) : null,
                 row.port_pass_fee !== undefined && row.port_pass_fee !== null && row.port_pass_fee !== '' ? parseFloat(row.port_pass_fee) : null,
                 row.deposit_fee !== undefined && row.deposit_fee !== null && row.deposit_fee !== '' ? parseFloat(row.deposit_fee) : null,
@@ -95,7 +104,7 @@ router.post('/shipments', async (req, res) => {
                     lift_fee = COALESCE($10, lift_fee),
                     shore_fee = COALESCE($11, shore_fee),
                     other_expense = COALESCE($12, other_expense)
-                WHERE order_id = $1
+                WHERE order_id::text = $1::text
             `, params);
 
             if (updateRes.rowCount === 0) {
@@ -137,12 +146,13 @@ router.get('/unbilled-containers', async (req, res) => {
                 COALESCE(f.lift_fee, 0) AS lift_fee, 
                 COALESCE(f.shore_fee, 0) AS shore_fee, 
                 COALESCE(f.other_expense, 0) AS other_expense,
-                f.gross_weight
+                COALESCE(f.bill_weight, f.gross_weight, 0) AS gross_weight
             FROM bookings b
             JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            LEFT JOIN financials f ON s.order_id = f.order_id
-            WHERE b.customer_id = $1 AND (f.iv_no IS NULL OR TRIM(f.iv_no) = '')
+            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
+            WHERE b.customer_id::text = $1::text 
+              AND (f.iv_no IS NULL OR TRIM(f.iv_no) = '' OR TRIM(f.iv_no) = 'รอออก IV')
         `;
         const params = [customer_id];
         if (run_date) { params.push(run_date); query += ` AND b.run_date::text = $${params.length}`; }
@@ -172,7 +182,7 @@ router.get('/iv-summary', async (req, res) => {
 
         const result = await pool.query(`
             SELECT 
-                f.iv_no, f.ar_no, MAX(f.billing_date) AS billing_date,
+                f.iv_no, MAX(f.ar_no) AS ar_no, MAX(f.billing_date) AS billing_date,
                 c.id AS customer_id, COALESCE(c.short_name, '-') AS customer_name,
                 COUNT(s.order_id) AS total_containers,
                 ARRAY_AGG(DISTINCT b.booking_no) AS booking_list,
@@ -193,11 +203,14 @@ router.get('/iv-summary', async (req, res) => {
                     COALESCE(f.other_expense::NUMERIC, 0)
                 ) AS grand_total
             FROM financials f
-            JOIN shipment_operations s ON f.order_id = s.order_id
+            JOIN shipment_operations s ON f.order_id::text = s.order_id::text
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            WHERE f.iv_no IS NOT NULL AND TRIM(f.iv_no) != '' AND b.run_date BETWEEN $1 AND $2
-            GROUP BY f.iv_no, f.ar_no, c.id, c.short_name
+            WHERE f.iv_no IS NOT NULL 
+              AND TRIM(f.iv_no) != '' 
+              AND TRIM(f.iv_no) != 'รอออก IV'
+              AND b.run_date BETWEEN $1 AND $2
+            GROUP BY f.iv_no, c.id, c.short_name
             ORDER BY f.iv_no ASC
         `, [startDate, endDate]);
 
@@ -246,11 +259,12 @@ router.get('/print-data', async (req, res) => {
                 COALESCE(f.lift_fee, 0) AS lift_fee, 
                 COALESCE(f.deposit_fee, 0) AS deposit_fee, 
                 COALESCE(f.other_expense, 0) AS other_expense,
-                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_remark
+                COALESCE(f.bill_weight, f.gross_weight, 0) AS gross_weight,
+                f.ar_no, f.iv_no, f.billing_date, f.billing_remark
             FROM bookings b 
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no 
             LEFT JOIN customers c ON b.customer_id = c.id 
-            LEFT JOIN financials f ON s.order_id = f.order_id
+            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
             WHERE ${condition} 
             ORDER BY s.order_id ASC
         `, [param]);

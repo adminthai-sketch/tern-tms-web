@@ -1,81 +1,186 @@
 let hotIvInstance = null;
-let rawIvList = [];
+let allIvData = [];
 
 window.addEventListener('DOMContentLoaded', async () => {
     const savedUser = localStorage.getItem('tms_user');
-    if (savedUser) document.getElementById('user-fullname').innerText = JSON.parse(savedUser).fullName || 'Admin';
+    if (savedUser) {
+        const u = JSON.parse(savedUser);
+        document.getElementById('user-fullname').innerText = u.fullName || u.username || 'Admin';
+    }
 
     const today = new Date();
     document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     
-    await loadIvSummaryData();
+    await loadIvData();
 });
 
-window.loadIvSummaryData = async function() {
-    const monthInput = document.getElementById('filter-month').value;
-    if (!monthInput) return;
-    const [year, month] = monthInput.split('-');
+window.loadIvData = async function() {
+    const [year, month] = document.getElementById('filter-month').value.split('-');
+    const overlay = document.getElementById('iv-loading-overlay');
+    if (overlay) overlay.classList.remove('hidden');
 
-    document.getElementById('iv-loading-overlay').classList.remove('hidden');
     try {
-        const response = await fetch(`/api/billing/iv-summary?year=${year}&month=${month}`);
-        const result = await response.json();
+        const res = await fetch(`/api/billing/iv-summary?year=${year}&month=${month}&_t=${Date.now()}`);
+        const result = await res.json();
         
         if (result.success && result.data) {
-            rawIvList = result.data.map(i => {
-                i.booking_list_str = Array.isArray(i.booking_list) ? i.booking_list.join(', ') : i.booking_list;
-                i.billing_date_str = i.billing_date ? String(i.billing_date).split('T')[0] : '';
-                return i;
+            allIvData = result.data.map(item => {
+                // เซ็ตค่าเริ่มต้นถ้าฐานข้อมูลเป็น null
+                if (!item.billing_status || item.billing_status === 'รอดำเนินการ') {
+                    item.billing_status = item.billing_date ? 'วางบิลแล้ว' : 'รอวางบิล';
+                }
+                if (item.billing_date) item.billing_date = String(item.billing_date).split('T')[0];
+                if (item.payment_date) item.payment_date = String(item.payment_date).split('T')[0];
+                return item;
             });
-            initIvGrid(rawIvList);
+            filterIvGrid();
         } else {
+            allIvData = [];
             initIvGrid([]);
         }
-    } catch (e) { initIvGrid([]); }
-    finally { document.getElementById('iv-loading-overlay').classList.add('hidden'); }
+    } catch(e) { 
+        console.error("Load IV Error:", e); 
+        initIvGrid([]);
+    } finally { 
+        if (overlay) overlay.classList.add('hidden'); 
+    }
 };
 
 window.filterIvGrid = function() {
-    const search = document.getElementById('filter-iv-search').value.toLowerCase().trim();
-    if (!search) { initIvGrid(rawIvList); return; }
-    
-    const filtered = rawIvList.filter(item => 
-        (item.iv_no && item.iv_no.toLowerCase().includes(search)) || 
-        (item.customer_name && item.customer_name.toLowerCase().includes(search)) ||
-        (item.booking_list_str && item.booking_list_str.toLowerCase().includes(search))
-    );
+    const cust = (document.getElementById('filter-customer')?.value || '').toLowerCase();
+    const stat = document.getElementById('filter-status')?.value || '';
+
+    const filtered = allIvData.filter(i => {
+        const cName = String(i.customer_name || '').toLowerCase();
+        const matchCust = !cust || cName.includes(cust);
+        const matchStat = !stat || i.billing_status === stat;
+        return matchCust && matchStat;
+    });
+
     initIvGrid(filtered);
+    calculateIvSummary(filtered);
 };
 
-window.printInvoiceFromIv = function(ivNo) {
-    if(ivNo) window.open(`/print-invoice.html?iv=${encodeURIComponent(ivNo)}`, '_blank');
+window.calculateIvSummary = function(data) {
+    let pendingAmt = 0;
+    let paidAmt = 0;
+
+    data.forEach(r => {
+        const amt = Number(r.grand_total) || 0;
+        if (r.billing_status === 'รับชำระแล้ว') {
+            paidAmt += amt;
+        } else if (r.billing_status !== 'ยกเลิก') {
+            pendingAmt += amt;
+        }
+    });
+
+    document.getElementById('sum-iv-count').innerText = data.length.toLocaleString();
+    document.getElementById('sum-pending-amt').innerText = pendingAmt.toLocaleString('en-US', {minimumFractionDigits: 2});
+    document.getElementById('sum-paid-amt').innerText = paidAmt.toLocaleString('en-US', {minimumFractionDigits: 2});
 };
 
 function initIvGrid(data) {
     const container = document.getElementById('iv-grid-container');
+    if (!container) return;
     if (hotIvInstance) hotIvInstance.destroy();
 
-    const btnRenderer = function(instance, td, row, col, prop, value) {
-        Handsontable.renderers.HtmlRenderer.apply(this, arguments);
-        td.innerHTML = value ? `<div class="flex items-center justify-between px-2 w-full"><span class="font-bold text-emerald-800">${value}</span><button onclick="printInvoiceFromIv('${value}')" class="bg-emerald-100 hover:bg-emerald-600 text-emerald-700 hover:text-white px-2 py-0.5 rounded text-[10px] font-bold transition-colors shadow-sm">พิมพ์ใบแจ้งหนี้ <i class="fa-solid fa-print"></i></button></div>` : '';
+    const statusRenderer = function(instance, td, row, col, prop, value) {
+        Handsontable.renderers.DropdownRenderer.apply(this, arguments);
+        td.style.fontWeight = 'bold';
+        td.style.textAlign = 'center';
+        td.style.verticalAlign = 'middle';
+        
+        if (value === 'รอวางบิล') { td.style.color = '#ca8a04'; td.style.backgroundColor = '#fefce8'; }
+        else if (value === 'วางบิลแล้ว') { td.style.color = '#2563eb'; td.style.backgroundColor = '#eff6ff'; }
+        else if (value === 'รับชำระแล้ว') { td.style.color = '#16a34a'; td.style.backgroundColor = '#f0fdf4'; }
+        else if (value === 'ยกเลิก') { td.style.color = '#dc2626'; td.style.backgroundColor = '#fef2f2'; td.style.textDecoration = 'line-through'; }
+    };
+
+    // ปุ่ม Print
+    const printRenderer = function(instance, td, row, col, prop, value, cellProperties) {
+        td.innerHTML = '';
+        const ivNo = instance.getDataAtRowProp(row, 'iv_no');
+        if (ivNo) {
+            const btn = document.createElement('button');
+            btn.innerHTML = '<i class="fa-solid fa-print"></i> พิมพ์';
+            btn.className = 'bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1 rounded text-[10px] w-full h-full transition-colors';
+            btn.onclick = () => window.open(`/print-invoice.html?iv=${encodeURIComponent(ivNo)}`, '_blank');
+            td.appendChild(btn);
+        }
+        td.style.padding = '2px';
+        td.style.textAlign = 'center';
     };
 
     hotIvInstance = new Handsontable(container, {
         data: data.length > 0 ? data : [{}],
         wordWrap: false, autoRowSize: false, rowHeights: 32, fixedColumnsLeft: 1,
-        colHeaders: ['เลขที่ IV (Invoice)', 'วันที่วางบิล', 'ลูกค้า', 'จำนวนตู้', 'บุคกิ้งที่เกี่ยวข้อง (งานตกค้าง)', 'ค่าบรรทุกรวม (บาท)', 'ค่าอื่นๆรวม (บาท)', 'รวมเงินสุทธิ (บาท)', 'เลขที่ AR'],
-        columns: [
-            { data: 'iv_no', readOnly: true, className: 'htMiddle bg-slate-50', renderer: btnRenderer },
-            { data: 'billing_date_str', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
-            { data: 'customer_name', readOnly: true, className: 'font-bold text-slate-700 htMiddle bg-slate-50' },
-            { data: 'total_containers', type: 'numeric', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700' },
-            { data: 'booking_list_str', type: 'text', readOnly: true, className: 'text-slate-500 htMiddle text-[10px]' },
-            { data: 'total_trip_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-emerald-700' },
-            { data: 'total_other_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-amber-600' },
-            { data: 'grand_total', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-purple-700 bg-purple-50' },
-            { data: 'ar_no', readOnly: true, className: 'htCenter htMiddle font-bold text-red-700' }
+        colHeaders: [
+            'พิมพ์', 'เลขที่ IV', 'ลูกค้า', 'รวมตู้', 'ยอดรวมสุทธิ (บาท)', 
+            'สถานะบิล', 'วันที่วางบิล', 'วันที่รับเงิน (Paid)', 'เลขที่ใบเสร็จ (RV)', 'หมายเหตุบัญชี'
         ],
-        colWidths: [220, 100, 200, 80, 200, 120, 120, 130, 130],
-        rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation'
+        columns: [
+            { data: 'print_btn', renderer: printRenderer, readOnly: true },
+            { data: 'iv_no', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700 bg-slate-50' },
+            { data: 'customer_name', readOnly: true, className: 'htLeft htMiddle font-bold bg-slate-50' },
+            { data: 'total_containers', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
+            { data: 'grand_total', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-slate-800 bg-slate-100' },
+            { 
+                data: 'billing_status', type: 'dropdown', 
+                source: ['รอวางบิล', 'วางบิลแล้ว', 'รับชำระแล้ว', 'ยกเลิก'], 
+                renderer: statusRenderer 
+            },
+            { data: 'billing_date', type: 'date', dateFormat: 'YYYY-MM-DD', correctFormat: true, className: 'htCenter htMiddle' },
+            { data: 'payment_date', type: 'date', dateFormat: 'YYYY-MM-DD', correctFormat: true, className: 'htCenter htMiddle text-emerald-700 font-bold bg-emerald-50/30' },
+            { data: 'receipt_no', type: 'text', className: 'htCenter htMiddle uppercase' },
+            { data: 'account_remark', type: 'text', className: 'htLeft htMiddle' }
+        ],
+        colWidths: [60, 130, 200, 60, 120, 110, 100, 110, 110, 200],
+        rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation',
+        afterChange: function(changes, src) {
+            if (src !== 'loadData' && changes) {
+                // Auto-status logic
+                changes.forEach(([row, prop, oldVal, newVal]) => {
+                    const rowData = this.getSourceDataAtRow(row);
+                    if (prop === 'billing_date' && newVal && rowData.billing_status === 'รอวางบิล') {
+                        this.setDataAtRowProp(row, 'billing_status', 'วางบิลแล้ว', 'auto');
+                    }
+                    if (prop === 'payment_date' && newVal && rowData.billing_status !== 'รับชำระแล้ว') {
+                        this.setDataAtRowProp(row, 'billing_status', 'รับชำระแล้ว', 'auto');
+                    }
+                });
+                calculateIvSummary(this.getSourceData());
+            }
+        }
     });
 }
+
+window.saveIvChanges = async function() {
+    if (!hotIvInstance) return;
+    const sourceData = hotIvInstance.getSourceData().filter(r => r.iv_no);
+
+    if (sourceData.length === 0) {
+        alert('⚠️ ไม่มีข้อมูลให้บันทึก'); return;
+    }
+
+    const overlay = document.getElementById('iv-loading-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/api/billing/update-iv', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ data: sourceData }) 
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert(`✅ บันทึกสถานะบัญชีเรียบร้อย!`);
+            await loadIvData(); 
+        } else {
+            alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));
+        }
+    } catch (err) {
+        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้: ' + err.message);
+    } finally {
+        if (overlay) overlay.classList.add('hidden');
+    }
+};

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>รายการ IV - TERN TMS</title>
+    <title>รายการ IV (ใบแจ้งหนี้) - TERN TMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,6 +19,7 @@
 </head>
 <body class="flex flex-col h-screen">
 
+    <!-- Header Navigation -->
     <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-6 shrink-0 shadow-sm z-50">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-purple-600 text-white rounded-lg flex items-center justify-center text-sm shadow-sm"><i class="fa-solid fa-file-invoice-dollar"></i></div>
@@ -27,7 +28,7 @@
             
             <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs gap-1">
                 <a href="/billing.html" class="tab-btn-inactive px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-list-check"></i> 1. หน้ารายการ Booking</a>
-                <a href="/billing-detail.html" class="tab-btn-inactive px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-file-lines"></i> 2. รายละเอียดตู้/เปิดบิล</a>
+                <a href="/billing-detail.html" class="tab-btn-inactive px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-file-lines"></i> 2. รายละเอียดตู้/จัดกลุ่มบิล</a>
                 <a href="/billing-iv.html" class="tab-btn-active px-3 py-1.5 rounded-md flex items-center gap-1.5"><i class="fa-solid fa-receipt"></i> 3. รายการ IV (ใบแจ้งหนี้)</a>
             </div>
             <div class="h-5 w-px bg-slate-300 mx-2"></div>
@@ -39,19 +40,58 @@
         </div>
     </header>
 
-    <div class="bg-white border-b border-slate-200 px-6 py-2 shrink-0 shadow-sm z-40 flex flex-wrap items-center gap-2 text-xs">
-        <div class="flex items-center bg-slate-100 border border-slate-300 rounded-lg overflow-hidden mr-2">
-            <div class="px-3 py-1.5 bg-slate-200 border-r border-slate-300 text-slate-600 font-bold"><i class="fa-regular fa-calendar-check text-purple-600"></i> เดือน:</div>
-            <input type="month" id="filter-month" onchange="loadIvSummaryData()" class="px-3 py-1.5 outline-none font-bold text-slate-700 bg-transparent cursor-pointer">
+    <!-- Filter Bar -->
+    <div class="bg-white border-b border-slate-200 px-6 py-2 shrink-0 shadow-sm z-40 flex flex-wrap items-center gap-2 text-xs justify-between">
+        <div class="flex items-center gap-2">
+            <div class="flex items-center bg-slate-100 border border-slate-300 rounded-lg overflow-hidden h-8">
+                <div class="px-3 py-1 bg-slate-200 border-r border-slate-300 text-slate-600 font-bold flex items-center h-full"><i class="fa-regular fa-calendar-check text-blue-600 mr-1"></i> เดือน:</div>
+                <input type="month" id="filter-month" onchange="loadIvData()" class="px-3 py-1 font-bold text-slate-700 bg-transparent outline-none cursor-pointer h-full">
+            </div>
+            <input type="text" id="filter-customer" placeholder="🏢 ค้นหาลูกค้า..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-48 focus:bg-white focus:border-blue-400">
+            <select id="filter-status" onchange="filterIvGrid()" class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 focus:bg-white focus:border-blue-400">
+                <option value="">-- ทุกสถานะบิล --</option>
+                <option value="รอวางบิล">🟡 รอวางบิล (ยังไม่ได้ลงวันที่)</option>
+                <option value="วางบิลแล้ว">🔵 วางบิลแล้ว (รอชำระเงิน)</option>
+                <option value="รับชำระแล้ว">🟢 รับชำระแล้ว (จ่ายแล้ว)</option>
+                <option value="ยกเลิก">🔴 ยกเลิก (Void)</option>
+            </select>
         </div>
-        <input type="text" id="filter-iv-search" placeholder="🔍 ค้นหาเลข IV, ชื่อลูกค้า..." class="border border-slate-300 rounded-lg px-3 py-1.5 w-64 outline-none focus:border-purple-400" onkeyup="filterIvGrid()">
-        <div class="flex-1"></div>
-        <button onclick="loadIvSummaryData()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-4 py-1.5 rounded-lg border text-xs shadow-sm"><i class="fa-solid fa-rotate"></i> ดึงข้อมูล</button>
+        <div class="flex gap-2">
+            <!-- 🌟 ปุ่มบันทึกการเปลี่ยนแปลงในตาราง -->
+            <button onclick="saveIvChanges()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded shadow text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลบัญชี (Save)
+            </button>
+        </div>
     </div>
 
-    <div class="flex-1 overflow-hidden relative p-4">
-        <div id="iv-loading-overlay" class="absolute inset-0 bg-white/80 z-50 flex flex-col items-center justify-center hidden backdrop-blur-sm"><i class="fa-solid fa-spinner fa-spin text-3xl text-purple-600 mb-2"></i></div>
-        <div id="iv-grid-container" class="w-full h-full bg-white rounded-xl shadow-sm border border-slate-200"></div>
+    <!-- Summary Box -->
+    <div class="px-6 py-3 shrink-0 flex gap-4">
+        <div class="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 flex-1 flex justify-between items-center">
+            <div>
+                <div class="text-[10px] text-slate-400 font-bold tracking-wide">จำนวนใบแจ้งหนี้รวม</div>
+                <div class="text-xl font-bold text-slate-700"><span id="sum-iv-count">0</span> <span class="text-[12px] font-normal text-slate-500">ใบ</span></div>
+            </div>
+            <div class="w-px h-8 bg-slate-200"></div>
+            <div>
+                <div class="text-[10px] text-slate-400 font-bold tracking-wide">ยอดหนี้รอชำระ (รอวางบิล + วางบิลแล้ว)</div>
+                <div class="text-xl font-bold text-blue-600"><span id="sum-pending-amt">0.00</span> <span class="text-[12px] font-normal text-slate-500">บาท</span></div>
+            </div>
+            <div class="w-px h-8 bg-slate-200"></div>
+            <div>
+                <div class="text-[10px] text-slate-400 font-bold tracking-wide">ยอดรับชำระแล้ว (Paid)</div>
+                <div class="text-xl font-bold text-emerald-600"><span id="sum-paid-amt">0.00</span> <span class="text-[12px] font-normal text-slate-500">บาท</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="flex-1 flex flex-col p-6 pt-0">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-2 flex-1 flex flex-col relative">
+            <div id="iv-loading-overlay" class="absolute inset-0 bg-white/80 z-50 flex items-center justify-center hidden backdrop-blur-sm rounded-xl">
+                <i class="fa-solid fa-spinner fa-spin text-3xl text-blue-600"></i>
+            </div>
+            <div id="iv-grid-container" class="flex-1 w-full rounded"></div>
+        </div>
     </div>
 
     <script src="/js/modules/billing/iv.js"></script>

@@ -23,7 +23,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         handleCrossFilterDetail();
     }
 });
-// 🌟 ดึงข้อมูลสดใหม่ และตั้งค่าการติ๊กถูกอัตโนมัติ
+
+// 🌟 ดึงข้อมูลสดใหม่
 window.loadDetailData = async function() {
     const [year, month] = document.getElementById('filter-month').value.split('-');
     const overlay = document.getElementById('detail-loading-overlay');
@@ -39,7 +40,7 @@ window.loadDetailData = async function() {
                 if (item.iv_no && String(item.iv_no).toLowerCase() === 'null') item.iv_no = '';
                 if (item.ar_no && String(item.ar_no).toLowerCase() === 'null') item.ar_no = '';
                 
-                // 🌟 ปรับลอจิกใหม่: ถ้ามีเลข IV ให้ติ๊กถูก ถ้าว่างเปล่า(รอออกบิล) ให้เอาติ๊กถูกออกอัตโนมัติ
+                // 🌟 ตู้ที่ออกบิลแล้วให้ติ๊กถูก ตู้ใหม่ให้ว่างไว้ก่อน (ระบบจะติ๊กให้อัตโนมัติเมื่อแก้ข้อมูล)
                 const hasRealIv = (item.iv_no && String(item.iv_no).trim() !== '');
                 item._selected = hasRealIv; 
                 
@@ -191,7 +192,6 @@ function initDetailGrid(data) {
     if (!container) return;
     if (hotDetailInstance) hotDetailInstance.destroy();
 
-    // 🌟 อัปเดต Renderer ไม่ให้โชว์คำว่า "null" ตรงๆ
     const ivRenderer = function(instance, td, row, col, prop, value) {
         Handsontable.renderers.TextRenderer.apply(this, arguments);
         td.style.fontWeight = 'bold';
@@ -243,7 +243,6 @@ function initDetailGrid(data) {
             { data: 'leg1_plate', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
             { data: 'iv_no', type: 'text', renderer: ivRenderer },
             { data: 'ar_no', type: 'text', renderer: arRenderer, className: 'uppercase bg-white' },
-            /* 🌟 เพิ่ม readOnly: true ให้ช่องค่าบรรทุก ห้ามกดลบหน้าบ้าน */
             { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-emerald-700 bg-emerald-50' },
             { data: 'port_pass_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },
             { data: 'deposit_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },
@@ -255,12 +254,26 @@ function initDetailGrid(data) {
         colWidths: [45, 110, 120, 85, 105, 50, 80, 130, 110, 100, 75, 75, 75, 75, 80, 120],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation',
         afterChange: function(changes, src) {
-            if (src !== 'loadData') calculateDetailSummary();
+            // 🌟 เพิ่มระบบฉลาด: ถ้าคุณพิมพ์อะไรก็ตามในตาราง ระบบจะติ๊กถูกช่องแรกให้เองอัตโนมัติ!
+            if (src !== 'loadData' && changes) {
+                let needRender = false;
+                changes.forEach(([row, prop, oldVal, newVal]) => {
+                    if (prop !== '_selected' && oldVal !== newVal) {
+                        const rowData = hotDetailInstance.getSourceDataAtRow(row);
+                        if (rowData._selected !== true) {
+                            rowData._selected = true;
+                            needRender = true;
+                        }
+                    }
+                });
+                if (needRender) hotDetailInstance.render();
+                calculateDetailSummary();
+            }
         }
     });
 }
 
-// ปุ่ม "⬇️ ใส่เลขให้ตู้ที่เลือก" (ฟังก์ชันสาดข้อมูลลงตาราง)
+// 🌟 ปุ่มสาดเลข
 window.applyTopBoxToGrid = function() {
     if (!hotDetailInstance) return;
     const ivNo = (document.getElementById('input-iv-no')?.value || '').trim();
@@ -268,8 +281,24 @@ window.applyTopBoxToGrid = function() {
     const billingDate = document.getElementById('input-billing-date')?.value || '';
 
     const sourceData = hotDetailInstance.getSourceData();
-    let appliedCount = 0;
+    let selectedCount = sourceData.filter(r => r._selected === true || r._selected === 'true' || r._selected == 1).length;
 
+    // 🌟 ระบบฉลาด: ถ้าลืมติ๊กเลือกตู้ ให้ถือว่าตั้งใจจะสาดเลขลง "ตู้ที่ยังไม่มีบิล" ทั้งหมดรวดเดียว
+    if (selectedCount === 0) {
+        sourceData.forEach((row, index) => {
+            if (!row.iv_no || String(row.iv_no).trim() === '' || String(row.iv_no).trim() === 'รอออก IV') {
+                hotDetailInstance.setDataAtRowProp(index, '_selected', true, 'auto');
+                hotDetailInstance.setDataAtRowProp(index, 'iv_no', ivNo, 'auto');
+                hotDetailInstance.setDataAtRowProp(index, 'ar_no', arNo, 'auto');
+                row.billing_date = billingDate;
+            }
+        });
+        hotDetailInstance.render();
+        alert('✅ ระบบได้ติ๊กเลือกและใส่เลขให้อัตโนมัติสำหรับตู้ที่ยังไม่มีบิลครับ\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง" เพื่อเซฟนะครับ)');
+        return;
+    }
+
+    let appliedCount = 0;
     sourceData.forEach((row, index) => {
         if (row._selected === true || row._selected === 'true' || row._selected == 1) {
             hotDetailInstance.setDataAtRowProp(index, 'iv_no', ivNo, 'auto');
@@ -279,12 +308,7 @@ window.applyTopBoxToGrid = function() {
         }
     });
     hotDetailInstance.render();
-
-    if (appliedCount > 0) {
-        alert(`✅ ใส่เลขให้ ${appliedCount} ตู้ในตารางเรียบร้อย\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง (Save)" เพื่อเซฟลงฐานข้อมูลนะครับ)`);
-    } else {
-        alert('⚠️ กรุณาติ๊กถูก [✔] หน้าตู้ที่ต้องการใส่เลขก่อนครับ');
-    }
+    alert(`✅ ใส่เลขให้ ${appliedCount} ตู้ที่ติ๊กเลือกไว้เรียบร้อย\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง")`);
 };
 
 // 🌟 ปุ่ม "บันทึกข้อมูลตาราง (Save)" 
@@ -296,11 +320,11 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
 
     const sourceData = hotDetailInstance.getSourceData() || [];
     
-    // 🌟 ดึงมาเฉพาะแถวที่ผู้ใช้ "ติ๊กถูก" เท่านั้น (เพื่อบอกว่าตั้งใจจะแก้ไขแถวพวกนี้)
+    // ดึงมาเฉพาะแถวที่ "ติ๊กถูก"
     const selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
 
     if (selectedRows.length === 0) {
-        alert('⚠️ กรุณาติ๊กเลือก [✔] หน้าตู้ที่ต้องการบันทึกข้อมูลครับ (ตู้ที่ไม่ติ๊ก จะไม่ถูกบันทึก)');
+        alert('⚠️ กรุณาติ๊กเลือก [✔] หน้าตู้ที่ต้องการบันทึกข้อมูลครับ (ถ้าพิมพ์ในตาราง ระบบจะติ๊กให้อัตโนมัติ)');
         return;
     }
 
@@ -310,7 +334,6 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     selectedRows.forEach(row => {
         if (row.iv_no !== undefined && row.iv_no !== null) {
             row.iv_no = String(row.iv_no).trim();
-            // 🌟 ถ้าผู้ใช้ลบข้อความในตารางจนว่างเปล่า ให้ส่งค่า null กลับไปเพื่อลบในฐานข้อมูล
             if (row.iv_no === '' || row.iv_no === 'รอออก IV' || row.iv_no.toLowerCase() === 'null') {
                 row.iv_no = null;
                 hasCleared = true;
@@ -339,7 +362,6 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         const res = await fetch('/api/billing/shipments', { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
-            // ส่งเฉพาะแถวที่ติ๊กเลือก ไปให้ Backend บันทึก
             body: JSON.stringify({ data: selectedRows }) 
         });
         const result = await res.json();

@@ -56,7 +56,6 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-// 2. บันทึกข้อมูลวางบิลรายตู้
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -76,7 +75,12 @@ router.post('/shipments', async (req, res) => {
             const status = cleanIv ? 'วางบิลแล้ว' : 'รอดำเนินการ';
             const billingDate = cleanIv ? (row.billing_date || null) : null;
 
-            const getNum = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? parseFloat(val) : null;
+            // 🌟 ป้องกันปัญหา Handsontable ส่งตัวเลขที่มีเครื่องหมายลูกน้ำ (,) มา ทำให้บันทึกได้แค่หลักเดียว
+            const getNum = (val) => {
+                if (val === undefined || val === null || String(val).trim() === '') return null;
+                const num = parseFloat(String(val).replace(/,/g, ''));
+                return isNaN(num) ? null : num;
+            };
 
             const params = [
                 String(row.order_id).trim(), 
@@ -132,7 +136,6 @@ router.post('/shipments', async (req, res) => {
         client.release(); 
     }
 });
-
 // 3. ค้นหาตู้ตกค้าง / งานพิเศษที่ยังไม่ได้วางบิล 
 router.get('/unbilled-containers', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

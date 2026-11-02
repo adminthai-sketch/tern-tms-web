@@ -61,7 +61,6 @@ router.post('/shipments', async (req, res) => {
         for (const row of data) {
             if (!row.order_id) continue;
 
-            // 🌟 กรองข้อความ 'รอออก IV' และ 'null' ที่เป็น String ให้กลายเป็น null ที่แท้จริง
             const rawIv = row.iv_no !== null && row.iv_no !== undefined ? String(row.iv_no).trim() : '';
             const cleanIv = (rawIv !== '' && rawIv !== 'รอออก IV' && rawIv.toLowerCase() !== 'null') ? rawIv : null;
             
@@ -71,19 +70,22 @@ router.post('/shipments', async (req, res) => {
             const status = cleanIv ? 'วางบิลแล้ว' : 'รอดำเนินการ';
             const billingDate = cleanIv ? (row.billing_date || null) : null;
 
+            // 🌟 ฟังก์ชันแปลงค่าว่างให้เป็น null ชัดเจนสำหรับคอลัมน์ตัวเลข
+            const getNum = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? parseFloat(val) : null;
+
             const params = [
                 String(row.order_id).trim(), 
-                row.gross_weight ? parseFloat(row.gross_weight) : 0,
+                getNum(row.gross_weight),
                 cleanAr, 
                 cleanIv, 
                 row.billing_remark || null, 
                 billingDate,
-                row.trip_fee !== undefined && row.trip_fee !== null && row.trip_fee !== '' ? parseFloat(row.trip_fee) : null,
-                row.port_pass_fee !== undefined && row.port_pass_fee !== null && row.port_pass_fee !== '' ? parseFloat(row.port_pass_fee) : null,
-                row.deposit_fee !== undefined && row.deposit_fee !== null && row.deposit_fee !== '' ? parseFloat(row.deposit_fee) : null,
-                row.lift_fee !== undefined && row.lift_fee !== null && row.lift_fee !== '' ? parseFloat(row.lift_fee) : null,
-                row.shore_fee !== undefined && row.shore_fee !== null && row.shore_fee !== '' ? parseFloat(row.shore_fee) : null,
-                row.other_expense !== undefined && row.other_expense !== null && row.other_expense !== '' ? parseFloat(row.other_expense) : null,
+                getNum(row.trip_fee),
+                getNum(row.port_pass_fee),
+                getNum(row.deposit_fee),
+                getNum(row.lift_fee),
+                getNum(row.shore_fee),
+                getNum(row.other_expense),
                 status
             ];
 
@@ -96,12 +98,12 @@ router.post('/shipments', async (req, res) => {
                     billing_remark = $5, 
                     billing_date = $6,
                     billing_status = $13,
-                    trip_fee = COALESCE($7, trip_fee),
-                    port_pass_fee = COALESCE($8, port_pass_fee),
-                    deposit_fee = COALESCE($9, deposit_fee),
-                    lift_fee = COALESCE($10, lift_fee),
-                    shore_fee = COALESCE($11, shore_fee),
-                    other_expense = COALESCE($12, other_expense)
+                    trip_fee = COALESCE($7, trip_fee), /* 🌟 ล็อกค่าบรรทุก ห้ามให้เป็นค่าว่างเด็ดขาด */
+                    port_pass_fee = $8, /* 🌟 ปลดล็อกให้ลบเป็นค่าว่างได้ */
+                    deposit_fee = $9, 
+                    lift_fee = $10,
+                    shore_fee = $11,
+                    other_expense = $12
                 WHERE order_id::text = $1::text
             `, params);
 

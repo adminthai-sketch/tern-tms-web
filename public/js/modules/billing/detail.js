@@ -240,7 +240,8 @@ function initDetailGrid(data) {
             { data: 'leg1_plate', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
             { data: 'iv_no', type: 'text', renderer: ivRenderer },
             { data: 'ar_no', type: 'text', renderer: arRenderer, className: 'uppercase bg-white' },
-            { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle font-bold text-emerald-700 bg-emerald-50/30' },
+            /* 🌟 เพิ่ม readOnly: true ให้ช่องค่าบรรทุก ห้ามกดลบหน้าบ้าน */
+            { data: 'trip_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-emerald-700 bg-emerald-50' },
             { data: 'port_pass_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },
             { data: 'deposit_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },
             { data: 'lift_fee', type: 'numeric', numericFormat: { pattern: '0,0.00' }, className: 'htRight htMiddle' },

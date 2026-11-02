@@ -20,8 +20,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         const today = new Date();
         document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     }
-    
-    document.getElementById('input-billing-date').value = new Date().toISOString().split('T')[0];
 
     await loadDetailData();
 
@@ -125,7 +123,6 @@ function applyDetailFilter() {
         if (hasIv) {
             document.getElementById('input-iv-no').value = hasIv.iv_no;
             document.getElementById('input-ar-no').value = hasIv.ar_no || '';
-            if (hasIv.billing_date) document.getElementById('input-billing-date').value = String(hasIv.billing_date).split('T')[0];
         } else {
             document.getElementById('input-iv-no').value = '';
             document.getElementById('input-ar-no').value = '';
@@ -261,7 +258,6 @@ function initDetailGrid(data) {
         colWidths: [45, 110, 120, 85, 105, 50, 80, 130, 110, 100, 75, 75, 75, 75, 80, 120],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation',
         afterChange: function(changes, src) {
-            // ระบบฉลาด: ถ้าคุณแก้ไขข้อมูลในตาราง ระบบจะติ๊กถูกให้เองอัตโนมัติ!
             if (src !== 'loadData' && changes) {
                 let needRender = false;
                 changes.forEach(([row, prop, oldVal, newVal]) => {
@@ -280,25 +276,22 @@ function initDetailGrid(data) {
     });
 }
 
-// 🌟 ปุ่มสาดเลข (ปรับให้ซ่อนการแจ้งเตือนได้หากเรียกจากโค้ดอื่น)
+// 🌟 ปุ่มสาดเลข (ตัดเรื่องวันที่ออกไปแล้ว)
 window.applyTopBoxToGrid = function(silent = false) {
     if (!hotDetailInstance) return 0;
     const ivNo = (document.getElementById('input-iv-no')?.value || '').trim();
     const arNo = (document.getElementById('input-ar-no')?.value || '').trim();
-    const billingDate = document.getElementById('input-billing-date')?.value || '';
 
     const sourceData = hotDetailInstance.getSourceData();
     let selectedCount = sourceData.filter(r => r._selected === true || r._selected === 'true' || r._selected == 1).length;
 
     let appliedCount = 0;
-    // 🌟 ระบบฉลาดขั้น 1: ถ้าลืมติ๊กเลือกตู้ ให้สาดเลขลง "ตู้ที่ยังไม่มีบิล" ทั้งหมดรวดเดียว
     if (selectedCount === 0) {
         sourceData.forEach((row, index) => {
             if (!row.iv_no || String(row.iv_no).trim() === '' || String(row.iv_no).trim() === 'รอออก IV' || String(row.iv_no).toLowerCase() === 'null') {
                 hotDetailInstance.setDataAtRowProp(index, '_selected', true, 'auto');
                 hotDetailInstance.setDataAtRowProp(index, 'iv_no', ivNo, 'auto');
                 hotDetailInstance.setDataAtRowProp(index, 'ar_no', arNo, 'auto');
-                row.billing_date = billingDate;
                 appliedCount++;
             }
         });
@@ -311,7 +304,6 @@ window.applyTopBoxToGrid = function(silent = false) {
         if (row._selected === true || row._selected === 'true' || row._selected == 1) {
             hotDetailInstance.setDataAtRowProp(index, 'iv_no', ivNo, 'auto');
             hotDetailInstance.setDataAtRowProp(index, 'ar_no', arNo, 'auto');
-            row.billing_date = billingDate; 
             appliedCount++;
         }
     });
@@ -320,7 +312,7 @@ window.applyTopBoxToGrid = function(silent = false) {
     return appliedCount;
 };
 
-// 🌟 ปุ่ม "บันทึกข้อมูลตาราง (Save)" ปลดล็อกเงื่อนไขติ๊กถูก เซฟทุกอย่างตามตาเห็น
+// 🌟 ปุ่ม "บันทึกข้อมูลตาราง (Save)"
 window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
     if (!hotDetailInstance) {
         alert('⚠️ ไม่พบข้อมูลตารางตู้');
@@ -329,7 +321,7 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
 
     const sourceData = hotDetailInstance.getSourceData() || [];
     
-    // 🌟 ปลดล็อกเงื่อนไขติ๊กถูก: ดึงทุกตู้ที่มีในตารางไปเซฟเลย!
+    // ดึงทุกตู้ที่มีในตารางไปเซฟ
     const rowsToSave = sourceData.filter(r => r.order_id);
 
     if (rowsToSave.length === 0) {
@@ -340,17 +332,15 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     const topIv = (document.getElementById('input-iv-no')?.value || '').trim();
     const topAr = (document.getElementById('input-ar-no')?.value || '').trim();
 
-    // 🌟 ระบบแจ้งเตือนกันลืม: ถ้าพิมพ์เลขข้างบนไว้ แต่ลืมกดสาดเลขลงตาราง
     if (topIv !== '' || topAr !== '') {
         const hasUnapplied = rowsToSave.some(r => r.iv_no !== topIv && (!r.iv_no || String(r.iv_no).trim() === '' || String(r.iv_no).trim() === 'รอออก IV'));
         if (hasUnapplied) {
             if (confirm('💡 คุณพิมพ์เลข IV ด้านบนไว้ แต่ยังมีตู้ในตารางที่ยังว่างอยู่\n\nต้องการให้ระบบสาดเลขใส่ตู้ที่ว่างให้ แล้วบันทึกทันทีเลยหรือไม่?\n(กด Cancel หากต้องการบันทึกตารางตามที่เห็นปัจจุบันโดยไม่สาดเลข)')) {
-                window.applyTopBoxToGrid(true); // สาดเลขแบบไม่แจ้งเตือนซ้ำ
+                window.applyTopBoxToGrid(true); 
             }
         }
     }
 
-    // คลีนค่าว่างให้เป็น null ชัดเจนก่อนส่ง
     rowsToSave.forEach(row => {
         if (row.iv_no !== undefined && row.iv_no !== null) {
             row.iv_no = String(row.iv_no).trim();
@@ -376,7 +366,6 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         const res = await fetch('/api/billing/shipments', { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' }, 
-            // 🌟 ส่งทุกแถวไปบันทึก
             body: JSON.stringify({ data: rowsToSave }) 
         });
         const result = await res.json();
@@ -492,65 +481,4 @@ window.appendSelectedUnbilled = function() {
     calculateDetailSummary(); 
     closeUnbilledModal();
     alert(`✅ ดึงตู้ข้าม Booking เข้ามา ${itemsToAdd.length} รายการแล้ว!`);
-};
-
-// 🌟 ฟังก์ชันพิมพ์ใบแนบ (อัปเดตให้รองรับกรณีมีหลาย IV ใน 1 Booking)
-window.printCurrentInvoice = function() {
-    if (!hotDetailInstance) {
-        alert('ไม่พบข้อมูลสำหรับพิมพ์');
-        return;
-    }
-
-    const sourceData = hotDetailInstance.getSourceData() || [];
-    
-    // กวาดหาเลข IV ทั้งหมดที่มีอยู่ในตารางตอนนี้ (ตัดค่าว่างและตัวซ้ำออก)
-    const ivSet = new Set();
-    sourceData.forEach(r => {
-        if (r.iv_no && String(r.iv_no).trim() !== '' && r.iv_no !== 'รอออก IV' && String(r.iv_no).toLowerCase() !== 'null') {
-            ivSet.add(String(r.iv_no).trim());
-        }
-    });
-    
-    const uniqueIvs = Array.from(ivSet);
-    const bookingNo = document.getElementById('select-booking-no')?.value.trim();
-
-    if (uniqueIvs.length === 0) {
-        // กรณีไม่มี IV เลย ให้ลองพิมพ์จาก Booking
-        if (bookingNo) {
-            window.open(`/print-invoice.html?booking=${encodeURIComponent(bookingNo)}`, '_blank');
-        } else {
-            alert('⚠️ กรุณาระบุเลข IV หรือเลือก Booking เพื่อพิมพ์ใบแนบครับ');
-        }
-    } else if (uniqueIvs.length === 1) {
-        // กรณีมี 1 IV พิมพ์ได้เลยทันที
-        window.open(`/print-invoice.html?iv=${encodeURIComponent(uniqueIvs[0])}`, '_blank');
-    } else {
-        // 🌟 กรณีมีหลาย IV ให้สร้าง Modal สวยๆ เด้งขึ้นมาให้ผู้ใช้คลิกเลือก
-        let existingModal = document.getElementById('iv-print-modal');
-        if (existingModal) existingModal.remove();
-        
-        let modalHtml = `
-        <div id="iv-print-modal" class="fixed inset-0 bg-slate-900/60 z-[200] flex items-center justify-center backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-            <div class="bg-white rounded-2xl shadow-2xl p-6 w-[400px] max-w-full transform transition-all">
-                <div class="flex items-center gap-3 mb-2">
-                    <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-print"></i></div>
-                    <h3 class="font-bold text-lg text-slate-800">เลือกใบแจ้งหนี้ที่ต้องการพิมพ์</h3>
-                </div>
-                <p class="text-sm text-slate-500 mb-5 pl-13">ระบบพบว่าตู้ใน Booking นี้ถูกแบ่งออกเป็นหลาย IV กรุณาเลือก IV ที่ต้องการพิมพ์ใบแนบ A4:</p>
-                <div class="flex flex-col gap-2 mb-6 max-h-60 overflow-y-auto px-1">
-                    ${uniqueIvs.map(iv => `
-                        <button onclick="window.open('/print-invoice.html?iv=${encodeURIComponent(iv)}', '_blank'); document.getElementById('iv-print-modal').remove();" 
-                                class="bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-400 text-left px-4 py-3 rounded-xl flex items-center justify-between transition-all group shadow-sm hover:shadow">
-                            <span class="font-bold text-slate-700 group-hover:text-blue-700 text-base"><i class="fa-solid fa-file-invoice text-slate-300 group-hover:text-blue-400 mr-2"></i> ${iv}</span>
-                            <i class="fa-solid fa-chevron-right text-slate-300 group-hover:text-blue-500"></i>
-                        </button>
-                    `).join('')}
-                </div>
-                <div class="text-right border-t border-slate-100 pt-4">
-                    <button onclick="document.getElementById('iv-print-modal').remove()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-colors">ยกเลิก (Cancel)</button>
-                </div>
-            </div>
-        </div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
 };

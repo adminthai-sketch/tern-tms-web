@@ -40,7 +40,7 @@ window.loadDetailData = async function() {
                 if (item.iv_no && String(item.iv_no).toLowerCase() === 'null') item.iv_no = '';
                 if (item.ar_no && String(item.ar_no).toLowerCase() === 'null') item.ar_no = '';
                 
-                // 🌟 ตู้ที่ออกบิลแล้วให้ติ๊กถูก ตู้ใหม่ให้ว่างไว้ก่อน (ระบบจะติ๊กให้อัตโนมัติเมื่อแก้ข้อมูล)
+                // ตู้ที่ออกบิลแล้วให้ติ๊กถูก ตู้ใหม่ให้เอาติ๊กออก (ระบบจะติ๊กให้อัตโนมัติเมื่อพยายามเซฟ)
                 const hasRealIv = (item.iv_no && String(item.iv_no).trim() !== '');
                 item._selected = hasRealIv; 
                 
@@ -254,7 +254,7 @@ function initDetailGrid(data) {
         colWidths: [45, 110, 120, 85, 105, 50, 80, 130, 110, 100, 75, 75, 75, 75, 80, 120],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation',
         afterChange: function(changes, src) {
-            // 🌟 เพิ่มระบบฉลาด: ถ้าคุณพิมพ์อะไรก็ตามในตาราง ระบบจะติ๊กถูกช่องแรกให้เองอัตโนมัติ!
+            // ระบบฉลาด: ถ้าคุณแก้ไขข้อมูลในตาราง ระบบจะติ๊กถูกให้เองอัตโนมัติ!
             if (src !== 'loadData' && changes) {
                 let needRender = false;
                 changes.forEach(([row, prop, oldVal, newVal]) => {
@@ -273,9 +273,9 @@ function initDetailGrid(data) {
     });
 }
 
-// 🌟 ปุ่มสาดเลข
-window.applyTopBoxToGrid = function() {
-    if (!hotDetailInstance) return;
+// 🌟 ปุ่มสาดเลข (ปรับให้ซ่อนการแจ้งเตือนได้หากเรียกจากโค้ดอื่น)
+window.applyTopBoxToGrid = function(silent = false) {
+    if (!hotDetailInstance) return 0;
     const ivNo = (document.getElementById('input-iv-no')?.value || '').trim();
     const arNo = (document.getElementById('input-ar-no')?.value || '').trim();
     const billingDate = document.getElementById('input-billing-date')?.value || '';
@@ -283,22 +283,23 @@ window.applyTopBoxToGrid = function() {
     const sourceData = hotDetailInstance.getSourceData();
     let selectedCount = sourceData.filter(r => r._selected === true || r._selected === 'true' || r._selected == 1).length;
 
-    // 🌟 ระบบฉลาด: ถ้าลืมติ๊กเลือกตู้ ให้ถือว่าตั้งใจจะสาดเลขลง "ตู้ที่ยังไม่มีบิล" ทั้งหมดรวดเดียว
+    let appliedCount = 0;
+    // 🌟 ระบบฉลาดขั้น 1: ถ้าลืมติ๊กเลือกตู้ ให้สาดเลขลง "ตู้ที่ยังไม่มีบิล" ทั้งหมดรวดเดียว
     if (selectedCount === 0) {
         sourceData.forEach((row, index) => {
-            if (!row.iv_no || String(row.iv_no).trim() === '' || String(row.iv_no).trim() === 'รอออก IV') {
+            if (!row.iv_no || String(row.iv_no).trim() === '' || String(row.iv_no).trim() === 'รอออก IV' || String(row.iv_no).toLowerCase() === 'null') {
                 hotDetailInstance.setDataAtRowProp(index, '_selected', true, 'auto');
                 hotDetailInstance.setDataAtRowProp(index, 'iv_no', ivNo, 'auto');
                 hotDetailInstance.setDataAtRowProp(index, 'ar_no', arNo, 'auto');
                 row.billing_date = billingDate;
+                appliedCount++;
             }
         });
         hotDetailInstance.render();
-        alert('✅ ระบบได้ติ๊กเลือกและใส่เลขให้อัตโนมัติสำหรับตู้ที่ยังไม่มีบิลครับ\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง" เพื่อเซฟนะครับ)');
-        return;
+        if (!silent) alert('✅ ระบบได้ติ๊กเลือกและใส่เลขให้อัตโนมัติสำหรับตู้ที่ยังไม่มีบิลครับ\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง" เพื่อเซฟนะครับ)');
+        return appliedCount;
     }
 
-    let appliedCount = 0;
     sourceData.forEach((row, index) => {
         if (row._selected === true || row._selected === 'true' || row._selected == 1) {
             hotDetailInstance.setDataAtRowProp(index, 'iv_no', ivNo, 'auto');
@@ -308,10 +309,11 @@ window.applyTopBoxToGrid = function() {
         }
     });
     hotDetailInstance.render();
-    alert(`✅ ใส่เลขให้ ${appliedCount} ตู้ที่ติ๊กเลือกไว้เรียบร้อย\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง")`);
+    if (!silent) alert(`✅ ใส่เลขให้ ${appliedCount} ตู้ที่ติ๊กเลือกไว้เรียบร้อย\n(อย่าลืมกดปุ่ม "บันทึกข้อมูลตาราง")`);
+    return appliedCount;
 };
 
-// 🌟 ปุ่ม "บันทึกข้อมูลตาราง (Save)" 
+// 🌟 ปุ่ม "บันทึกข้อมูลตาราง (Save)"
 window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
     if (!hotDetailInstance) {
         alert('⚠️ ไม่พบข้อมูลตารางตู้');
@@ -319,18 +321,39 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     }
 
     const sourceData = hotDetailInstance.getSourceData() || [];
-    
-    // ดึงมาเฉพาะแถวที่ "ติ๊กถูก"
-    const selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
+    let selectedRows = sourceData.filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
 
+    const topIv = (document.getElementById('input-iv-no')?.value || '').trim();
+    const topAr = (document.getElementById('input-ar-no')?.value || '').trim();
+
+    // 🌟 ระบบฉลาดขั้น 2: พิมพ์เลขด้านบนแล้ว แต่ลืมกดสาดเลข และ ลืมติ๊กถูก
+    if (selectedRows.length === 0 && (topIv !== '' || topAr !== '')) {
+        if (confirm('💡 ระบบพบว่าคุณพิมพ์เลข IV/AR ไว้ แต่ลืมติ๊กเลือกตู้\n\nต้องการให้ระบบ "ติ๊กเลือกตู้ที่ยังไม่มีบิล" และ "สาดเลขพร้อมบันทึก" ให้เลยหรือไม่?')) {
+            window.applyTopBoxToGrid(true); // สาดเลขแบบไม่แจ้งเตือนซ้ำซ้อน
+            selectedRows = hotDetailInstance.getSourceData().filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
+        } else {
+            return;
+        }
+    } 
+    // 🌟 ระบบฉลาดขั้น 3: ติ๊กถูกไว้แล้ว แต่ลืมสาดเลข 
+    else if (selectedRows.length > 0 && (topIv !== '' || topAr !== '')) {
+        const hasUnapplied = selectedRows.some(r => r.iv_no !== topIv && (!r.iv_no || String(r.iv_no).trim() === '' || String(r.iv_no).trim() === 'รอออก IV'));
+        if (hasUnapplied) {
+            if (confirm('💡 คุณพิมพ์เลขด้านบนไว้ แต่ยังไม่ได้กดนำเลขลงตาราง\n\nต้องการให้ระบบสาดเลขให้ตู้ที่ติ๊กไว้ แล้วบันทึกทันทีเลยหรือไม่?')) {
+                window.applyTopBoxToGrid(true);
+                selectedRows = hotDetailInstance.getSourceData().filter(r => (r._selected === true || r._selected === 'true' || r._selected == 1) && r.order_id);
+            }
+        }
+    }
+
+    // ถ้าระบบช่วยแล้วยังไม่มีตู้ไหนถูกเลือกอีก แสดงว่าตารางว่างจริงๆ
     if (selectedRows.length === 0) {
-        alert('⚠️ กรุณาติ๊กเลือก [✔] หน้าตู้ที่ต้องการบันทึกข้อมูลครับ (ถ้าพิมพ์ในตาราง ระบบจะติ๊กให้อัตโนมัติ)');
+        alert('⚠️ กรุณาติ๊กเลือก [✔] หน้าตู้ที่ต้องการบันทึกข้อมูลครับ');
         return;
     }
 
     let hasCleared = false;
     
-    // แปลงค่าว่างให้เป็น null ชัดเจนก่อนส่ง
     selectedRows.forEach(row => {
         if (row.iv_no !== undefined && row.iv_no !== null) {
             row.iv_no = String(row.iv_no).trim();

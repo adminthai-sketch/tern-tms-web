@@ -2,12 +2,9 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 
-// 1. ดึงข้อมูลตู้และบิล (ใส่ Header ปิดแคช 100%)
+// 1. ดึงข้อมูลตู้และบิลทั้งหมดในเดือน
 router.get('/shipments', async (req, res) => {
-    // 🌟 ป้องกัน Vercel และ Browser แคชข้อมูลเก่า
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
 
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
@@ -37,24 +34,23 @@ router.get('/shipments', async (req, res) => {
                 COALESCE(f.lift_fee, 0) AS lift_fee,
                 COALESCE(f.deposit_fee, 0) AS deposit_fee,
                 COALESCE(f.other_expense, 0) AS other_expense,
-                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_remark
+                f.gross_weight, f.ar_no, f.iv_no, f.billing_date, f.billing_remark, f.billing_status
             FROM bookings b
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            -- 🌟 เชื่อมโยงผ่าน ::text เพื่อความเข้ากันได้ของชนิดข้อมูล
-            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
+            LEFT JOIN financials f ON s.order_id = f.order_id
             WHERE b.run_date BETWEEN $1 AND $2
             ORDER BY b.run_date DESC, b.booking_no ASC, s.order_id ASC
         `, [startDate, endDate]);
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
-        console.error("GET /shipments Error:", err);
+        console.error("GET /shipments Error:", err.message);
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// 2. 🌟 บันทึกข้อมูลวางบิลรายตู้ (ใช้ ON CONFLICT บน order_id ที่เซ็ต UNIQUE แล้ว)
+// 2. 🌟 บันทึกข้อมูลวางบิลรายตู้ (ใช้ UPDATE สลับ INSERT มั่นใจชัวร์ 100%)
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
     if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
@@ -65,11 +61,14 @@ router.post('/shipments', async (req, res) => {
         for (const row of data) {
             if (!row.order_id) continue;
 
+            const cleanIv = row.iv_no ? String(row.iv_no).trim() : null;
+            const status = (cleanIv && cleanIv !== '') ? 'วางบิลแล้ว' : 'รอดำเนินการ';
+
             const params = [
                 row.order_id, 
                 row.gross_weight ? parseFloat(row.gross_weight) : 0,
                 row.ar_no ? String(row.ar_no).trim() : null, 
-                row.iv_no ? String(row.iv_no).trim() : null, 
+                cleanIv, 
                 row.billing_remark || null, 
                 row.billing_date || null,
                 row.trip_fee !== undefined && row.trip_fee !== null && row.trip_fee !== '' ? parseFloat(row.trip_fee) : null,
@@ -77,35 +76,43 @@ router.post('/shipments', async (req, res) => {
                 row.deposit_fee !== undefined && row.deposit_fee !== null && row.deposit_fee !== '' ? parseFloat(row.deposit_fee) : null,
                 row.lift_fee !== undefined && row.lift_fee !== null && row.lift_fee !== '' ? parseFloat(row.lift_fee) : null,
                 row.shore_fee !== undefined && row.shore_fee !== null && row.shore_fee !== '' ? parseFloat(row.shore_fee) : null,
-                row.other_expense !== undefined && row.other_expense !== null && row.other_expense !== '' ? parseFloat(row.other_expense) : null
+                row.other_expense !== undefined && row.other_expense !== null && row.other_expense !== '' ? parseFloat(row.other_expense) : null,
+                status
             ];
 
-            await client.query(`
-                INSERT INTO financials (
-                    order_id, gross_weight, ar_no, iv_no, billing_remark, billing_date,
-                    trip_fee, port_pass_fee, deposit_fee, lift_fee, shore_fee, other_expense
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-                ON CONFLICT (order_id) 
-                DO UPDATE SET 
-                    gross_weight = EXCLUDED.gross_weight, 
-                    ar_no = EXCLUDED.ar_no, 
-                    iv_no = EXCLUDED.iv_no,
-                    billing_remark = EXCLUDED.billing_remark, 
-                    billing_date = EXCLUDED.billing_date,
-                    trip_fee = COALESCE(EXCLUDED.trip_fee, financials.trip_fee),
-                    port_pass_fee = COALESCE(EXCLUDED.port_pass_fee, financials.port_pass_fee),
-                    deposit_fee = COALESCE(EXCLUDED.deposit_fee, financials.deposit_fee),
-                    lift_fee = COALESCE(EXCLUDED.lift_fee, financials.lift_fee),
-                    shore_fee = COALESCE(EXCLUDED.shore_fee, financials.shore_fee),
-                    other_expense = COALESCE(EXCLUDED.other_expense, financials.other_expense)
+            const updateRes = await client.query(`
+                UPDATE financials SET 
+                    bill_weight = $2,
+                    gross_weight = $2, 
+                    ar_no = $3, 
+                    iv_no = $4,
+                    billing_remark = $5, 
+                    billing_date = $6,
+                    billing_status = $13,
+                    trip_fee = COALESCE($7, trip_fee),
+                    port_pass_fee = COALESCE($8, port_pass_fee),
+                    deposit_fee = COALESCE($9, deposit_fee),
+                    lift_fee = COALESCE($10, lift_fee),
+                    shore_fee = COALESCE($11, shore_fee),
+                    other_expense = COALESCE($12, other_expense)
+                WHERE order_id = $1
             `, params);
+
+            if (updateRes.rowCount === 0) {
+                await client.query(`
+                    INSERT INTO financials (
+                        order_id, bill_weight, gross_weight, ar_no, iv_no, billing_remark, billing_date,
+                        trip_fee, port_pass_fee, deposit_fee, lift_fee, shore_fee, other_expense, billing_status
+                    )
+                    VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                `, params);
+            }
         }
         await client.query('COMMIT');
         res.json({ success: true, message: 'บันทึกข้อมูลสำเร็จ' });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error("POST /shipments Error:", error);
+        console.error("POST /shipments Error:", error.message);
         res.status(500).json({ success: false, message: error.message });
     } finally { 
         client.release(); 
@@ -134,7 +141,7 @@ router.get('/unbilled-containers', async (req, res) => {
             FROM bookings b
             JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
+            LEFT JOIN financials f ON s.order_id = f.order_id
             WHERE b.customer_id = $1 AND (f.iv_no IS NULL OR TRIM(f.iv_no) = '')
         `;
         const params = [customer_id];
@@ -145,7 +152,7 @@ router.get('/unbilled-containers', async (req, res) => {
         const result = await pool.query(query, params);
         res.json({ success: true, data: result.rows });
     } catch (err) { 
-        console.error("GET /unbilled-containers Error:", err);
+        console.error("GET /unbilled-containers Error:", err.message);
         res.status(500).json({ success: false, message: err.message }); 
     }
 });
@@ -186,7 +193,7 @@ router.get('/iv-summary', async (req, res) => {
                     COALESCE(f.other_expense::NUMERIC, 0)
                 ) AS grand_total
             FROM financials f
-            JOIN shipment_operations s ON f.order_id::text = s.order_id::text
+            JOIN shipment_operations s ON f.order_id = s.order_id
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             WHERE f.iv_no IS NOT NULL AND TRIM(f.iv_no) != '' AND b.run_date BETWEEN $1 AND $2
@@ -196,7 +203,7 @@ router.get('/iv-summary', async (req, res) => {
 
         res.json({ success: true, data: result.rows });
     } catch (err) { 
-        console.error("GET /iv-summary Error:", err);
+        console.error("GET /iv-summary Error:", err.message);
         res.status(500).json({ success: false, message: err.message }); 
     }
 });
@@ -243,14 +250,14 @@ router.get('/print-data', async (req, res) => {
             FROM bookings b 
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no 
             LEFT JOIN customers c ON b.customer_id = c.id 
-            LEFT JOIN financials f ON s.order_id::text = f.order_id::text
+            LEFT JOIN financials f ON s.order_id = f.order_id
             WHERE ${condition} 
             ORDER BY s.order_id ASC
         `, [param]);
 
         res.json({ success: true, data: result.rows });
     } catch (err) { 
-        console.error("GET /print-data Error:", err);
+        console.error("GET /print-data Error:", err.message);
         res.status(500).json({ success: false, message: err.message }); 
     }
 });
@@ -264,7 +271,7 @@ router.post('/save-layout', async (req, res) => {
         await pool.query('UPDATE customers SET invoice_layout = $1 WHERE id = $2', [JSON.stringify(layout), customer_id]);
         res.json({ success: true, message: 'บันทึก Layout สำเร็จ' });
     } catch (err) {
-        console.error("POST /save-layout Error:", err);
+        console.error("POST /save-layout Error:", err.message);
         res.status(500).json({ success: false, message: err.message });
     }
 });

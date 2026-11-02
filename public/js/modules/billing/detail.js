@@ -487,11 +487,63 @@ window.appendSelectedUnbilled = function() {
     alert(`✅ ดึงตู้ข้าม Booking เข้ามา ${itemsToAdd.length} รายการแล้ว!`);
 };
 
+// 🌟 ฟังก์ชันพิมพ์ใบแนบ (อัปเดตให้รองรับกรณีมีหลาย IV ใน 1 Booking)
 window.printCurrentInvoice = function() {
-    const ivNo = document.getElementById('input-iv-no')?.value.trim();
+    if (!hotDetailInstance) {
+        alert('ไม่พบข้อมูลสำหรับพิมพ์');
+        return;
+    }
+
+    const sourceData = hotDetailInstance.getSourceData() || [];
+    
+    // กวาดหาเลข IV ทั้งหมดที่มีอยู่ในตารางตอนนี้ (ตัดค่าว่างและตัวซ้ำออก)
+    const ivSet = new Set();
+    sourceData.forEach(r => {
+        if (r.iv_no && String(r.iv_no).trim() !== '' && r.iv_no !== 'รอออก IV' && String(r.iv_no).toLowerCase() !== 'null') {
+            ivSet.add(String(r.iv_no).trim());
+        }
+    });
+    
+    const uniqueIvs = Array.from(ivSet);
     const bookingNo = document.getElementById('select-booking-no')?.value.trim();
 
-    if (ivNo) window.open(`/print-invoice.html?iv=${encodeURIComponent(ivNo)}`, '_blank');
-    else if (bookingNo) window.open(`/print-invoice.html?booking=${encodeURIComponent(bookingNo)}`, '_blank');
-    else alert('กรุณาระบุเลข IV หรือเลือก Booking เพื่อพิมพ์ใบแนบครับ');
+    if (uniqueIvs.length === 0) {
+        // กรณีไม่มี IV เลย ให้ลองพิมพ์จาก Booking
+        if (bookingNo) {
+            window.open(`/print-invoice.html?booking=${encodeURIComponent(bookingNo)}`, '_blank');
+        } else {
+            alert('⚠️ กรุณาระบุเลข IV หรือเลือก Booking เพื่อพิมพ์ใบแนบครับ');
+        }
+    } else if (uniqueIvs.length === 1) {
+        // กรณีมี 1 IV พิมพ์ได้เลยทันที
+        window.open(`/print-invoice.html?iv=${encodeURIComponent(uniqueIvs[0])}`, '_blank');
+    } else {
+        // 🌟 กรณีมีหลาย IV ให้สร้าง Modal สวยๆ เด้งขึ้นมาให้ผู้ใช้คลิกเลือก
+        let existingModal = document.getElementById('iv-print-modal');
+        if (existingModal) existingModal.remove();
+        
+        let modalHtml = `
+        <div id="iv-print-modal" class="fixed inset-0 bg-slate-900/60 z-[200] flex items-center justify-center backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 w-[400px] max-w-full transform transition-all">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-print"></i></div>
+                    <h3 class="font-bold text-lg text-slate-800">เลือกใบแจ้งหนี้ที่ต้องการพิมพ์</h3>
+                </div>
+                <p class="text-sm text-slate-500 mb-5 pl-13">ระบบพบว่าตู้ใน Booking นี้ถูกแบ่งออกเป็นหลาย IV กรุณาเลือก IV ที่ต้องการพิมพ์ใบแนบ A4:</p>
+                <div class="flex flex-col gap-2 mb-6 max-h-60 overflow-y-auto px-1">
+                    ${uniqueIvs.map(iv => `
+                        <button onclick="window.open('/print-invoice.html?iv=${encodeURIComponent(iv)}', '_blank'); document.getElementById('iv-print-modal').remove();" 
+                                class="bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-400 text-left px-4 py-3 rounded-xl flex items-center justify-between transition-all group shadow-sm hover:shadow">
+                            <span class="font-bold text-slate-700 group-hover:text-blue-700 text-base"><i class="fa-solid fa-file-invoice text-slate-300 group-hover:text-blue-400 mr-2"></i> ${iv}</span>
+                            <i class="fa-solid fa-chevron-right text-slate-300 group-hover:text-blue-500"></i>
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="text-right border-t border-slate-100 pt-4">
+                    <button onclick="document.getElementById('iv-print-modal').remove()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-colors">ยกเลิก (Cancel)</button>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
 };

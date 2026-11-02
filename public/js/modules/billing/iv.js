@@ -8,14 +8,20 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('user-fullname').innerText = u.fullName || u.username || 'Admin';
     }
 
-    const today = new Date();
-    document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const monthEl = document.getElementById('filter-month');
+    if (monthEl && !monthEl.value) {
+        const today = new Date();
+        monthEl.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    }
     
     await loadIvData();
 });
 
 window.loadIvData = async function() {
-    const [year, month] = document.getElementById('filter-month').value.split('-');
+    const monthVal = document.getElementById('filter-month')?.value;
+    if (!monthVal) return;
+    const [year, month] = monthVal.split('-');
+
     const overlay = document.getElementById('iv-loading-overlay');
     if (overlay) overlay.classList.remove('hidden');
 
@@ -25,7 +31,6 @@ window.loadIvData = async function() {
         
         if (result.success && result.data) {
             allIvData = result.data.map(item => {
-                // เซ็ตค่าเริ่มต้นถ้าฐานข้อมูลเป็น null
                 if (!item.billing_status || item.billing_status === 'รอดำเนินการ') {
                     item.billing_status = item.billing_date ? 'วางบิลแล้ว' : 'รอวางบิล';
                 }
@@ -37,23 +42,25 @@ window.loadIvData = async function() {
         } else {
             allIvData = [];
             initIvGrid([]);
+            calculateIvSummary([]);
         }
     } catch(e) { 
-        console.error("Load IV Error:", e); 
+        console.error("Load IV Error:", e);
+        allIvData = [];
         initIvGrid([]);
+        calculateIvSummary([]);
     } finally { 
         if (overlay) overlay.classList.add('hidden'); 
     }
 };
 
 window.filterIvGrid = function() {
-    const cust = (document.getElementById('filter-customer')?.value || '').toLowerCase();
+    const cust = (document.getElementById('filter-customer')?.value || '').toLowerCase().trim();
     const stat = document.getElementById('filter-status')?.value || '';
-    const book = (document.getElementById('filter-booking')?.value || '').toLowerCase(); // 🌟 ดึงค่า Booking
+    const book = (document.getElementById('filter-booking')?.value || '').toLowerCase().trim();
 
     const filtered = allIvData.filter(i => {
         const cName = String(i.customer_name || '').toLowerCase();
-        // แปลง array ของ booking ให้เป็น string เพื่อเช็คคำค้นหา
         const bList = Array.isArray(i.booking_list) ? i.booking_list.join(',').toLowerCase() : '';
 
         const matchCust = !cust || cName.includes(cust);
@@ -67,7 +74,27 @@ window.filterIvGrid = function() {
     calculateIvSummary(filtered);
 };
 
-// ... โค้ดส่วน calculateIvSummary ยังเหมือนเดิม ...
+window.calculateIvSummary = function(data) {
+    let pendingAmt = 0;
+    let paidAmt = 0;
+
+    data.forEach(r => {
+        const amt = Number(r.grand_total) || 0;
+        if (r.billing_status === 'รับชำระแล้ว') {
+            paidAmt += amt;
+        } else if (r.billing_status !== 'ยกเลิก') {
+            pendingAmt += amt;
+        }
+    });
+
+    const elCount = document.getElementById('sum-iv-count');
+    const elPending = document.getElementById('sum-pending-amt');
+    const elPaid = document.getElementById('sum-paid-amt');
+
+    if (elCount) elCount.innerText = data.length.toLocaleString();
+    if (elPending) elPending.innerText = pendingAmt.toLocaleString('en-US', {minimumFractionDigits: 2});
+    if (elPaid) elPaid.innerText = paidAmt.toLocaleString('en-US', {minimumFractionDigits: 2});
+};
 
 function initIvGrid(data) {
     const container = document.getElementById('iv-grid-container');
@@ -86,14 +113,13 @@ function initIvGrid(data) {
         else if (value === 'ยกเลิก') { td.style.color = '#dc2626'; td.style.backgroundColor = '#fef2f2'; td.style.textDecoration = 'line-through'; }
     };
 
-    // 🌟 ปุ่มเปิดดูรายละเอียดหน้า 4 (ทำให้เห็นชัดๆ)
     const actionRenderer = function(instance, td, row, col, prop, value) {
         td.innerHTML = '';
         const ivNo = instance.getDataAtRowProp(row, 'iv_no');
         if (ivNo) {
             const btn = document.createElement('button');
             btn.innerHTML = '<i class="fa-solid fa-magnifying-glass mr-1"></i> รายละเอียด';
-            btn.className = 'bg-purple-600 hover:bg-purple-700 text-white font-bold px-2 py-1.5 rounded text-[11px] transition-colors w-full shadow-sm';
+            btn.className = 'bg-purple-600 hover:bg-purple-700 text-white font-bold px-2 py-1 rounded text-[11px] transition-colors w-full shadow-sm cursor-pointer';
             btn.onclick = () => window.location.href = `/billing-iv-detail.html?iv=${encodeURIComponent(ivNo)}`;
             td.appendChild(btn);
         }
@@ -102,14 +128,13 @@ function initIvGrid(data) {
         td.style.verticalAlign = 'middle';
     };
 
-    // ปุ่มพิมพ์ด่วน
     const printRenderer = function(instance, td, row, col, prop, value) {
         td.innerHTML = '';
         const ivNo = instance.getDataAtRowProp(row, 'iv_no');
         if (ivNo) {
             const btn = document.createElement('button');
             btn.innerHTML = '<i class="fa-solid fa-print"></i>';
-            btn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1.5 rounded text-xs transition-colors border border-slate-300 w-full';
+            btn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded text-xs transition-colors border border-slate-300 w-full cursor-pointer';
             btn.title = 'พิมพ์ใบแนบ A4 ทันที';
             btn.onclick = () => window.open(`/print-invoice.html?iv=${encodeURIComponent(ivNo)}`, '_blank');
             td.appendChild(btn);
@@ -121,7 +146,7 @@ function initIvGrid(data) {
 
     hotIvInstance = new Handsontable(container, {
         data: data.length > 0 ? data : [{}],
-        wordWrap: false, autoRowSize: false, rowHeights: 36, fixedColumnsLeft: 2, // 🌟 ขยายความสูงแถวให้ปุ่มสวยขึ้น
+        wordWrap: false, autoRowSize: false, rowHeights: 36, fixedColumnsLeft: 2,
         colHeaders: [
             'จัดการ', 'พิมพ์', 'เลขที่ IV (Invoice)', 'ลูกค้า', 'รวมตู้', 'ยอดรวมสุทธิ (บาท)', 
             'สถานะบิล', 'วันที่วางบิล', 'วันที่รับเงิน (Paid)', 'เลขที่ใบเสร็จ (RV)', 'หมายเหตุบัญชี'
@@ -143,7 +168,7 @@ function initIvGrid(data) {
             { data: 'receipt_no', type: 'text', className: 'htCenter htMiddle uppercase' },
             { data: 'account_remark', type: 'text', className: 'htLeft htMiddle' }
         ],
-        colWidths: [100, 45, 130, 180, 55, 120, 110, 100, 110, 110, 180], // ปรับความกว้างให้ปุ่ม "จัดการ"
+        colWidths: [100, 45, 130, 180, 55, 120, 110, 100, 110, 110, 180],
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation',
         afterChange: function(changes, src) {
             if (src !== 'loadData' && changes) {

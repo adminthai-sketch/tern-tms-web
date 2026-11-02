@@ -13,7 +13,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filter-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     document.getElementById('input-billing-date').value = today.toISOString().split('T')[0];
 
-    // 🌟 1. ดึง Booking จาก URL หรือที่เคยเลือกไว้ล่าสุด (ป้องกันรีเฟรชแล้วหลุด)
+    // 🌟 1. ดึง Booking จาก URL หรือที่เคยเลือกไว้ล่าสุด
     const urlParams = new URLSearchParams(window.location.search);
     const initialBooking = urlParams.get('booking') || localStorage.getItem('billing_active_booking');
 
@@ -25,7 +25,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// 🌟 2. ดึงข้อมูลสดใหม่ ป้องกัน Browser / Vercel Cache ด้วย Timestamp (_t)
+// 🌟 2. ดึงข้อมูลสดใหม่ ป้องกัน Cache
 window.loadDetailData = async function() {
     const [year, month] = document.getElementById('filter-month').value.split('-');
     const overlay = document.getElementById('detail-loading-overlay');
@@ -37,7 +37,6 @@ window.loadDetailData = async function() {
         
         if (result.success && result.data) {
             allRawShipments = result.data.filter(i => i.order_id).map(item => {
-                // คงสถานะติ๊กเลือกตู้ไว้
                 item._selected = item._selected !== undefined ? item._selected : true; 
                 return item;
             });
@@ -91,7 +90,6 @@ function applyDetailFilter() {
     const c = document.getElementById('filter-customer')?.value || '';
     const b = document.getElementById('select-booking-no')?.value || '';
 
-    // 🌟 จำ Booking ล่าสุดลง URL และ LocalStorage
     if (b) {
         localStorage.setItem('billing_active_booking', b);
         window.history.replaceState(null, '', `?booking=${encodeURIComponent(b)}`);
@@ -110,14 +108,11 @@ function applyDetailFilter() {
         document.getElementById('info-tax-id').innerText = first.tax_id || '-';
         document.getElementById('info-address').innerText = first.address || '-';
         
-        // ดึงเลข IV / AR จากตู้ที่มีข้อมูลมาแสดงในกล่องข้างบน
         const hasIv = filteredShipments.find(s => s.iv_no && String(s.iv_no).trim() !== '');
         if (hasIv) {
             document.getElementById('input-iv-no').value = hasIv.iv_no;
             document.getElementById('input-ar-no').value = hasIv.ar_no || '';
-            if (hasIv.billing_date) {
-                document.getElementById('input-billing-date').value = String(hasIv.billing_date).split('T')[0];
-            }
+            if (hasIv.billing_date) document.getElementById('input-billing-date').value = String(hasIv.billing_date).split('T')[0];
         }
     }
 
@@ -235,14 +230,14 @@ function initDetailGrid(data) {
     });
 }
 
-// 🌟 3. ปรับฟังก์ชันบันทึก ไม่ให้ค่าว่างไปทับ และโหลดข้อมูลใหม่ทันทีหลังเซฟ
+// 🌟 3. ปรับฟังก์ชันบันทึก ให้ยอมรับค่าว่างเพื่อลบข้อมูลได้
 window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function() {
     if (!hotDetailInstance) {
         alert('⚠️ ไม่พบข้อมูลตารางตู้');
         return;
     }
-    const ivNo = (document.getElementById('input-iv-no')?.value || '').trim();
-    const arNo = (document.getElementById('input-ar-no')?.value || '').trim();
+    const ivNo = document.getElementById('input-iv-no')?.value.trim();
+    const arNo = document.getElementById('input-ar-no')?.value.trim();
     const billingDate = document.getElementById('input-billing-date')?.value || '';
 
     const sourceData = hotDetailInstance.getSourceData() || [];
@@ -253,11 +248,14 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         return;
     }
 
+    if (ivNo === '') {
+        if (!confirm('คุณได้ลบเลข IV ออก ตู้ที่ถูกเลือกจะถูกเคลียร์ค่า IV เป็นค่าว่าง (รอดำเนินการ) ยืนยันหรือไม่?')) return;
+    }
+
     selectedRows.forEach(row => {
-        // ใช้ค่าจากกล่องข้างบน ถ้าไม่มีให้คงค่าเดิมที่อยู่ในตารางไว้
-        if (ivNo) row.iv_no = ivNo;
-        if (arNo) row.ar_no = arNo;
-        if (billingDate) row.billing_date = billingDate;
+        row.iv_no = ivNo;
+        row.ar_no = arNo;
+        row.billing_date = billingDate;
     });
 
     const overlay = document.getElementById('detail-loading-overlay');
@@ -272,8 +270,7 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
         const result = await res.json();
         if (result.success) {
             alert(`✅ บันทึกข้อมูล ${selectedRows.length} ตู้เรียบร้อย!`);
-            // 🌟 โหลดข้อมูลสดจากฐานข้อมูลทันที ไม่รอรีเฟรช
-            await loadDetailData();
+            await loadDetailData(); 
         } else {
             alert('❌ บันทึกล้มเหลว: ' + (result.message || 'Server error'));
         }
@@ -282,6 +279,110 @@ window.applyBatchIvToSelected = window.saveDetailBillingChanges = async function
     } finally {
         if (overlay) overlay.classList.add('hidden');
     }
+};
+
+// ==========================================
+// 📌 MODAL: ดึงตู้ตกค้างข้าม Booking
+// ==========================================
+let currentUnbilledData = [];
+
+window.openUnbilledModal = async function() {
+    const activeCustId = allRawShipments.length > 0 ? allRawShipments[0].customer_id : null;
+    if (!activeCustId) { 
+        alert("⚠️ ไม่พบข้อมูลลูกค้า โปรดเลือก Booking หลักด้านบนก่อน เพื่อให้ระบบรู้ว่าต้องดึงตู้ตกค้างของใคร"); 
+        return; 
+    }
+    
+    document.getElementById('modal-filter-booking').value = '';
+    document.getElementById('modal-filter-date').value = '';
+    document.getElementById('unbilled-modal').classList.remove('hidden');
+    document.getElementById('unbilled-tbody').innerHTML = '<tr><td colspan="7" class="text-center py-5 text-slate-500">กำลังค้นหา...</td></tr>';
+    
+    await fetchUnbilledContainers(activeCustId);
+};
+
+window.closeUnbilledModal = function() { document.getElementById('unbilled-modal').classList.add('hidden'); };
+
+window.fetchUnbilledContainers = async function(custId) {
+    if(!custId && allRawShipments.length > 0) custId = allRawShipments[0].customer_id;
+    if(!custId) return;
+
+    try {
+        const res = await fetch(`/api/billing/unbilled-containers?customer_id=${custId}&_t=${Date.now()}`);
+        const result = await res.json();
+        if (result.success) {
+            const existingIds = hotDetailInstance.getSourceData().map(r => r.order_id);
+            currentUnbilledData = result.data.filter(d => !existingIds.includes(d.order_id));
+            filterUnbilledTable();
+        }
+    } catch(e) { console.error(e); }
+};
+
+window.filterUnbilledTable = function() {
+    const b = document.getElementById('modal-filter-booking').value.toLowerCase().trim();
+    const d = document.getElementById('modal-filter-date').value;
+
+    const filtered = currentUnbilledData.filter(i => {
+        const matchBk = !b || (i.booking_no && i.booking_no.toLowerCase().includes(b));
+        const matchDt = !d || (i.run_date && i.run_date.split('T')[0] === d);
+        return matchBk && matchDt;
+    });
+
+    renderUnbilledTable(filtered);
+};
+
+function renderUnbilledTable(data) {
+    const tbody = document.getElementById('unbilled-tbody'); 
+    tbody.innerHTML = '';
+    if (data.length === 0) { 
+        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">ไม่มีตู้ตกค้างของลูกค้ารายนี้</td></tr>`; 
+        return; 
+    }
+
+    data.forEach((row, idx) => {
+        const tripFee = (Number(row.trip_fee) || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+        const dateStr = row.run_date ? row.run_date.split('T')[0] : '';
+        tbody.innerHTML += `
+            <tr class="hover:bg-amber-50 cursor-pointer" onclick="document.getElementById('cb-ub-${idx}').click()">
+                <td class="p-2 text-center border-r"><input type="checkbox" id="cb-ub-${idx}" value="${row.order_id}" class="unbilled-cb w-4 h-4 text-amber-500 rounded" onclick="event.stopPropagation(); updateUnbilledCount()"></td>
+                <td class="p-2 border-r font-bold text-purple-700">${row.booking_no}</td>
+                <td class="p-2 border-r text-slate-500">${dateStr}</td>
+                <td class="p-2 border-r font-bold text-blue-600">${row.container_1_no || row.container_2_no || '-'}</td>
+                <td class="p-2 border-r font-bold text-slate-600">${row.leg1_plate || '-'}</td>
+                <td class="p-2 border-r text-slate-500 text-[10px]">${row.origin || ''} ➔ ${row.destination || ''}</td>
+                <td class="p-2 text-right font-bold text-emerald-600">${tripFee}</td>
+            </tr>`;
+    });
+    updateUnbilledCount();
+}
+
+window.toggleSelectAllUnbilled = function(masterCb) {
+    document.querySelectorAll('.unbilled-cb').forEach(cb => cb.checked = masterCb.checked);
+    updateUnbilledCount();
+};
+
+window.updateUnbilledCount = function() {
+    const count = document.querySelectorAll('.unbilled-cb:checked').length;
+    document.getElementById('unbilled-selected-count').innerText = `เลือกไว้ ${count} รายการ`;
+};
+
+window.appendSelectedUnbilled = function() {
+    const selectedCbs = document.querySelectorAll('.unbilled-cb:checked');
+    if (selectedCbs.length === 0) { alert("⚠️ กรุณาติ๊กเลือกตู้อย่างน้อย 1 รายการ"); return; }
+
+    const selectedIds = Array.from(selectedCbs).map(cb => Number(cb.value));
+    const itemsToAdd = currentUnbilledData.filter(i => selectedIds.includes(i.order_id));
+
+    const existingData = hotDetailInstance.getSourceData();
+    itemsToAdd.forEach(item => { 
+        item._selected = true; 
+        existingData.push(item); 
+    });
+
+    hotDetailInstance.loadData(existingData); 
+    calculateDetailSummary(); 
+    closeUnbilledModal();
+    alert(`✅ ดึงตู้ข้าม Booking เข้ามา ${itemsToAdd.length} รายการแล้ว! (อย่าลืมกดปุ่มบันทึก IV ลงตู้)`);
 };
 
 window.printCurrentInvoice = function() {

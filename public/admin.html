@@ -434,7 +434,7 @@
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
             if (confirm(`⚠️ ยืนยันการลบข้อมูลแถวนี้ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อลบออกจากฐานข้อมูลจริง)`)) {
-                const idVal = hotMasterInstance.getDataAtCell(row, 0);
+                const idVal = hotMasterInstance.getSourceDataAtRow(hotMasterInstance.toPhysicalRow(row))[0];
                 if (idVal && String(idVal).trim() !== '') deletedIdsList.push(idVal); 
 
                 hotMasterInstance.alter('remove_row', row, 1);
@@ -451,7 +451,7 @@
                 const amount = endRow - startRow + 1;
                 if (confirm(`⚠️ ยืนยันการลบข้อมูลจำนวน ${amount} แถว ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" เพื่อลบจริง)`)) {
                     for (let i = startRow; i <= endRow; i++) {
-                        const idVal = hotMasterInstance.getDataAtCell(i, 0);
+                        const idVal = hotMasterInstance.getSourceDataAtRow(hotMasterInstance.toPhysicalRow(i))[0];
                         if (idVal && String(idVal).trim() !== '') deletedIdsList.push(idVal);
                     }
                     hotMasterInstance.alter('remove_row', startRow, amount);
@@ -467,7 +467,9 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...'; btn.disabled = true;
 
             const cfg = masterConfigs[currentMasterType];
-            const cleanData = hotMasterInstance.getData().filter(r => r.some(c => c !== null && c !== ''));
+            const cleanData = hotMasterInstance.getSourceData()
+                .map(row => row.slice(0, cfg.headers.length))
+                .filter(row => row.some(cell => cell != null && cell !== ''));
 
             try {
                 const response = await fetch(cfg.endpoint, {

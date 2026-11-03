@@ -55,6 +55,15 @@ router.get('/users', async (req, res) => {
 router.post('/users', async (req, res) => {
     const { data, deletedIds } = req.body; 
     if (!data || !Array.isArray(data)) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูลส่งมา' });
+    const usernames = new Set();
+    for (const row of data) {
+        const username = row[1];
+        if (!username) continue;
+        if (usernames.has(username)) {
+            return res.status(409).json({ success: false, message: 'ชื่อผู้ใช้งานซ้ำในตาราง: ' + username });
+        }
+        usernames.add(username);
+    }
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -82,6 +91,9 @@ router.post('/users', async (req, res) => {
         res.json({ success: true, message: 'บันทึก/ลบ ข้อมูลผู้ใช้งานเรียบร้อยแล้ว' });
     } catch (err) {
         await client.query('ROLLBACK');
+        if (err.code === '23505' && err.constraint === 'users_username_key') {
+            return res.status(409).json({ success: false, message: 'ชื่อผู้ใช้งานนี้มีอยู่แล้ว กรุณาแก้ไขจากแถวเดิม หรือใช้ชื่ออื่น' });
+        }
         res.status(500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });

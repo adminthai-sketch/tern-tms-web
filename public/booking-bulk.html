@@ -61,7 +61,7 @@
                     <p class="font-bold text-slate-600">กำลังโหลดการตั้งค่าตาราง...</p>
                 </div>
 
-                <div class="flex flex-wrap justify-between items-center border-b border-slate-100 pb-4 mb-4 gap-4 shrink-0">
+                <div id="bulk-workspace" class="flex min-h-0 flex-1 flex-col"><div class="flex flex-wrap justify-between items-center border-b border-slate-100 pb-4 mb-4 gap-4 shrink-0">
                     <div>
                         <h2 class="text-lg font-bold text-emerald-700 flex items-center gap-2">
                             <i class="fa-solid fa-file-excel"></i> นำเข้าข้อมูลแบบหลาย Job
@@ -88,14 +88,21 @@
                             <input type="file" accept=".xlsx, .xls, .csv" onchange="uploadExcelFile(event)" class="hidden">
                         </label>
                         <button onclick="processBulkSave()" id="btn-save-bulk" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-5 rounded-lg shadow-md flex items-center gap-2 text-sm transition-transform hover:-translate-y-0.5">
-                            <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูลทุก Job
+                            <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกรายการที่พร้อม
                         </button>
                     </div>
                 </div>
 
+                <div class="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                    <div>
+                        <p class="text-sm font-semibold text-emerald-950">1 แถว = 1 Booking · กรอกเอง วางจาก Excel หรืออัปโหลดแม่แบบ</p>
+                        <p id="bulk-summary" role="status" class="mt-1 text-sm text-slate-700">ตรวจข้อมูลเพื่อดูจำนวนรายการที่พร้อมบันทึก</p>
+                    </div>
+                    <button type="button" onclick="reviewBulkRows()" class="rounded-lg border border-emerald-400 bg-white px-4 py-2 text-sm font-bold text-emerald-800">ตรวจข้อมูล</button>
+                </div>
                 <!-- Handsontable -->
                 <div class="flex-1 relative w-full overflow-hidden bg-slate-50 border border-slate-200 rounded-lg">
-                    <div id="hot-bulk-container" class="absolute inset-0 z-0"></div>
+                    <div id="hot-bulk-container" class="absolute inset-0 z-0"></div></div>
                 </div>
             </div>
         </main>

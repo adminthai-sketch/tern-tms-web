@@ -3,6 +3,11 @@
 // ==========================================
 
 let hotBulkInstance = null;
+const bulkResults = new WeakMap();
+
+function bulkRowSource(table, row) {
+    return table.getSourceDataAtRow(table.toPhysicalRow(row));
+}
 let currentUserSettings = {};
 let rateDataMap = {};
 let currentModalRow = -1;
@@ -39,7 +44,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // 🌟 ดึงข้อมูลขนาดตู้จากฐานข้อมูล
     try {
-        const szRes = await fetch('/api/bookings/container-sizes');
+        const szRes = await fetch('/api/container-sizes');
         const szResult = await szRes.json();
         if (szResult.success && szResult.data && szResult.data.length > 0) {
             globalContainerSizes = szResult.data.map(r => r.size_name);
@@ -157,7 +162,7 @@ function renderClickableBulkTimeCell(instance, td, row, col, prop, value) {
 
 function getBulkHeaders(mode) {
     const commonCols = [
-        { title: 'สถานะเซฟ', readOnly: true, className: 'htCenter htMiddle font-bold text-lg' },
+        { title: 'สถานะ', readOnly: true, width: 230, className: 'htMiddle htNoWrap' },
         { title: 'วันที่วิ่งงาน\n(YYYY-MM-DD)', type: 'date', dateFormat: 'YYYY-MM-DD', className: 'htCenter htMiddle text-slate-700 font-bold bg-slate-50' },
         { title: 'ชื่องาน', type: 'text', className: 'font-bold text-primary htMiddle' }, 
         { title: 'จำนวนตู้', type: 'numeric', className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/40' },
@@ -165,7 +170,7 @@ function getBulkHeaders(mode) {
         // 🌟 เพิ่มคอลัมน์ขนาดตู้ 🌟
         { title: 'ขนาดตู้', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/20' },
         
-        { title: 'ลูกค้า', type: 'text', readOnly: true, className: 'text-slate-600 font-bold bg-slate-50 htMiddle' },
+        { title: 'ลูกค้า', type: 'text', className: 'text-slate-600 font-bold bg-slate-50 htMiddle' },
         { title: 'Job Type', type: 'dropdown', source: ['Domestic', 'CONTAINER'], className: 'htCenter htMiddle' },
         { title: 'Agent', type: 'text', className: 'font-bold text-purple-700 htMiddle' },
         { title: 'ต้นทาง', type: 'text', className: 'htMiddle' },
@@ -179,24 +184,24 @@ function getBulkHeaders(mode) {
     let timeCols = [];
     if (mode === 'EXPORT') {
         timeCols = [
-            { title: 'CY Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'VGM Cutoff (Time)\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Cutoff Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Load Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Open Gate Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell }
+            { title: 'CY Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'VGM Cutoff (Time)\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'Cutoff Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'Load Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'Open Gate Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell }
         ];
     } else if (mode === 'IMPORT') {
         timeCols = [
-            { title: 'CY Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Rent Cutoff (Time)\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Demurrage (Time)\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Return Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell }
+            { title: 'CY Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'Rent Cutoff (Time)\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'Demurrage (Time)\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'Return Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell }
         ];
     } else {
         timeCols = [
-            { title: 'Load Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell },
-            { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', readOnly: true, renderer: renderClickableBulkTimeCell }
+            { title: 'Load Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell },
+            { title: 'Unload Date & Time\n(YYYY-MM-DD HH:mm)', renderer: renderClickableBulkTimeCell }
         ];
     }
     return [...commonCols, ...timeCols];
@@ -220,6 +225,7 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
         rowHeaders: true,
         width: '100%',
         height: '100%',
+        fixedColumnsStart: 3,
         stretchH: 'all',
         minSpareRows: 3,
         autoRowSize: false,
@@ -232,11 +238,18 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
         contextMenu: ['row_above', 'row_below', 'remove_row', 'undo', 'redo', 'copy', 'cut'],
         licenseKey: 'non-commercial-and-evaluation',
 
+        beforeChange: function(changes, source) {
+            if (source === 'auto' || !changes) return;
+            for (let i = changes.length - 1; i >= 0; i--) {
+                if (bulkResults.get(bulkRowSource(this, changes[i][0]))?.saved) changes.splice(i, 1);
+            }
+        },
+
         afterChange: function(changes, source) {
-            if (source === 'loadData' || !changes) return;
+            if (source === 'loadData' || source === 'auto' || !changes) return;
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal === newVal) return;
-                const colName = this.getColHeader(prop);
+                const colName = this.getColHeader(this.propToCol(prop));
                 const headersNow = this.getColHeader(); 
                 
                 const custIdx = headersNow.indexOf('ลูกค้า');
@@ -248,7 +261,7 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
                 const transIdx = headersNow.indexOf('ค่าขนส่ง');
 
                 if (colName === 'ชื่องาน' && newVal) {
-                    const rate = rateDataMap[newVal.trim()];
+                    const rate = rateDataMap[String(newVal).trim()];
                     if (rate) {
                         if(custIdx >= 0) this.setDataAtCell(row, custIdx, rate.customer || '', 'auto');
                         if(jobTypeIdx >= 0) this.setDataAtCell(row, jobTypeIdx, rate.jobType || '', 'auto');
@@ -264,8 +277,8 @@ window.initBulkTable = function(dataToLoad = null, userSettings = {}) {
                     const jobNameIdx = headersNow.indexOf('ชื่องาน');
                     if(jobNameIdx >= 0) {
                         const jobName = this.getDataAtCell(row, jobNameIdx); 
-                        if (jobName && rateDataMap[jobName.trim()]) {
-                            applyRateDynamically(this, row, rateDataMap[jobName.trim()], newVal, tripIdx, transIdx);
+                        if (jobName && rateDataMap[String(jobName).trim()]) {
+                            applyRateDynamically(this, row, rateDataMap[String(jobName).trim()], newVal, tripIdx, transIdx);
                         }
                     }
                 }
@@ -376,91 +389,164 @@ window.uploadExcelFile = function(event) {
     event.target.value = '';
 };
 
+function inspectBulkRows(table) {
+    const headers = table.getColHeader();
+    const statusCol = table.propToCol(0);
+    const rows = [];
+    const references = new Map();
+    table.getData().forEach((cells, row) => {
+        if (!cells.some((value, col) => col !== statusCol && String(value ?? '').trim())) return;
+        const source = bulkRowSource(table, row);
+        const get = name => cells[headers.findIndex(header => header.includes(name))];
+        const reference = String(get('Booking/BL') ?? '').trim();
+        const date = String(formatExcelDate(get('วันที่วิ่งงาน')) ?? '');
+        const parsed = new Date(date);
+        const count = get('จำนวนตู้');
+        const errors = [];
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(parsed.getTime()) ||
+            parsed.toISOString().slice(0, 10) !== date) errors.push('ตรวจวันที่วิ่งงาน');
+        if (!String(get('ชื่องาน') ?? '').trim()) errors.push('ระบุชื่องาน');
+        if (String(count ?? '').trim() && (!Number.isSafeInteger(Number(count)) || Number(count) < 1)) {
+            errors.push('จำนวนตู้ต้องเป็นจำนวนเต็มตั้งแต่ 1');
+        }
+        const entry = { row, source, reference, errors, saved: bulkResults.get(source)?.saved };
+        rows.push(entry);
+        if (reference) {
+            if (!references.has(reference)) references.set(reference, []);
+            references.get(reference).push(entry);
+        }
+    });
+    for (const matches of references.values()) {
+        if (matches.length > 1) matches.forEach(entry => entry.errors.push('Booking/BL ซ้ำในตาราง'));
+    }
+    return rows;
+}
+
+function showBulkReview(table, rows, message = '') {
+    const statusCol = table.propToCol(0);
+    let ready = 0;
+    let invalid = 0;
+    let saved = 0;
+    rows.forEach(entry => {
+        if (entry.saved) { saved++; return; }
+        const previous = bulkResults.get(entry.source);
+        if (entry.errors.length) invalid++;
+        else ready++;
+        table.setDataAtCell(entry.row, statusCol,
+            entry.errors.join(' · ') || previous?.error || 'พร้อมบันทึก', 'auto');
+    });
+    document.getElementById('bulk-summary').textContent =
+        'ทั้งหมด ' + rows.length + ' · พร้อมส่ง ' + ready + ' · ต้องแก้ ' + invalid + ' · สำเร็จ ' + saved +
+        (message ? ' · ' + message : '');
+}
+
+window.reviewBulkRows = function() {
+    if (!hotBulkInstance) return;
+    const rows = inspectBulkRows(hotBulkInstance);
+    showBulkReview(hotBulkInstance, rows);
+    const first = rows.find(entry => !entry.saved && entry.errors.length);
+    if (first) hotBulkInstance.selectCell(first.row, hotBulkInstance.propToCol(0));
+};
+
 window.processBulkSave = async function() {
     if (!hotBulkInstance) return;
     const btn = document.getElementById('btn-save-bulk');
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
-    btn.disabled = true;
+    if (btn.disabled) return;
+    const table = hotBulkInstance;
+    const rows = inspectBulkRows(table);
+    showBulkReview(table, rows);
+    const pending = rows.filter(entry => !entry.saved && !entry.errors.length);
+    if (!pending.length || !window.confirm('บันทึก ' + pending.length + ' รายการที่ผ่านการตรวจสอบ?')) return;
+    const panel = document.getElementById('bulk-workspace');
+    panel.inert = true;
+    const statusCol = table.propToCol(0);
+    try {
+        btn.textContent = 'กำลังบันทึก...';
+        btn.disabled = true;
 
-    const data = hotBulkInstance.getData();
-    const mode = document.getElementById('bulk-mode').value;
-    const headers = hotBulkInstance.getColHeader();
+        const data = hotBulkInstance.getData();
+        const mode = document.getElementById('bulk-mode').value;
+        const headers = hotBulkInstance.getColHeader();
 
-    const getVal = (r, name) => {
-        const idx = headers.findIndex(h => h.includes(name));
-        return idx >= 0 ? data[r][idx] : '';
-    };
-
-    let successCount = 0; let failCount = 0;
-
-    for (let r = 0; r < data.length; r++) {
-        const runDate = getVal(r, 'วันที่วิ่งงาน');
-        const jobName = getVal(r, 'ชื่องาน');
-        const customer = getVal(r, 'ลูกค้า');
-        
-        if (!runDate || !jobName) continue; 
-
-        let bData = {
-            mode: mode,
-            run_date: formatExcelDate(runDate),
-            job_name: jobName, 
-            container_count: parseInt(getVal(r, 'จำนวนตู้')) || 1, 
-            
-            // 🌟 ดึงข้อมูลขนาดตู้ไปบันทึก
-            container_size: getVal(r, 'ขนาดตู้'), 
-            
-            customer_name: customer, 
-            job_type: getVal(r, 'Job Type'),
-            agent: getVal(r, 'Agent'),
-            origin: getVal(r, 'ต้นทาง'),
-            destination: getVal(r, 'ปลายทาง'),
-            booking_no: getVal(r, 'Booking/BL') || `BK-BULK-${Date.now().toString().slice(-5)}${r}`,
-            price_type: getVal(r, 'ประเภทรถ'),
-            trip_fee: getVal(r, 'ค่าเที่ยว') || 0,
-            trans_fee: getVal(r, 'ค่าขนส่ง') || 0
+        const getVal = (r, name) => {
+            const idx = headers.findIndex(h => h.includes(name));
+            return idx >= 0 ? data[r][idx] : '';
         };
 
-        if (mode === 'EXPORT') {
-            bData.cy_date = formatExcelDate(getVal(r, 'CY Date & Time'));
-            bData.vgm_cutoff = formatExcelDate(getVal(r, 'VGM Cutoff'));
-            bData.cutoff_time = formatExcelDate(getVal(r, 'Cutoff Time'));
-            bData.load_date = formatExcelDate(getVal(r, 'Load Date & Time'));
-            bData.open_gate = formatExcelDate(getVal(r, 'Open Gate') || getVal(r, 'Gate Date & Time'));
-        } else if (mode === 'IMPORT') {
-            bData.cy_date = formatExcelDate(getVal(r, 'CY Date & Time'));
-            bData.rent_cutoff = formatExcelDate(getVal(r, 'Rent Cutoff'));
-            bData.demurrage = formatExcelDate(getVal(r, 'Demurrage'));
-            bData.unload_date = formatExcelDate(getVal(r, 'Unload Date & Time'));
-            bData.return_date = formatExcelDate(getVal(r, 'Return Date & Time'));
-        } else {
-            bData.load_date = formatExcelDate(getVal(r, 'Load Date & Time'));
-            bData.unload_date = formatExcelDate(getVal(r, 'Unload Date & Time'));
-        }
+        let successCount = 0; let failCount = 0;
 
-        try {
-            const res = await fetch('/api/bookings/header', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bData)
-            });
-            const result = await res.json();
-            
-            if (result.success) {
-                hotBulkInstance.setDataAtCell(r, 0, '✅ สำเร็จ', 'auto');
-                hotBulkInstance.getCellMeta(r, 0).className = 'htCenter htMiddle font-bold text-green-600 bg-green-50';
-                successCount++;
+        for (const entry of pending) {
+            const r = entry.row;
+            const state = bulkResults.get(entry.source) || {};
+            if (!state.key) state.key = 'BK-BULK-' + Array.from(crypto.getRandomValues(new Uint32Array(3)), value => value.toString(36)).join('-');
+            bulkResults.set(entry.source, state);
+            const runDate = getVal(r, 'วันที่วิ่งงาน');
+            const jobName = getVal(r, 'ชื่องาน');
+            const customer = getVal(r, 'ลูกค้า');
+
+            if (!runDate || !jobName) continue;
+
+            let bData = {
+                mode: mode,
+                run_date: formatExcelDate(runDate),
+                job_name: String(jobName).trim(),
+                container_count: Number(getVal(r, 'จำนวนตู้')) || 1,
+
+                // 🌟 ดึงข้อมูลขนาดตู้ไปบันทึก
+                container_size: getVal(r, 'ขนาดตู้'),
+
+                customer_name: customer,
+                job_type: getVal(r, 'Job Type'),
+                agent: getVal(r, 'Agent'),
+                origin: getVal(r, 'ต้นทาง'),
+                destination: getVal(r, 'ปลายทาง'),
+                booking_no: entry.reference || state.key,
+                price_type: getVal(r, 'ประเภทรถ'),
+                trip_fee: getVal(r, 'ค่าเที่ยว') || 0,
+                trans_fee: getVal(r, 'ค่าขนส่ง') || 0
+            };
+
+            if (mode === 'EXPORT') {
+                bData.cy_date = formatExcelDate(getVal(r, 'CY Date & Time'));
+                bData.vgm_cutoff = formatExcelDate(getVal(r, 'VGM Cutoff'));
+                bData.cutoff_time = formatExcelDate(getVal(r, 'Cutoff Time'));
+                bData.load_date = formatExcelDate(getVal(r, 'Load Date & Time'));
+                bData.open_gate = formatExcelDate(getVal(r, 'Open Gate') || getVal(r, 'Gate Date & Time'));
+            } else if (mode === 'IMPORT') {
+                bData.cy_date = formatExcelDate(getVal(r, 'CY Date & Time'));
+                bData.rent_cutoff = formatExcelDate(getVal(r, 'Rent Cutoff'));
+                bData.demurrage = formatExcelDate(getVal(r, 'Demurrage'));
+                bData.unload_date = formatExcelDate(getVal(r, 'Unload Date & Time'));
+                bData.return_date = formatExcelDate(getVal(r, 'Return Date & Time'));
             } else {
-                hotBulkInstance.setDataAtCell(r, 0, '❌ พลาด', 'auto');
-                hotBulkInstance.getCellMeta(r, 0).className = 'htCenter htMiddle font-bold text-red-600 bg-red-50';
+                bData.load_date = formatExcelDate(getVal(r, 'Load Date & Time'));
+                bData.unload_date = formatExcelDate(getVal(r, 'Unload Date & Time'));
+            }
+
+            try {
+                const res = await fetch('/api/bookings/header', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bData)
+                });
+                const result = await res.json();
+
+                if (res.ok && result.success) {
+                    state.saved = true;
+                    table.setDataAtCell(r, statusCol, 'สำเร็จ · ' + bData.booking_no, 'auto');
+                    successCount++;
+                } else {
+                    state.error = result.message || 'บันทึกไม่สำเร็จ';
+                    failCount++;
+                }
+            } catch (err) {
+                state.error = 'ไม่ได้รับผลตอบกลับ ลองบันทึกอีกครั้ง';
                 failCount++;
             }
-        } catch (err) {
-            hotBulkInstance.setDataAtCell(r, 0, '❌ ล้มเหลว', 'auto');
-            hotBulkInstance.getCellMeta(r, 0).className = 'htCenter htMiddle font-bold text-red-600 bg-red-50';
-            failCount++;
         }
+
+        showBulkReview(table, inspectBulkRows(table), 'รอบนี้สำเร็จ ' + successCount + ' · ส่งไม่สำเร็จ ' + failCount);
+    } finally {
+        panel.inert = false;
+        btn.textContent = 'บันทึกรายการที่พร้อม';
+        btn.disabled = false;
     }
-    
-    hotBulkInstance.render();
-    btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูลทุก Job';
-    btn.disabled = false;
-    alert(`สรุปผลการนำเข้า: \n✅ สำเร็จ ${successCount} บุคกิ้ง\n❌ ล้มเหลว ${failCount} บุคกิ้ง`);
 };

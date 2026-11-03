@@ -166,35 +166,16 @@
     </div>
 
     <script>
-        // --- 🔒 Guard & Auth ---
+        // 🌟 โค้ดส่วนนี้จะสั่งเปิดแท็บ "ผู้ใช้งาน" อัตโนมัติเมื่อเข้ามาหน้า Admin
         window.addEventListener('DOMContentLoaded', () => {
-            const savedUser = localStorage.getItem('tms_user');
-            if (!savedUser) { window.location.href = '/login.html'; return; }
-            
-            const user = JSON.parse(savedUser);
-            const userRole = (user.role || '').toUpperCase();
-            
-            if (userRole !== 'ADMIN' && !(user.permissions && user.permissions.admin)) {
-                alert('⛔ คุณไม่มีสิทธิ์เข้าถึงหน้า Admin Backoffice');
-                window.location.href = '/index.html';
-                return;
-            }
-            
-            document.getElementById('user-fullname').innerText = user.fullName;
-            document.getElementById('user-role-badge').innerText = userRole;
             switchMasterTab('users');
         });
-
-        function logout() {
-            localStorage.removeItem('tms_user');
-            window.location.href = '/login.html';
-        }
 
         // --- 📊 State & Configs ---
         let currentMasterType = 'users';
         let hotMasterInstance = null;
         let originalTableData = []; 
-        let deletedIdsList = []; // 🌟 เก็บ ID ที่ถูกลบ
+        let deletedIdsList = []; 
         let globalRolesList = ['Admin', 'User', 'Operation']; 
         let globalTruckList = [];
         let globalDriverList = [];
@@ -245,10 +226,8 @@
                 headers: ['ID', 'ป้ายทะเบียนรถ', 'ประเภทรถ', 'คนขับประจำคัน'],
                 columns: [
                     { readOnly: true, className: 'bg-slate-50 htCenter' }, 
-                    // 🌟 บังคับเลือก Dropdown จากรถที่มีอยู่เท่านั้น ห้ามพิมพ์มั่ว
                     { type: 'dropdown', strict: true, source: function(query, process) { process(globalTruckList); }, className: 'font-bold text-primary' }, 
                     { type: 'text', readOnly: true, className: 'htMiddle bg-slate-50' }, 
-                    // 🌟 บังคับเลือก Dropdown จากคนขับที่มีอยู่เท่านั้น
                     { type: 'dropdown', strict: true, source: function(query, process) { process(globalDriverList); } }  
                 ]
             },
@@ -301,7 +280,7 @@
         async function switchMasterTab(type) {
             currentMasterType = type;
             const cfg = masterConfigs[type];
-            deletedIdsList = []; // 🌟 ล้างค่า ID ที่เตรียมลบทุกครั้งที่เปลี่ยนหน้าจอ
+            deletedIdsList = []; 
 
             document.getElementById('table-title').innerHTML = `<i class="fa-solid ${cfg.icon}"></i> ${cfg.title}`;
             document.getElementById('global-search').value = ''; 
@@ -452,7 +431,6 @@
             closeAddModal();
         }
 
-        // --- 🗑️ DELETE (ดึง ID จากช่องโดยตรง กัน Error ข้อมูลว่างเปล่า) ---
         function deleteSingleRow(row) {
             if (!hotMasterInstance) return;
             if (confirm(`⚠️ ยืนยันการลบข้อมูลแถวนี้ใช่หรือไม่?\n\n(ระบบจะลบออกจากหน้าจอชั่วคราว ให้คุณกดปุ่ม "บันทึกตาราง" มุมขวาบนเพื่อลบออกจากฐานข้อมูลจริง)`)) {
@@ -482,7 +460,6 @@
             } else { alert('🖱️ ลากคลุมแถวในตารางที่ต้องการลบก่อนครับ'); }
         }
 
-        // --- 💾 SAVE ---
         async function saveCurrentMaster() {
             if (!hotMasterInstance) return;
             const btn = document.getElementById('btn-save-master');
@@ -501,13 +478,12 @@
                 const result = await response.json();
                 if (result.success) {
                     alert('✅ ' + result.message);
-                    switchMasterTab(currentMasterType); // รีเฟรชหน้าจอใหม่
+                    switchMasterTab(currentMasterType); 
                 } else { alert('❌ เกิดข้อผิดพลาด: ' + result.message); }
             } catch (err) { alert('❌ บันทึกข้อมูลไม่สำเร็จ: ' + err.message); } 
             finally { btn.innerHTML = originalText; btn.disabled = false; }
         }
 
-        // --- 🎛️ Modal Columns ---
         function openColToggleModal() {
             const plugin = hotMasterInstance.getPlugin('hiddenColumns');
             const hiddenCols = plugin.getHiddenColumns() || [];
@@ -533,5 +509,11 @@
             saveUIState('master_' + currentMasterType, { hiddenColumns: plugin.getHiddenColumns() || [] });
         }
     </script>
+
+    <!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
+    <script src="/js/auth.js"></script>
+    
+    <!-- 2. ใส่สคริปต์เปลี่ยนรหัสผ่าน (เพิ่มกุญแจมุมขวาบน) -->
+    <script src="/js/password.js"></script>
 </body>
 </html>

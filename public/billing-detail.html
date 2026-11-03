@@ -140,5 +140,10 @@
 
     <script src="/js/modules/billing/detail.js"></script>
     <script>function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }</script>
+    <!-- ใส่สคริปต์ควบคุมสิทธิ์ตัวกลาง -->
+    <script src="/js/auth.js"></script>
+    
+    <!-- (และถ้าหน้านั้นมีระบบเปลี่ยนรหัสผ่านด้วย ก็ใส่พ่วงกันไปได้เลย) -->
+    <script src="/js/password.js"></script>
 </body>
 </html>

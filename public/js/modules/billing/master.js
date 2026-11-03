@@ -214,36 +214,49 @@ window.handleMasterFilter = function() {
     const cVal = (document.getElementById('filter-customer')?.value || '').toLowerCase().trim();
     const bVal = (document.getElementById('filter-booking-no')?.value || '').toLowerCase().trim();
     const searchTxt = (document.getElementById('global-search')?.value || '').toLowerCase().trim();
-    const billingState = document.getElementById('filter-billing-state')?.value || 'all';
     
-    const selectedMonth = document.getElementById('filter-month')?.value; // เช่น "2026-10"
+    const billingState = document.getElementById('filter-billing-state')?.value || 'all';
+    const selectedMonth = document.getElementById('filter-month')?.value || ''; // รูปแบบ YYYY-MM
 
     filteredMasterList = masterBookingList.filter(item => {
         const iD = item.run_date ? String(item.run_date).trim() : '';
         const iC = item.customer_name ? String(item.customer_name).toLowerCase().trim() : '';
         const iB = item.booking_no ? String(item.booking_no).toLowerCase().trim() : '';
 
-        // 1. ตรวจสอบเงื่อนไขการค้นหาทั่วไป
+        // 1. ตรวจสอบการค้นหาทั่วไป
         const matchDate = !dVal || iD === dVal;
         const matchCust = !cVal || iC.includes(cVal);
         const matchBook = !bVal || iB.includes(bVal);
         const matchSearch = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
 
-        // 2. ตรวจสอบสถานะการวางบิลและเดือนที่วิ่งงาน
+        // 2. 🌟 ตรรกะแยกเดือนและสถานะ (Logic หัวใจสำคัญ)
         let matchState = true;
-        const itemMonth = iD.substring(0, 7); // ดึง "YYYY-MM" จาก run_date
+        const itemMonth = iD.substring(0, 7); 
         const isPending = item.pending_count > 0 || item.total_count === 0;
 
-        if (billingState === 'pending') {
-            matchState = isPending;
+        if (billingState === 'all') {
+            // "ทุกสถานะ" -> บังคับให้แสดงแค่ของเดือนปัจจุบันเท่านั้น (งานเก่าซ่อนไว้ไม่ให้เกะกะ)
+            matchState = (itemMonth === selectedMonth);
+            
+        } else if (billingState === 'pending') {
+            // "ค้างวางบิลทั้งหมด" -> เอาทั้งค้างเดือนนี้ และค้างเดือนก่อนๆ มาโชว์รวมกัน
+            matchState = isPending && (itemMonth <= selectedMonth);
+            
         } else if (billingState === 'pending-current') {
+            // "ค้างวางบิล (เฉพาะเดือนที่เลือก)" -> ค้างเฉพาะเดือนนี้
             matchState = isPending && (itemMonth === selectedMonth);
+            
         } else if (billingState === 'pending-backlog') {
+            // "งานตกหล่น" -> บังคับดึงแค่งานค้างที่เก่ากว่าเดือนปัจจุบันเท่านั้น
             matchState = isPending && (itemMonth < selectedMonth);
+            
         } else if (billingState === 'partial') {
-            matchState = item.billed_count > 0 && item.billed_count < item.total_count;
+            // "วางบิลบางส่วน" -> แสดงเฉพาะเดือนนี้
+            matchState = (item.billed_count > 0 && item.billed_count < item.total_count) && (itemMonth === selectedMonth);
+            
         } else if (billingState === 'billed') {
-            matchState = item.billed_count === item.total_count && item.total_count > 0;
+            // "วางบิลครบแล้ว" -> แสดงเฉพาะเดือนนี้
+            matchState = (item.billed_count === item.total_count && item.total_count > 0) && (itemMonth === selectedMonth);
         }
 
         return matchDate && matchCust && matchBook && matchSearch && matchState;

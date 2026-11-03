@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 
-// 1. ดึงข้อมูลตู้และบิลทั้งหมดในเดือน
+// 1. ดึงข้อมูลตู้และบิลทั้งหมดในเดือน + 🌟 พ่วงงานตกหล่นที่ค้างวางบิลจากเดือนก่อนๆ มาด้วย
 router.get('/shipments', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
@@ -13,9 +13,11 @@ router.get('/shipments', async (req, res) => {
         const y = parseInt(year, 10);
         const m = parseInt(month, 10);
         const lastDay = new Date(y, m, 0).getDate();
+        
         const startDate = `${y}-${String(m).padStart(2, '0')}-01 00:00:00`;
         const endDate = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')} 23:59:59`;
 
+        // 🌟 เพิ่มเงื่อนไข OR: ให้ดึงงานก่อน startDate ที่มีตู้ค้างวางบิลติดมาด้วยทั้ง Booking
         const result = await pool.query(`
             SELECT 
                 b.id AS booking_id, b.booking_no, b.run_date, b.mode, b.job_type, b.job_name, b.price_type, b.agent,
@@ -40,7 +42,16 @@ router.get('/shipments', async (req, res) => {
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id::text = f.order_id::text
-            WHERE b.run_date >= $1 AND b.run_date <= $2
+            WHERE (b.run_date >= $1 AND b.run_date <= $2)
+               OR (
+                   b.run_date < $1 
+                   AND b.booking_no IN (
+                       SELECT DISTINCT s2.booking_no 
+                       FROM shipment_operations s2 
+                       LEFT JOIN financials f2 ON s2.order_id::text = f2.order_id::text 
+                       WHERE f2.iv_no IS NULL OR TRIM(f2.iv_no) = '' OR TRIM(f2.iv_no) = 'รอออก IV'
+                   )
+               )
             ORDER BY b.run_date DESC, b.booking_no ASC, s.order_id ASC
         `, [startDate, endDate]);
 

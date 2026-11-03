@@ -72,7 +72,7 @@ router.post('/users', async (req, res) => {
                 if (rRes.rows.length > 0) roleId = rRes.rows[0].id;
             }
             if (id) {
-                await client.query(`UPDATE users SET username=$1, full_name=$2, email=$3, role_id=$4, status=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`, [username, full_name, email, roleId, status, id]);
+                await client.query(`UPDATE users SET username=$1, full_name=$2, email=$3, role_id=$4, status=$5 WHERE id=$6`, [username, full_name, email, roleId, status, id]);
             } else {
                 const defaultPassword = crypto.createHash('sha256').update('password123').digest('hex');
                 await client.query(`INSERT INTO users (username, full_name, email, role_id, status, password_hash) VALUES ($1, $2, $3, $4, $5, $6)`, [username, full_name, email, roleId, status || 'ACTIVE', defaultPassword]);

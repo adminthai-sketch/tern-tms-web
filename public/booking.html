@@ -226,16 +226,8 @@
         let containerSizeOptions = []; 
 
         window.addEventListener('DOMContentLoaded', async () => {
-            const savedUser = localStorage.getItem('tms_user');
-            if (!savedUser) { window.location.href = '/login.html'; return; }
-            try {
-                const userObj = JSON.parse(savedUser);
-                document.getElementById('user-fullname').innerText = userObj.fullName || 'User';
-            } catch(e) { window.location.href = '/login.html'; return; }
-
+            // โหลดข้อมูลขนาดตู้และเรทราคา
             loadContainerSizes(); 
-
-            // โหลดเรทราคา
             try {
                 const res = await fetch('/api/rates');
                 const d = await res.json();
@@ -261,8 +253,6 @@
             const editBookingNo = urlParams.get('edit');
             if (editBookingNo) await loadBookingForEdit(editBookingNo);
         });
-
-        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
         async function loadContainerSizes() {
             try {
@@ -371,7 +361,6 @@
                         setDateTime('pDemImp', item.demurrage); setDateTime('pUnloadImp', item.unload_date);
                         setDateTime('pReturnImp', item.return_date);
                     } else if (item.mode === 'TRANSFER') {
-                        // 🌟 ดึงข้อมูลเข้าฟอร์ม TRANSFER ตอนแก้ไข
                         if (document.getElementById('pRefTrans')) {
                             document.getElementById('pRefTrans').value = item.booking_no || '';
                         }
@@ -562,7 +551,7 @@
             finally { btn.innerHTML = orgText; btn.disabled = false; }
         }
     </script>
-<!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
+    <!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
     <script src="/js/auth.js"></script>
     
     <!-- 2. ใส่สคริปต์เปลี่ยนรหัสผ่าน (เพิ่มกุญแจมุมขวาบน) -->

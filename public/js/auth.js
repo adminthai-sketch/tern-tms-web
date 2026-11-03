@@ -61,6 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentPath.includes('/admin')) {
         isAllowed = isAdmin;
         pageName = "จัดการข้อมูลหลังบ้าน";
+    } else if (currentPath === '/booking-monitor.html' || currentPath.includes('/monitor')) {
+        isAllowed = p.monitor || isAdmin;
+        pageName = 'มอนิเตอร์';
     } else if (currentPath.includes('/booking')) {
         isAllowed = p.booking || isAdmin;
         pageName = "สร้างบุคกิ้ง";
@@ -71,9 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 🌟 เพิ่ม /print-invoice ตรงนี้แล้วครับ! 🌟
         isAllowed = p.billing || isAdmin;
         pageName = "ระบบบัญชี (Billing)";
-    } else if (currentPath.includes('/monitor')) {
-        isAllowed = p.monitor || isAdmin;
-        pageName = "มอนิเตอร์";
     }
 
     if (!isAllowed) {

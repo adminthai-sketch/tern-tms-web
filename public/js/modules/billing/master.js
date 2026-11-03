@@ -208,23 +208,45 @@ function updateMasterFilterDropdowns() {
     }
 }
 
+// ในฟังก์ชัน handleMasterFilter() ให้เพิ่มเงื่อนไขการกรองสถานะ:
 window.handleMasterFilter = function() {
     const dVal = (document.getElementById('filter-run-date')?.value || '').trim();
     const cVal = (document.getElementById('filter-customer')?.value || '').toLowerCase().trim();
     const bVal = (document.getElementById('filter-booking-no')?.value || '').toLowerCase().trim();
     const searchTxt = (document.getElementById('global-search')?.value || '').toLowerCase().trim();
+    const billingState = document.getElementById('filter-billing-state')?.value || 'all';
+    
+    const selectedMonth = document.getElementById('filter-month')?.value; // เช่น "2026-10"
 
     filteredMasterList = masterBookingList.filter(item => {
         const iD = item.run_date ? String(item.run_date).trim() : '';
         const iC = item.customer_name ? String(item.customer_name).toLowerCase().trim() : '';
         const iB = item.booking_no ? String(item.booking_no).toLowerCase().trim() : '';
 
+        // 1. ตรวจสอบเงื่อนไขการค้นหาทั่วไป
         const matchDate = !dVal || iD === dVal;
         const matchCust = !cVal || iC.includes(cVal);
         const matchBook = !bVal || iB.includes(bVal);
         const matchSearch = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
 
-        return matchDate && matchCust && matchBook && matchSearch;
+        // 2. ตรวจสอบสถานะการวางบิลและเดือนที่วิ่งงาน
+        let matchState = true;
+        const itemMonth = iD.substring(0, 7); // ดึง "YYYY-MM" จาก run_date
+        const isPending = item.pending_count > 0 || item.total_count === 0;
+
+        if (billingState === 'pending') {
+            matchState = isPending;
+        } else if (billingState === 'pending-current') {
+            matchState = isPending && (itemMonth === selectedMonth);
+        } else if (billingState === 'pending-backlog') {
+            matchState = isPending && (itemMonth < selectedMonth);
+        } else if (billingState === 'partial') {
+            matchState = item.billed_count > 0 && item.billed_count < item.total_count;
+        } else if (billingState === 'billed') {
+            matchState = item.billed_count === item.total_count && item.total_count > 0;
+        }
+
+        return matchDate && matchCust && matchBook && matchSearch && matchState;
     });
 
     updateMasterKPI(filteredMasterList);

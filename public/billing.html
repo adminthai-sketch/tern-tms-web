@@ -49,6 +49,17 @@
                 <div class="px-3 py-1 bg-slate-200 border-r border-slate-300 text-slate-600 font-bold flex items-center h-full"><i class="fa-regular fa-calendar-check text-purple-600 mr-1"></i> เดือน:</div>
                 <input type="month" id="filter-month" onchange="loadBillingMasterData()" class="px-3 py-1 font-bold text-slate-700 bg-transparent outline-none cursor-pointer h-full">
             </div>
+
+            <!-- 🌟 ย้ายมาวางตรงนี้ อยู่ติดกับช่องเลือกเดือน เพื่อให้ทำงานคู่กันได้อย่างเป็นระเบียบ -->
+            <select id="filter-billing-state" onchange="handleMasterCrossFilter()" 
+                    class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 font-semibold text-slate-700 focus:bg-white focus:border-purple-400">
+                <option value="all">📋 ทุกสถานะการวางบิล</option>
+                <option value="pending">⏳ ค้างวางบิลทั้งหมด</option>
+                <option value="pending-current">⏳ ค้างวางบิล (เฉพาะเดือนที่เลือก)</option>
+                <option value="pending-backlog">🚨 ค้างวางบิลยกมาจากเดือนก่อนหน้า (งานตกหล่น)</option>
+                <option value="partial">🔄 วางบิลบางส่วน (ยังไม่ครบตู้)</option>
+                <option value="billed">✅ วางบิลครบแล้ว</option>
+            </select>
             
             <!-- ปิด autocomplete="off" เพื่อไม่ให้ Chrome จำประวัติเก่ามาแสดง -->
             <input type="text" id="filter-run-date" list="dl-run-date" autocomplete="off"

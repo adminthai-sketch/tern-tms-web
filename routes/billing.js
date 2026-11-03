@@ -279,11 +279,13 @@ router.get('/iv-detail', async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 s.order_id, b.booking_no, b.run_date, b.origin, b.destination,
-                s.container_1_no, s.container_2_no, b.container_size, -- 🌟 แก้ไขตรงนี้เป็น b.container_size
+                b.job_name, b.mode, b.price_type,
+                s.container_1_no, s.container_2_no, b.container_size,
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS leg1_plate,
+                s.leg1_driver,
                 c.id AS customer_id, COALESCE(c.short_name, '-') AS customer_name,
                 COALESCE(c.customer_name, '-') AS full_customer_name,
-                c.address, c.tax_id,
+                c.address, c.tax_id, c.invoice_layout,
                 f.iv_no, f.ar_no, f.billing_date, f.billing_status,
                 f.payment_date, f.receipt_no, f.account_remark, f.billing_remark,
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee,

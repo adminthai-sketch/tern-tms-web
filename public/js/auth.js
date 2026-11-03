@@ -57,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (currentPath.includes('/dispatch')) {
         isAllowed = p.dispatch || isAdmin;
         pageName = "จัดรถ (Dispatch)";
-    } else if (currentPath.includes('/billing')) {
+    } else if (currentPath.includes('/billing') || currentPath.includes('/print-invoice')) {
+        // 🌟 เพิ่ม /print-invoice ตรงนี้แล้วครับ! 🌟
         isAllowed = p.billing || isAdmin;
         pageName = "ระบบบัญชี (Billing)";
     } else if (currentPath.includes('/monitor')) {

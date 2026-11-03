@@ -117,7 +117,7 @@ router.post('/bookings/header', async (req, res) => {
     } finally { client.release(); }
 });
 
-// 2. แก้ไขข้อมูลบุคกิ้ง (ปุ่ม ✏️ แก้ ในตาราง และการแก้ไขจากฟอร์ม)
+// 2. แก้ไขข้อมูลบุคกิ้ง
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const b = req.body;
@@ -347,6 +347,7 @@ router.post('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
+// 5. ลบตู้
 router.delete('/shipments', async (req, res) => {
     const { order_ids } = req.body;
     if (!order_ids || order_ids.length === 0) return res.json({ success: true, message: 'ไม่มีรายการลบ' });
@@ -369,6 +370,7 @@ router.delete('/shipments', async (req, res) => {
     } finally { client.release(); }
 });
 
+// 6. ค้นหาบุคกิ้ง
 router.get('/bookings/search', async (req, res) => {
     try {
         const { start_date, end_date, search, customer } = req.query;
@@ -383,6 +385,7 @@ router.get('/bookings/search', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// 7. ลบบุคกิ้ง
 router.delete('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     try {
@@ -391,6 +394,7 @@ router.delete('/bookings/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
+// 8. บันทึกราคาเรท
 router.post('/rates/single', async (req, res) => {
     const r = req.body;
     if (!r.job_name) return res.status(400).json({ success: false });
@@ -421,6 +425,7 @@ router.post('/rates/single', async (req, res) => {
     } catch (err) { res.status(500).json({ success: false }); } finally { client.release(); }
 });
 
+// 9. ขนาดตู้
 router.get('/container-sizes', async (req, res) => {
     try {
         const result = await pool.query('SELECT size_name FROM master_container_sizes ORDER BY size_name ASC');
@@ -428,172 +433,13 @@ router.get('/container-sizes', async (req, res) => {
     } catch(err) { res.status(500).json({ success: false }); }
 });
 
+// 10. เพิ่มขนาดตู้
 router.post('/container-sizes', async (req, res) => {
     try {
         const { size_name } = req.body;
         await pool.query('INSERT INTO master_container_sizes (size_name) VALUES ($1) ON CONFLICT DO NOTHING', [size_name.trim().toUpperCase()]);
         res.json({ success: true });
     } catch(err) { res.status(500).json({ success: false }); }
-});
-
-
-// 4. สรุปรายการตามเลข IV (สำหรับหน้า IV List)
-router.get('/iv-summary', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    const { year, month } = req.query;
-    if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
-
-    try {
-        const y = parseInt(year, 10); 
-        const m = parseInt(month, 10); 
-        const lastDay = new Date(y, m, 0).getDate();
-        const startDate = `${y}-${String(m).padStart(2, '0')}-01`; 
-        const endDate = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-
-        const result = await pool.query(`
-            SELECT 
-                f.iv_no, 
-                MAX(f.ar_no) AS ar_no, 
-                MAX(f.billing_date) AS billing_date,
-                MAX(f.billing_status) AS billing_status,
-                MAX(f.payment_date) AS payment_date,
-                MAX(f.receipt_no) AS receipt_no,
-                MAX(f.account_remark) AS account_remark,
-                c.id AS customer_id, 
-                COALESCE(c.short_name, '-') AS customer_name,
-                COUNT(s.order_id) AS total_containers,
-                SUM(
-                    COALESCE(f.trip_fee::NUMERIC, 0) + 
-                    COALESCE(f.port_pass_fee::NUMERIC, 0) + 
-                    COALESCE(f.deposit_fee::NUMERIC, 0) + 
-                    COALESCE(f.lift_fee::NUMERIC, 0) + 
-                    COALESCE(f.shore_fee::NUMERIC, 0) +
-                    COALESCE(f.other_expense::NUMERIC, 0)
-                ) AS grand_total
-            FROM financials f
-            JOIN shipment_operations s ON f.order_id::text = s.order_id::text
-            JOIN bookings b ON s.booking_no = b.booking_no
-            LEFT JOIN customers c ON b.customer_id = c.id
-            WHERE f.iv_no IS NOT NULL 
-              AND TRIM(f.iv_no) != '' 
-              AND TRIM(f.iv_no) != 'รอออก IV'
-              AND b.run_date BETWEEN $1 AND $2
-            GROUP BY f.iv_no, c.id, c.short_name
-            ORDER BY f.iv_no ASC
-        `, [startDate, endDate]);
-
-        res.json({ success: true, data: result.rows });
-    } catch (err) { 
-        console.error("GET /iv-summary Error:", err.message);
-        res.status(500).json({ success: false, message: err.message }); 
-    }
-});
-
-// 5. อัปเดตข้อมูลบัญชีเหมาตามเลข IV (จากหน้า 3)
-router.post('/update-iv', async (req, res) => {
-    const { data } = req.body;
-    if (!data || data.length === 0) return res.status(400).json({ success: false, message: 'ไม่มีข้อมูล' });
-
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        for (const row of data) {
-            if (!row.iv_no) continue;
-            
-            const params = [
-                String(row.iv_no).trim(),
-                row.billing_status || 'รอวางบิล',
-                row.billing_date || null,
-                row.payment_date || null,
-                row.receipt_no || null,
-                row.account_remark || null
-            ];
-
-            // อัปเดตตู้ทุกใบที่ผูกกับ IV นี้ให้มีสถานะเดียวกัน
-            await client.query(`
-                UPDATE financials SET 
-                    billing_status = $2,
-                    billing_date = $3,
-                    payment_date = $4,
-                    receipt_no = $5,
-                    account_remark = $6
-                WHERE iv_no = $1
-            `, params);
-        }
-        await client.query('COMMIT');
-        res.json({ success: true, message: 'บันทึกสถานะ IV สำเร็จ' });
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error("POST /update-iv Error:", error.message);
-        res.status(500).json({ success: false, message: error.message });
-    } finally {
-        client.release();
-    }
-});
-
-// ดึงข้อมูลรายละเอียดเฉพาะ IV สำหรับหน้า 4
-router.get('/iv-detail', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    const iv = req.query.iv || req.query.iv_no;
-    if (!iv) return res.status(400).json({ success: false, message: 'กรุณาระบุเลข IV' });
-
-    try {
-        const result = await pool.query(`
-            SELECT 
-                s.order_id, b.booking_no, b.run_date, b.origin, b.destination,
-                s.container_1_no, s.container_2_no, s.container_size,
-                COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS leg1_plate,
-                c.id AS customer_id, COALESCE(c.short_name, '-') AS customer_name,
-                COALESCE(c.customer_name, '-') AS full_customer_name,
-                c.address, c.tax_id,
-                f.iv_no, f.ar_no, f.billing_date, f.billing_status,
-                f.payment_date, f.receipt_no, f.account_remark, f.billing_remark,
-                COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee,
-                f.port_pass_fee, f.deposit_fee, f.lift_fee, f.shore_fee, f.other_expense,
-                COALESCE(f.bill_weight, f.gross_weight) AS gross_weight
-            FROM financials f
-            JOIN shipment_operations s ON f.order_id::text = s.order_id::text
-            JOIN bookings b ON s.booking_no = b.booking_no
-            LEFT JOIN customers c ON b.customer_id = c.id
-            WHERE f.iv_no = $1
-            ORDER BY s.order_id ASC
-        `, [String(iv).trim()]);
-
-        res.json({ success: true, data: result.rows });
-    } catch (err) {
-        console.error("GET /iv-detail Error:", err.message);
-        res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-// อัปเดตข้อมูลเหมาทั้ง IV (สถานะ, วันที่วางบิล, วันที่รับชำระ, ใบเสร็จ)
-router.post('/update-iv-header', async (req, res) => {
-    const { iv_no, billing_status, billing_date, payment_date, receipt_no, ar_no } = req.body;
-    if (!iv_no) return res.status(400).json({ success: false, message: 'กรุณาระบุเลข IV' });
-
-    try {
-        await pool.query(`
-            UPDATE financials SET 
-                billing_status = COALESCE($2, billing_status),
-                billing_date = $3,
-                payment_date = $4,
-                receipt_no = $5,
-                ar_no = COALESCE($6, ar_no)
-            WHERE iv_no = $1
-        `, [
-            String(iv_no).trim(),
-            billing_status || null,
-            billing_date || null,
-            payment_date || null,
-            receipt_no || null,
-            ar_no || null
-        ]);
-
-        res.json({ success: true, message: 'อัปเดตข้อมูล IV สำเร็จ' });
-    } catch (err) {
-        console.error("POST /update-iv-header Error:", err.message);
-        res.status(500).json({ success: false, message: err.message });
-    }
 });
 
 module.exports = router;

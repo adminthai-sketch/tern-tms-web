@@ -237,7 +237,7 @@ router.get('/shipments', async (req, res) => {
             SELECT 
                 s.*,
                 b.id AS booking_id, b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
-                b.origin, b.destination, b.container_size, b.job_type, b.agent,
+                b.origin, b.destination, b.container_size, b.job_type, b.agent, b.job_name,
                 b.cy_date, b.vgm_cutoff, b.cutoff_time, b.load_date, b.unload_date, b.return_date, b.open_gate,
                 f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense
             FROM shipment_operations s

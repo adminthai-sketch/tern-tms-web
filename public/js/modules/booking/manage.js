@@ -18,7 +18,9 @@ let isDropYardsHidden = true;
 window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
     const today = new Date();
-    document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+    document.getElementById('filter-month').value = /^\d{4}-(0[1-9]|1[0-2])$/.test(new URLSearchParams(location.search).get('month') || '')
+        ? new URLSearchParams(location.search).get('month')
+        : today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     
     const user = JSON.parse(localStorage.getItem('tms_user') || '{}');
     if (user.id) {
@@ -66,7 +68,7 @@ function setupGridControlButtons() {
     freezeSelect.className = "bg-blue-50 text-blue-700 font-bold px-2 py-1.5 rounded-lg shadow-sm border border-blue-200 ml-2 outline-none text-[11px] cursor-pointer";
     freezeSelect.innerHTML = `
         <option value="3" ${(!userGridSettings.fixedColumns || userGridSettings.fixedColumns == 3) ? 'selected' : ''}>📌 ตรึงแค่หัวบิล</option>
-        <option value="10" ${(userGridSettings.fixedColumns == 10) ? 'selected' : ''}>📌 ตรึงจนถึง "เบอร์ตู้ 2"</option>
+        <option value="11" ${([10, 11].includes(Number(userGridSettings.fixedColumns))) ? 'selected' : ''}>📌 ตรึงจนถึง "เบอร์ตู้ 2"</option>
     `;
     freezeSelect.onchange = (e) => {
         if (hotGridInstance) {
@@ -347,12 +349,12 @@ function initContainerHandsontable(data) {
         autoRowSize: false,
         rowHeights: 28,
         
-        fixedColumnsLeft: userGridSettings.fixedColumns !== undefined ? parseInt(userGridSettings.fixedColumns) : 3,
+        fixedColumnsLeft: userGridSettings.fixedColumns !== undefined ? (Number(userGridSettings.fixedColumns) === 10 ? 11 : Number(userGridSettings.fixedColumns)) : 3,
         manualColumnFreeze: false, 
 
         nestedHeaders: [
             [
-                { label: '📋 ข้อมูลงาน', colspan: 7 }, 
+                { label: '📋 ข้อมูลงาน', colspan: 8 },
                 { label: '📦 ข้อมูลตู้', colspan: 7 }, 
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 5 }, 
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
@@ -364,7 +366,7 @@ function initContainerHandsontable(data) {
                 { label: '📝 หมายเหตุ', colspan: 1 } 
             ],
             [
-                '✔', 'Order ID', 'Booking', 'MODE', 'ลูกค้า', 'ต้นทาง', 'ปลายทาง', 
+                '✔', 'Order ID', 'Booking', 'MODE', 'ลูกค้า', 'ชื่องาน', 'ต้นทาง', 'ปลายทาง',
                 'ขนาดตู้', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด (🚚 Auto-Fill)', 'เส้นทาง', '✅',
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', 
@@ -382,6 +384,7 @@ function initContainerHandsontable(data) {
             { data: 'booking_no', type: 'text', readOnly: true, className: 'font-bold text-primary htCenter htMiddle zone-info' }, 
             { data: 'mode', type: 'text', readOnly: true, className: 'htCenter htMiddle font-bold text-slate-500 zone-info' }, 
             { data: 'customer_name', type: 'text', readOnly: true, className: 'text-slate-700 font-bold htMiddle zone-info' }, 
+            { data: 'job_name', type: 'text', readOnly: true, className: 'htMiddle zone-info' },
             { data: 'origin', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             { data: 'destination', type: 'text', readOnly: true, className: 'text-slate-700 htMiddle zone-info' }, 
             
@@ -436,7 +439,7 @@ function initContainerHandsontable(data) {
             { data: 'remark', type: 'text', className: 'htLeft htMiddle' }
         ],
         colWidths: [
-            30, 110, 100, 75, 100, 80, 80, 
+            30, 110, 100, 75, 100, 160, 80, 80,
             60, 100, 100, 100, 90, 80, 70, 
             90, 110, 120, 110, 45, 
             90, 110, 110, 45, 

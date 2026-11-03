@@ -14,8 +14,12 @@ let rateDataMap = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
+    const booking = new URLSearchParams(location.search).get('select');
+    if (booking) document.getElementById('filter-booking-no').value = booking;
     const today = new Date();
-    document.getElementById('filter-month').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+    document.getElementById('filter-month').value = /^\d{4}-(0[1-9]|1[0-2])$/.test(new URLSearchParams(location.search).get('month') || '')
+        ? new URLSearchParams(location.search).get('month')
+        : today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
     
     // 🌟 เช็คล็อกอินและแสดงชื่อ 🌟
     const savedUser = localStorage.getItem('tms_user');
@@ -250,7 +254,7 @@ function initBookingHandsontable(data) {
                                 <button onclick="window.goToFormEdit('${value}')" title="แก้ไขหัวบิล" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
                                     <i class="fa-solid fa-pen mr-1"></i> แก้
                                 </button>
-                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}'" title="จัดรถและลงเบอร์ตู้" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(value)}&month=${document.getElementById("filter-month").value}'" title="จัดรถและลงเบอร์ตู้" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap">
                                     <i class="fa-solid fa-truck-fast mr-1"></i> รถ
                                 </button>
                             </div>

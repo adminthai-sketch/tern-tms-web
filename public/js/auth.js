@@ -1,3 +1,13 @@
+function clearAutofilledSearch(event) {
+    const field = event.target;
+    if (field instanceof HTMLInputElement && field.type === 'search' && field.matches(':autofill')) {
+        field.value = '';
+    }
+}
+
+document.addEventListener('input', clearAutofilledSearch, true);
+document.addEventListener('focus', clearAutofilledSearch, true);
+
 // public/js/auth.js
 document.addEventListener('DOMContentLoaded', () => {
     // 1. ตรวจสอบการล็อกอิน (ถ้ายังไม่ล็อกอิน เตะกลับไปหน้า login)

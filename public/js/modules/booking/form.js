@@ -35,7 +35,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 async function loadBookingForEdit(bookingNo) {
     try {
-        const res = await fetch(`/api/bookings/search?search=${bookingNo}`);
+        const res = await fetch(`/api/bookings/search?search=${encodeURIComponent(bookingNo)}`);
         const result = await res.json();
         
         if (result.success && result.data && result.data.length > 0) {

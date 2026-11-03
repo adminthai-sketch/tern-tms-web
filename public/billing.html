@@ -77,7 +77,7 @@
 
             <div class="relative">
                 <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
-                <input type="text" id="global-search" onkeyup="handleMasterFilter()" placeholder="ค้นหาทั่วไป..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs outline-none bg-white h-8 w-44 focus:border-purple-400 shadow-sm">
+                <input type="text" autocomplete="off" id="global-search" oninput="handleMasterFilter()" placeholder="ค้นหาทั่วไป..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs outline-none bg-white h-8 w-44 focus:border-purple-400 shadow-sm">
             </div>
             <button onclick="clearMasterFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser"></i></button>
         </div>

@@ -49,10 +49,10 @@
             </div>
             
             <!-- 🌟 เพิ่มช่องค้นหาเลข IV ตรงนี้ -->
-            <input type="text" id="filter-iv-no" placeholder="📄 ค้นหาเลข IV..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-blue-400 font-bold text-blue-700">
+            <input type="text" autocomplete="off" id="filter-iv-no" placeholder="📄 ค้นหาเลข IV..." oninput="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-blue-400 font-bold text-blue-700">
             
-            <input type="text" id="filter-customer" placeholder="🏢 ค้นหาลูกค้า..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-36 focus:bg-white focus:border-blue-400">
-            <input type="text" id="filter-booking" placeholder="📝 ค้นหา Booking..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-36 focus:bg-white focus:border-blue-400">
+            <input type="text" autocomplete="off" id="filter-customer" placeholder="🏢 ค้นหาลูกค้า..." oninput="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-36 focus:bg-white focus:border-blue-400">
+            <input type="text" autocomplete="off" id="filter-booking" placeholder="📝 ค้นหา Booking..." oninput="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-36 focus:bg-white focus:border-blue-400">
             
             <select id="filter-status" onchange="filterIvGrid()" class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 focus:bg-white focus:border-blue-400 font-semibold">
                 <option value="">-- ทุกสถานะบิล --</option>

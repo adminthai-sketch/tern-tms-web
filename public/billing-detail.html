@@ -139,11 +139,11 @@
     </div>
 
     <script src="/js/modules/billing/detail.js"></script>
-    <script>function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }</script>
-    <!-- ใส่สคริปต์ควบคุมสิทธิ์ตัวกลาง -->
+    
+    <!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
     <script src="/js/auth.js"></script>
     
-    <!-- (และถ้าหน้านั้นมีระบบเปลี่ยนรหัสผ่านด้วย ก็ใส่พ่วงกันไปได้เลย) -->
+    <!-- 2. ใส่สคริปต์เปลี่ยนรหัสผ่าน (เพิ่มกุญแจมุมขวาบน) -->
     <script src="/js/password.js"></script>
 </body>
 </html>

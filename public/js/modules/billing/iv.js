@@ -36,6 +36,10 @@ window.loadIvData = async function() {
                 }
                 if (item.billing_date) item.billing_date = String(item.billing_date).split('T')[0];
                 if (item.payment_date) item.payment_date = String(item.payment_date).split('T')[0];
+                
+                // 🌟 แปลง Array ของ Booking ให้เป็น String 
+                item.booking_list_str = Array.isArray(item.booking_list) ? item.booking_list.join(', ') : (item.booking_list || '-');
+
                 return item;
             });
             filterIvGrid();
@@ -58,18 +62,17 @@ window.filterIvGrid = function() {
     const cust = (document.getElementById('filter-customer')?.value || '').toLowerCase().trim();
     const stat = document.getElementById('filter-status')?.value || '';
     const book = (document.getElementById('filter-booking')?.value || '').toLowerCase().trim();
-    // 🌟 ดึงค่าจากช่องค้นหา IV
     const ivStr = (document.getElementById('filter-iv-no')?.value || '').toLowerCase().trim();
 
     const filtered = allIvData.filter(i => {
         const cName = String(i.customer_name || '').toLowerCase();
-        const bList = Array.isArray(i.booking_list) ? i.booking_list.join(',').toLowerCase() : '';
+        const bList = String(i.booking_list_str || '').toLowerCase();
         const iNum = String(i.iv_no || '').toLowerCase();
 
         const matchCust = !cust || cName.includes(cust);
         const matchStat = !stat || i.billing_status === stat;
         const matchBook = !book || bList.includes(book);
-        const matchIv = !ivStr || iNum.includes(ivStr); // เช็คเงื่อนไข IV
+        const matchIv = !ivStr || iNum.includes(ivStr);
 
         return matchCust && matchStat && matchBook && matchIv;
     });
@@ -152,13 +155,14 @@ function initIvGrid(data) {
         data: data.length > 0 ? data : [{}],
         wordWrap: false, autoRowSize: false, rowHeights: 36, fixedColumnsLeft: 2,
         colHeaders: [
-            'จัดการ', 'พิมพ์', 'เลขที่ IV (Invoice)', 'ลูกค้า', 'รวมตู้', 'ยอดรวมสุทธิ (บาท)', 
+            'จัดการ', 'พิมพ์', 'เลขที่ IV (Invoice)', 'เลข Booking', 'ลูกค้า', 'รวมตู้', 'ยอดรวมสุทธิ (บาท)', 
             'สถานะบิล', 'วันที่วางบิล', 'วันที่รับเงิน (Paid)', 'เลขที่ใบเสร็จ (RV)', 'หมายเหตุบัญชี'
         ],
         columns: [
             { data: 'action_btn', renderer: actionRenderer, readOnly: true },
             { data: 'print_btn', renderer: printRenderer, readOnly: true },
             { data: 'iv_no', readOnly: true, className: 'htCenter htMiddle font-bold text-blue-700 bg-slate-50' },
+            { data: 'booking_list_str', readOnly: true, className: 'htCenter htMiddle font-bold text-purple-700 bg-purple-50/20' }, // 🌟 คอลัมน์ Booking ใหม่
             { data: 'customer_name', readOnly: true, className: 'htLeft htMiddle font-bold bg-slate-50' },
             { data: 'total_containers', readOnly: true, className: 'htCenter htMiddle bg-slate-50' },
             { data: 'grand_total', type: 'numeric', numericFormat: { pattern: '0,0.00' }, readOnly: true, className: 'htRight htMiddle font-bold text-slate-800 bg-slate-100' },
@@ -172,7 +176,7 @@ function initIvGrid(data) {
             { data: 'receipt_no', type: 'text', className: 'htCenter htMiddle uppercase' },
             { data: 'account_remark', type: 'text', className: 'htLeft htMiddle' }
         ],
-        colWidths: [100, 45, 130, 180, 55, 120, 110, 100, 110, 110, 180],
+        colWidths: [100, 45, 130, 160, 180, 55, 120, 110, 100, 110, 110, 180], // 🌟 ขยายโครงสร้างความกว้างตาราง
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all', manualColumnResize: true, licenseKey: 'non-commercial-and-evaluation',
         afterChange: function(changes, src) {
             if (src !== 'loadData' && changes) {

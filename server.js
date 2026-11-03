@@ -1,9 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
+const { Pool } = require('pg'); // เพิ่มตัวเชื่อมฐานข้อมูล
 require('dotenv').config();
 
 const app = express();
+
+// ==========================================
+// 🔗 ตั้งค่าการเชื่อมต่อฐานข้อมูล Neon DB
+// ==========================================
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
 // Middlewares
 app.use(cors());
@@ -29,6 +39,35 @@ app.use('/api', fleetRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', excelRoutes);
 app.use('/api', usersRoutes);
+
+// ==========================================
+// 🔑 API เปลี่ยนรหัสผ่านส่วนตัว (Change Password)
+// ==========================================
+app.post('/api/change-password', async (req, res) => {
+    const { username, oldPassword, newPassword } = req.body;
+    if (!username || !oldPassword || !newPassword) {
+        return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลให้ครบถ้วน' });
+    }
+    
+    try {
+        const oldHash = crypto.createHash('sha256').update(oldPassword).digest('hex');
+        
+        // 1. ตรวจสอบรหัสเดิมว่าถูกไหม
+        const userRes = await pool.query('SELECT id FROM users WHERE username = $1 AND password_hash = $2', [username, oldHash]);
+        if (userRes.rows.length === 0) {
+            return res.status(401).json({ success: false, message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
+        }
+        
+        // 2. เข้ารหัสรหัสผ่านใหม่แล้วอัปเดตลงฐานข้อมูล
+        const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+        await pool.query('UPDATE users SET password_hash = $1 WHERE username = $2', [newHash, username]);
+        
+        res.json({ success: true, message: 'เปลี่ยนรหัสผ่านสำเร็จ! กรุณาล็อกอินใหม่' });
+    } catch (err) {
+        console.error('Change Password Error:', err);
+        res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดบนเซิร์ฟเวอร์' });
+    }
+});
 
 // 📌 บล็อกดักจับ API Error 404 (ให้ตอบกลับเป็น JSON เสมอ)
 app.use('/api/*', (req, res) => {

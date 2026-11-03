@@ -146,6 +146,15 @@ window.saveAllIvDetails = async function() {
         const pDate = document.getElementById('input-payment-date').value || null;
         const rNo = (document.getElementById('input-receipt-no').value || '').trim() || null;
 
+        // 🌟 1. ส่งอัปเดตข้อมูลตู้ก่อน (เพื่อไม่ให้ไปทับสถานะหัวบิล)
+        const containersData = hotIvDetailInstance.getSourceData();
+        await fetch('/api/billing/shipments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: containersData })
+        });
+
+        // 🌟 2. อัปเดตข้อมูลหัวบิลทีหลังสุด เพื่อเซ็ตสถานะสุดท้ายให้ถูกต้อง
         await fetch('/api/billing/update-iv-header', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -158,13 +167,6 @@ window.saveAllIvDetails = async function() {
             })
         });
 
-        const containersData = hotIvDetailInstance.getSourceData();
-        await fetch('/api/billing/shipments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: containersData })
-        });
-
         alert('✅ บันทึกข้อมูลใบแจ้งหนี้เรียบร้อย!');
         await loadIvDetailData();
     } catch (err) {
@@ -173,7 +175,6 @@ window.saveAllIvDetails = async function() {
         if (overlay) overlay.classList.add('hidden');
     }
 };
-
 window.printInvoiceA4 = function() {
     if (!currentIvNo) return;
     window.open(`/print-invoice.html?iv=${encodeURIComponent(currentIvNo)}`, '_blank');

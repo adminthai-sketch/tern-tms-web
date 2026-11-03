@@ -40,11 +40,11 @@
 </head>
 <body>
 
-    <!-- แถบด้านบน: ปุ่มพิมพ์ ปิดหน้าต่าง และเมนูเลือกคอลัมน์ -->
+    <!-- แถบเครื่องมือด้านบน (ซ่อนตอนพิมพ์) -->
     <div class="no-print sticky top-0 w-full bg-slate-800 text-white shadow-lg z-50">
         <div class="flex justify-between items-center p-3 border-b border-slate-700">
             <div>
-                <span class="font-bold text-lg text-blue-300"><i class="fa-solid fa-file-invoice-dollar mr-2"></i> ใบสรุปรายละเอียด (A4 แนวนอน)</span>
+                <span class="font-bold text-lg text-blue-300"><i class="fa-solid fa-file-invoice-dollar mr-2"></i> ใบสรุปรายละเอียดประกอบค่าขนส่ง (A4 แนวนอน)</span>
             </div>
             <div class="flex gap-3">
                 <button onclick="window.close()" class="bg-slate-600 hover:bg-slate-500 px-4 py-2 rounded font-bold text-sm transition-colors shadow-md">ปิดหน้าต่าง</button>
@@ -53,37 +53,37 @@
                 </button>
             </div>
         </div>
-        <!-- 🌟 แถบเลือกคอลัมน์ (แสดงเฉพาะในคอม ซ่อนตอนปริ้น) -->
+        
+        <!-- 🌟 แถบ Checkbox เลือกคอลัมน์ -->
         <div class="bg-slate-100 text-slate-800 px-4 py-2 flex flex-wrap gap-4 items-center text-[11px] font-semibold border-b border-slate-300">
-            <span class="text-slate-600"><i class="fa-solid fa-table-columns mr-1"></i> ซ่อน/แสดง คอลัมน์:</span>
+            <span class="text-slate-600"><i class="fa-solid fa-table-columns mr-1"></i> เปิด/ปิด คอลัมน์:</span>
+            
+            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-jobname" checked onchange="toggleColumn('col-jobname', this.id)"> ชื่องาน</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-origin" checked onchange="toggleColumn('col-origin', this.id)"> ต้นทาง</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-dest" checked onchange="toggleColumn('col-dest', this.id)"> ปลายทาง</label>
-            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-jobname" checked onchange="toggleColumn('col-jobname', this.id)"> ชื่องาน</label>
+            <label class="flex items-center gap-1 cursor-pointer text-blue-700"><input type="checkbox" id="chk-cartype" checked onchange="toggleColumn('col-cartype', this.id)"> ประเภทรถ</label>
+            <label class="flex items-center gap-1 cursor-pointer text-blue-700"><input type="checkbox" id="chk-driver" checked onchange="toggleColumn('col-driver', this.id)"> ชื่อคนขับ</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-weight" checked onchange="toggleColumn('col-weight', this.id)"> น้ำหนัก</label>
             <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-trip" checked onchange="toggleColumn('col-trip', this.id)"> ค่าบรรทุก</label>
-            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-port" checked onchange="toggleColumn('col-port', this.id)"> ค่าผ่านท่า</label>
-            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-deposit" checked onchange="toggleColumn('col-deposit', this.id)"> ค่าฝาก</label>
-            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-lift" checked onchange="toggleColumn('col-lift', this.id)"> ค่ายก</label>
-            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-shore" checked onchange="toggleColumn('col-shore', this.id)"> ค่าชอร์</label>
-            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-tax" checked onchange="toggleColumn('col-tax', this.id)"> ชุดคอลัมน์ภาษี</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-port" checked onchange="toggleColumn('col-port', this.id)"> ผ่านท่า</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-deposit" checked onchange="toggleColumn('col-deposit', this.id)"> ฝาก</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-lift" checked onchange="toggleColumn('col-lift', this.id)"> ยก</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-shore" checked onchange="toggleColumn('col-shore', this.id)"> ชอร์</label>
+            <label class="flex items-center gap-1 cursor-pointer text-red-600"><input type="checkbox" id="chk-tax" checked onchange="toggleColumn('col-tax', this.id)"> ชุดภาษีทั้งหมด</label>
             
-            <button onclick="saveLayoutToCustomer()" id="btn-save-layout" class="ml-auto bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded shadow text-[10px] hidden">
-                <i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกฟอร์มนี้ให้ลูกค้า
+            <button onclick="saveLayoutToCustomer()" id="btn-save-layout" class="ml-auto bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded shadow text-[10px] hidden transition-colors">
+                <i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกฟอร์มให้ลูกค้ารายนี้
             </button>
         </div>
     </div>
 
-    <!-- กระดาษ A4 แนวนอน -->
+    <!-- กระดาษ A4 -->
     <div class="page-container" id="printable-area">
         
-        <!-- Header บริษัทเรา และ ข้อมูลลูกค้า -->
+        <!-- Header -->
         <div class="flex justify-between items-start mb-5 border-b-2 border-slate-800 pb-4">
-            
-            <!-- LOGO & Company Info -->
             <div class="flex gap-4 items-center">
-                <!-- โลโก้ TERN -->
                 <img src="/LOGO/TURNLOGO-01.png" alt="TERN LOGISTICS" class="w-32 object-contain" onerror="this.style.display='none'">
-                
                 <div class="text-[11.5px] leading-tight text-slate-800 border-l-2 border-slate-300 pl-4 py-1">
                     <div class="font-bold text-[17px] mb-1 text-slate-900 tracking-wide">บริษัท เทิร์น โลจิสติกส์ จำกัด</div>
                     <div class="mb-0.5">93/5 ถนนประชาราษฎร์ ตำบลตลาดขวัญ อำเภอเมืองนนทบุรี จังหวัดนนทบุรี 11000</div>
@@ -92,7 +92,6 @@
                 </div>
             </div>
             
-            <!-- กรอบข้อมูลลูกค้า -->
             <div class="text-[11.5px] leading-snug text-black border-2 border-slate-800 p-2.5 min-w-[360px] max-w-[420px] rounded-sm bg-slate-50">
                 <div class="font-bold mb-1.5 border-b border-slate-300 pb-1 text-slate-700">ลูกค้า / ที่อยู่ (Customer & Address)</div>
                 <div id="doc-customer-name" class="font-bold text-[13px] mb-0.5 text-blue-900">...</div>
@@ -101,7 +100,6 @@
             </div>
         </div>
 
-        <!-- Meta Data (Booking, ประจำวันที่, IV No) -->
         <div class="flex justify-between items-end mb-3">
             <div>
                 <div class="text-black text-[14px] font-bold mb-1 underline decoration-2 decoration-blue-800 underline-offset-4">รายละเอียดประกอบใบแจ้งหนี้ เอกสาร : ค่าขนส่งตู้บรรจุ (LOADED)</div>
@@ -113,7 +111,6 @@
             </div>
         </div>
 
-        <!-- Summary Table (ตารางสรุปบน) -->
         <table class="table-excel mb-4">
             <thead>
                 <tr>
@@ -139,24 +136,27 @@
             </tbody>
         </table>
 
-        <!-- Detail Table (เพิ่มคลาส col-xxx ไว้ที่ <th> เพื่อควบคุมการแสดงผล) -->
+        <!-- ตารางรายละเอียด (ใส่คลาสให้ทุกคอลัมน์ที่ต้องการเปิด/ปิด) -->
         <table class="table-excel" id="detail-table">
             <thead>
                 <tr>
                     <th style="width: 25px;">ลำดับ</th>
                     <th style="width: 55px;">วันที่</th>
+                    
+                    <th class="col-jobname" style="width: 70px;">ชื่องาน</th>
+                    <th class="col-cartype" style="width: 45px;">ประเภทรถ</th>
                     <th style="width: 55px;">ทะเบียนรถ</th>
+                    <th class="col-driver" style="width: 60px;">ชื่อคนขับ</th>
                     <th style="width: 80px;">เบอร์ตู้</th>
                     <th style="width: 35px;">ขนาด</th>
                     
-                    <th class="col-jobname" style="width: 70px;">ชื่องาน</th>
-                    <th class="col-origin" style="width: 65px;">จาก</th>
-                    <th class="col-dest" style="width: 65px;">ถึง</th>
+                    <th class="col-origin" style="width: 65px;">จาก (ต้นทาง)</th>
+                    <th class="col-dest" style="width: 65px;">ถึง (ปลายทาง)</th>
                     
                     <th class="col-weight" style="width: 60px;">น้ำหนัก</th>
                     <th class="col-trip" style="width: 60px; background-color:#dbeafe;">ค่าบรรทุก</th>
                     
-                    <th class="col-port" style="width: 50px;">ค่าผ่านท่า</th>
+                    <th class="col-port" style="width: 50px;">ผ่านท่า</th>
                     <th class="col-deposit" style="width: 45px;">ค่าฝาก</th>
                     <th class="col-lift" style="width: 45px;">ค่ายก</th>
                     <th class="col-shore" style="width: 50px;">ค่าชอร์</th>
@@ -169,7 +169,7 @@
                 </tr>
             </thead>
             <tbody id="detail-tbody">
-                <tr><td colspan="18" class="text-center py-6 text-slate-400 font-bold"><i class="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูลประกอบเอกสาร...</td></tr>
+                <tr><td colspan="20" class="text-center py-6 text-slate-400 font-bold"><i class="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูลประกอบเอกสาร...</td></tr>
             </tbody>
             <tfoot id="detail-tfoot" class="font-bold bg-slate-100"></tfoot>
         </table>
@@ -178,7 +178,6 @@
     <script>
         let printData = [];
         let currentCustomerId = null;
-        let isSettingLoaded = false;
 
         window.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -191,23 +190,23 @@
             }
 
             try {
-                // 🌟 ดึงข้อมูลจาก API ของระบบบัญชี /api/billing/print-data
+                // 🌟 โหลดข้อมูลจาก API
                 const res = await fetch(`/api/billing/print-data?iv=${encodeURIComponent(ivNo || '')}&booking=${encodeURIComponent(bookingNo || '')}`);
                 const result = await res.json();
                 
                 if(result.success && result.data && result.data.length > 0) {
                     printData = result.data;
                     const firstRow = printData[0];
-                    currentCustomerId = firstRow.customer_id; // เก็บไอดีลูกค้าสำหรับบันทึก Layout
+                    currentCustomerId = firstRow.customer_id; // เก็บไว้บันทึก Layout ให้ถูกคน
 
-                    // นำข้อมูล Layout ของลูกค้ามาตั้งค่า
+                    // 🌟 ถ้าลูกค้ารายนี้เคยตั้งค่าเปิด/ปิดคอลัมน์ไว้ ให้โหลดมาใช้
                     if (firstRow.invoice_layout) {
                         try {
                             const layoutObj = typeof firstRow.invoice_layout === 'string' ? JSON.parse(firstRow.invoice_layout) : firstRow.invoice_layout;
                             applyCustomerLayout(layoutObj);
                         } catch(e) {}
                     }
-                    isSettingLoaded = true;
+                    
                     document.getElementById('btn-save-layout').classList.remove('hidden');
 
                     document.getElementById('doc-customer-name').innerText = firstRow.customer_name || '-';
@@ -215,7 +214,6 @@
                     document.getElementById('doc-customer-tax').innerText = firstRow.tax_id || '-';
                     document.getElementById('doc-booking-no').innerText = firstRow.booking_no || '-';
 
-                    // วันที่
                     const dateVal = firstRow.billing_date || firstRow.run_date;
                     if(dateVal) {
                         const d = new Date(dateVal);
@@ -226,20 +224,17 @@
 
                     document.getElementById('doc-iv-no').innerText = firstRow.iv_no || 'ยังไม่ออกเลข IV';
                     
-                    // AR No ของทั้งชุด (ดึงตัวที่มีเลข)
                     const validAr = printData.find(r => r.ar_no && r.ar_no.trim() !== '' && r.ar_no.toLowerCase() !== 'null');
                     document.getElementById('sum-ar-no').innerText = validAr ? validAr.ar_no : '-';
-                    
                     document.getElementById('sum-price-type').innerText = firstRow.price_type || 'รถร่วม เงินสด';
 
-                    // คำชื่องานในตารางบน
                     const monthTh = dateVal ? new Date(dateVal).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }) : '';
                     document.getElementById('sum-desc').innerText = `ค่าขนส่ง ตู้เปิด+ตู้บรรจุ ${firstRow.destination || ''} ${monthTh}`;
 
                     renderPrintTable();
                 } else {
-                    document.getElementById('detail-tbody').innerHTML = `<tr><td colspan="18" class="text-center py-8 text-red-500 font-bold text-lg"><i class="fa-solid fa-triangle-exclamation mr-2"></i> ไม่พบข้อมูลสำหรับพิมพ์เอกสารนี้</td></tr>`;
-                    alert("ไม่พบข้อมูลสำหรับการพิมพ์");
+                    document.getElementById('detail-tbody').innerHTML = `<tr><td colspan="20" class="text-center py-8 text-red-500 font-bold text-lg"><i class="fa-solid fa-triangle-exclamation mr-2"></i> ไม่พบข้อมูลสำหรับพิมพ์เอกสารนี้</td></tr>`;
+                    alert("ไม่พบข้อมูลสำหรับการพิมพ์ (ระบบหาเลขที่บิลนี้ไม่เจอในฐานข้อมูล)");
                 }
             } catch(e) {
                 console.error(e);
@@ -247,7 +242,6 @@
             }
         });
 
-        // 🌟 1. ฟังก์ชันจัดการการแสดงผลคอลัมน์ (ซ่อน/แสดง)
         function toggleColumn(className, checkboxId) {
             const isVisible = document.getElementById(checkboxId).checked;
             const elements = document.querySelectorAll('.' + className);
@@ -255,17 +249,18 @@
                 el.style.display = isVisible ? '' : 'none';
             });
             
-            // ปรับ colspan ของตาราง Footer อัตโนมัติ (จำนวนคอลัมน์ตั้งต้นรวม 18 หัก 10 คอลัมน์ที่ซ่อนได้)
-            let colCount = 8; 
+            // คำนวณความกว้าง Colspan ของแถบยอดรวม (Grand Total) ใหม่
+            let colCount = 4; // เริ่มต้นที่ 4 คอลัมน์หลักที่ไม่สามารถปิดได้
+            if(document.getElementById('chk-jobname').checked) colCount++;
+            if(document.getElementById('chk-cartype').checked) colCount++;
+            if(document.getElementById('chk-driver').checked) colCount++;
             if(document.getElementById('chk-origin').checked) colCount++;
             if(document.getElementById('chk-dest').checked) colCount++;
-            if(document.getElementById('chk-jobname').checked) colCount++;
             
             const tfDesc = document.getElementById('tf-desc-span');
             if(tfDesc) tfDesc.colSpan = colCount;
         }
 
-        // 🌟 2. ดึง Layout เก่าของลูกค้ามาติ๊กถูกอัตโนมัติ
         function applyCustomerLayout(layout) {
             Object.keys(layout).forEach(chkId => {
                 const el = document.getElementById(chkId);
@@ -273,15 +268,15 @@
             });
         }
 
-        // 🌟 3. บันทึก Layout เก็บใส่ฐานข้อมูลของลูกค้า
         async function saveLayoutToCustomer() {
             if(!currentCustomerId) return;
             
-            // ดึงค่า checkbox ทุกตัวมาเก็บ
             const layout = {
+                'chk-jobname': document.getElementById('chk-jobname').checked,
                 'chk-origin': document.getElementById('chk-origin').checked,
                 'chk-dest': document.getElementById('chk-dest').checked,
-                'chk-jobname': document.getElementById('chk-jobname').checked,
+                'chk-cartype': document.getElementById('chk-cartype').checked,
+                'chk-driver': document.getElementById('chk-driver').checked,
                 'chk-weight': document.getElementById('chk-weight').checked,
                 'chk-trip': document.getElementById('chk-trip').checked,
                 'chk-port': document.getElementById('chk-port').checked,
@@ -302,20 +297,18 @@
                 });
                 const data = await res.json();
                 if(data.success) {
-                    btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> บันทึกสำเร็จ!';
+                    btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> บันทึกฟอร์มนี้สำเร็จ!';
                     btn.classList.replace('bg-emerald-600', 'bg-blue-600');
                     setTimeout(() => {
-                        btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกฟอร์มนี้ให้ลูกค้า';
+                        btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกฟอร์มให้ลูกค้ารายนี้';
                         btn.classList.replace('bg-blue-600', 'bg-emerald-600');
-                    }, 2000);
+                    }, 2500);
                 }
             } catch(e) {
-                alert("เกิดข้อผิดพลาดในการบันทึก Layout");
-                btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกฟอร์มนี้ให้ลูกค้า';
+                alert("เกิดข้อผิดพลาดในการบันทึก");
             }
         }
 
-        // 🌟 ฟังก์ชันวาดตารางและดึงข้อมูลมาแสดงผล
         function renderPrintTable() {
             const tbody = document.getElementById('detail-tbody');
             const tfoot = document.getElementById('detail-tfoot');
@@ -323,7 +316,6 @@
 
             let sumWeight = 0, sumTrip = 0, sumPort = 0, sumDeposit = 0, sumLift = 0, sumShore = 0;
             let sumVatPort = 0, sumVatLift = 0, sumVatShore = 0;
-
             const fmtMoney = (v) => Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
             const calcVat = (amt) => (Number(amt) > 0) ? (Number(amt) * 7 / 107) : 0;
 
@@ -348,18 +340,20 @@
                     dateStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
                 }
 
-                // 🌟 ใส่คลาส col-xxx ไว้ที่ <td> ทุกตัวที่เกี่ยวข้องเพื่อสั่งซ่อนผ่าน Javascript
                 tbody.innerHTML += `
                     <tr class="text-center hover:bg-slate-50 transition-colors">
                         <td>${idx + 1}</td>
                         <td class="text-[10.5px]">${dateStr}</td>
+                        
+                        <td class="col-jobname text-left px-1 truncate max-w-[60px]" title="${row.job_name || ''}">${row.job_name || ''}</td>
+                        <td class="col-cartype text-blue-700 font-bold">${row.price_type || row.mode || '-'}</td>
                         <td class="font-bold text-slate-800">${row.plate || '-'}</td>
+                        <td class="col-driver text-left px-1 truncate max-w-[60px]" title="${row.leg1_driver || ''}">${row.leg1_driver || '-'}</td>
                         <td class="font-bold text-left px-1.5 text-blue-900">${row.container_1_no || row.container_2_no || '-'}</td>
                         <td>${row.container_size || ''}</td>
                         
-                        <td class="col-jobname text-left px-1 truncate max-w-[50px]" title="${row.job_name || ''}">${row.job_name || ''}</td>
-                        <td class="col-origin text-left px-1 truncate max-w-[50px]" title="${row.origin || ''}">${row.origin || ''}</td>
-                        <td class="col-dest text-left px-1 truncate max-w-[50px]" title="${row.destination || ''}">${row.destination || ''}</td>
+                        <td class="col-origin text-left px-1 truncate max-w-[60px]" title="${row.origin || ''}">${row.origin || ''}</td>
+                        <td class="col-dest text-left px-1 truncate max-w-[60px]" title="${row.destination || ''}">${row.destination || ''}</td>
                         
                         <td class="col-weight text-right px-1.5">${fmtMoney(weight)}</td>
                         <td class="col-trip text-right px-1.5 font-bold text-blue-800 bg-blue-50/50">${fmtMoney(trip)}</td>
@@ -373,7 +367,7 @@
                         <td class="col-tax text-right px-1.5 text-slate-500">${vatLift > 0 ? fmtMoney(vatLift) : '-'}</td>
                         <td class="col-tax text-right px-1.5 text-slate-500">${vatShore > 0 ? fmtMoney(vatShore) : '-'}</td>
                         
-                        <td class="text-left px-1 text-[9px] leading-tight">${row.billing_remark || row.price_type || '-'}</td>
+                        <td class="text-left px-1 text-[9px] leading-tight">${row.billing_remark || '-'}</td>
                     </tr>
                 `;
             });
@@ -381,15 +375,13 @@
             const totalQty = printData.length;
             const unitPrice = totalQty > 0 ? (sumTrip / totalQty) : 0;
             const totalArAmt = sumPort + sumDeposit + sumLift + sumShore;
+            const totalVatAll = sumVatPort + sumVatLift + sumVatShore;
 
             document.getElementById('sum-qty').innerText = totalQty;
             document.getElementById('sum-unit-price').innerText = unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 });
             document.getElementById('sum-amount').innerText = sumTrip.toLocaleString('en-US', { minimumFractionDigits: 2 });
             document.getElementById('sum-ar-total').innerText = totalArAmt.toLocaleString('en-US', { minimumFractionDigits: 2 });
 
-            const totalVatAll = sumVatPort + sumVatLift + sumVatShore;
-
-            // แถวสรุปท้ายตาราง (ใส่คลาส col-xxx เข้าไปด้วย)
             tfoot.innerHTML = `
                 <tr class="text-slate-900 border-t-2 border-slate-400 text-[12px]">
                     <td colspan="8" id="tf-desc-span" class="text-center font-bold tracking-wider">ยอดรวมทั้งสิ้น (GRAND TOTAL)</td>
@@ -410,8 +402,8 @@
                 </tr>
             `;
 
-            // ทำการสั่งซ่อนคอลัมน์อัตโนมัติรอบนึงเผื่อว่าตอนโหลดมาค่าถูกตั้งเป็น false ไปแล้ว
-            const chks = ['chk-origin','chk-dest','chk-jobname','chk-weight','chk-trip','chk-port','chk-deposit','chk-lift','chk-shore','chk-tax'];
+            // ซ่อนคอลัมน์อัตโนมัติรอบแรก เผื่อตอนโหลดมาค่าถูกตั้งเป็นไม่ติ๊กถูก
+            const chks = ['chk-origin','chk-dest','chk-jobname','chk-cartype','chk-driver','chk-weight','chk-trip','chk-port','chk-deposit','chk-lift','chk-shore','chk-tax'];
             chks.forEach(id => {
                 const el = document.getElementById(id);
                 if(el && !el.checked) toggleColumn(id.replace('chk-','col-'), id);

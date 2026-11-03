@@ -351,14 +351,14 @@ router.get('/print-data', async (req, res) => {
             condition = 'LOWER(TRIM(f.iv_no)) = LOWER(TRIM($1))'; 
             param = String(ivNo).trim(); 
         } else { 
-            condition = 'b.booking_no = $1'; 
+            condition = 'LOWER(TRIM(b.booking_no)) = LOWER(TRIM($1))'; 
             param = String(bookingNo).trim(); 
         }
 
         const result = await pool.query(`
             SELECT 
                 s.order_id, b.booking_no, b.mode, b.price_type,
-                s.container_1_no, s.container_2_no, s.container_size, 
+                s.container_1_no, s.container_2_no, b.container_size, 
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS plate,
                 s.leg1_plate, s.leg2_plate, s.leg3_plate, s.leg1_driver,
                 b.run_date, b.origin, b.destination, b.job_name, 
@@ -398,7 +398,6 @@ router.post('/save-layout', async (req, res) => {
         await pool.query('UPDATE customers SET invoice_layout = $1 WHERE id = $2', [JSON.stringify(layout), customer_id]);
         res.json({ success: true, message: 'บันทึก Layout สำเร็จ' });
     } catch (err) {
-        console.error("POST /save-layout Error:", err.message);
         res.status(500).json({ success: false, message: err.message });
     }
 });

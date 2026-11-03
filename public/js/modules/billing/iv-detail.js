@@ -4,7 +4,7 @@ let currentIvContainers = [];
 
 window.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    currentIvNo = urlParams.get('iv') || urlParams.get('iv_no');
+    currentIvNo = (urlParams.get('iv') || urlParams.get('iv_no') || '').trim();
 
     if (!currentIvNo) {
         alert('⚠️ ไม่พบเลข IV ที่ต้องการเปิด');
@@ -24,7 +24,12 @@ async function loadIvDetailData() {
         const res = await fetch(`/api/billing/iv-detail?iv=${encodeURIComponent(currentIvNo)}&_t=${Date.now()}`);
         const result = await res.json();
 
-        if (result.success && result.data && result.data.length > 0) {
+        if (!result.success) {
+            alert('❌ เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: ' + (result.message || 'Server error'));
+            return;
+        }
+
+        if (result.data && result.data.length > 0) {
             currentIvContainers = result.data;
             const first = currentIvContainers[0];
 
@@ -33,7 +38,7 @@ async function loadIvDetailData() {
             document.getElementById('info-tax-id').innerText = first.tax_id || '-';
             document.getElementById('info-address').innerText = first.address || '-';
 
-            // แสดงข้อมูล Header ของบิล
+            // แสดงข้อมูล Header
             document.getElementById('input-billing-status').value = first.billing_status || 'รอวางบิล';
             if (first.billing_date) document.getElementById('input-billing-date').value = String(first.billing_date).split('T')[0];
             if (first.payment_date) document.getElementById('input-payment-date').value = String(first.payment_date).split('T')[0];
@@ -43,12 +48,12 @@ async function loadIvDetailData() {
             initIvDetailGrid(currentIvContainers);
             calculateIvDetailSummary();
         } else {
-            alert('❌ ไม่พบรายการตู้ในใบแจ้งหนี้นี้');
+            alert(`❌ ไม่พบรายการตู้ในใบแจ้งหนี้เลขที่ ${currentIvNo}`);
             window.location.href = '/billing-iv.html';
         }
     } catch (e) {
         console.error("Load IV Detail Error:", e);
-        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้');
+        alert('❌ ติดต่อเซิร์ฟเวอร์ไม่ได้: ' + e.message);
     } finally {
         if (overlay) overlay.classList.add('hidden');
     }
@@ -56,6 +61,7 @@ async function loadIvDetailData() {
 
 function updateBadgeStatus(status) {
     const badge = document.getElementById('badge-status');
+    if (!badge) return;
     badge.innerText = status || 'รอวางบิล';
     badge.className = 'font-bold px-2 py-0.5 rounded text-[11px]';
     if (status === 'รอวางบิล') badge.classList.add('bg-amber-100', 'text-amber-700');
@@ -128,7 +134,6 @@ function initIvDetailGrid(data) {
     });
 }
 
-// บันทึกทั้งข้อมูล Header และข้อมูลตัวเลขในตาราง
 window.saveAllIvDetails = async function() {
     if (!hotIvDetailInstance) return;
 
@@ -141,7 +146,6 @@ window.saveAllIvDetails = async function() {
         const pDate = document.getElementById('input-payment-date').value || null;
         const rNo = (document.getElementById('input-receipt-no').value || '').trim() || null;
 
-        // 1. บันทึก Header
         await fetch('/api/billing/update-iv-header', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -154,7 +158,6 @@ window.saveAllIvDetails = async function() {
             })
         });
 
-        // 2. บันทึกข้อมูลรายการตู้ในตาราง
         const containersData = hotIvDetailInstance.getSourceData();
         await fetch('/api/billing/shipments', {
             method: 'POST',

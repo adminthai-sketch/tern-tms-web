@@ -255,7 +255,7 @@ router.post('/update-iv', async (req, res) => {
                     payment_date = $4,
                     receipt_no = $5,
                     account_remark = $6
-                WHERE iv_no = $1
+                WHERE TRIM(iv_no) = $1
             `, params);
         }
         await client.query('COMMIT');
@@ -269,10 +269,10 @@ router.post('/update-iv', async (req, res) => {
     }
 });
 
-// 6. ดึงข้อมูลตู้เฉพาะของ IV นั้นๆ (สำหรับหน้า 4 IV Detail)
+// 6. 🌟 ดึงข้อมูลตู้เฉพาะของ IV นั้นๆ (สำหรับหน้า 4 IV Detail)
 router.get('/iv-detail', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    const iv = req.query.iv || req.query.iv_no;
+    const iv = (req.query.iv || req.query.iv_no || '').trim();
     if (!iv) return res.status(400).json({ success: false, message: 'กรุณาระบุเลข IV' });
 
     try {
@@ -290,12 +290,12 @@ router.get('/iv-detail', async (req, res) => {
                 f.port_pass_fee, f.deposit_fee, f.lift_fee, f.shore_fee, f.other_expense,
                 COALESCE(f.bill_weight, f.gross_weight) AS gross_weight
             FROM financials f
-            JOIN shipment_operations s ON f.order_id::text = s.order_id::text
-            JOIN bookings b ON s.booking_no = b.booking_no
+            LEFT JOIN shipment_operations s ON f.order_id::text = s.order_id::text
+            LEFT JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
-            WHERE f.iv_no = $1
+            WHERE LOWER(TRIM(f.iv_no)) = LOWER(TRIM($1))
             ORDER BY s.order_id ASC
-        `, [String(iv).trim()]);
+        `, [iv]);
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
@@ -304,7 +304,7 @@ router.get('/iv-detail', async (req, res) => {
     }
 });
 
-// 7. อัปเดตข้อมูลหัวบิลเฉพาะ IV (สำหรับหน้า 4)
+// 7. 🌟 อัปเดตข้อมูลหัวบิลเฉพาะ IV (สำหรับหน้า 4)
 router.post('/update-iv-header', async (req, res) => {
     const { iv_no, billing_status, billing_date, payment_date, receipt_no, ar_no } = req.body;
     if (!iv_no) return res.status(400).json({ success: false, message: 'กรุณาระบุเลข IV' });
@@ -317,7 +317,7 @@ router.post('/update-iv-header', async (req, res) => {
                 payment_date = $4,
                 receipt_no = $5,
                 ar_no = COALESCE($6, ar_no)
-            WHERE iv_no = $1
+            WHERE LOWER(TRIM(iv_no)) = LOWER(TRIM($1))
         `, [
             String(iv_no).trim(),
             billing_status || null,
@@ -348,7 +348,7 @@ router.get('/print-data', async (req, res) => {
         let condition = ''; 
         let param = '';
         if (ivNo) { 
-            condition = 'f.iv_no = $1'; 
+            condition = 'LOWER(TRIM(f.iv_no)) = LOWER(TRIM($1))'; 
             param = String(ivNo).trim(); 
         } else { 
             condition = 'b.booking_no = $1'; 

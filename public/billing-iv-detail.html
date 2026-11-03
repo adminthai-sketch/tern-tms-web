@@ -115,10 +115,33 @@
             <div id="iv-detail-loading" class="absolute inset-0 bg-white/80 z-50 flex items-center justify-center hidden backdrop-blur-sm rounded-xl">
                 <i class="fa-solid fa-spinner fa-spin text-3xl text-blue-600"></i>
             </div>
-            <div class="text-xs font-bold text-slate-600 mb-2 flex justify-between items-center">
+            <div class="text-xs font-bold text-slate-600 flex justify-between items-center">
                 <span><i class="fa-solid fa-boxes-stacked text-blue-600 mr-1.5"></i> รายการตู้คอนเทนเนอร์ในใบแจ้งหนี้นี้ (สามารถปรับแก้ตัวเลขก่อนพิมพ์ได้)</span>
             </div>
-            <div id="iv-detail-grid" class="flex-1 w-full h-full border border-slate-200 rounded"></div>
+
+            <!-- 🌟 แถบ Checkbox เลือกคอลัมน์ วางตรงนี้ครับ! -->
+            <div class="bg-slate-100 text-slate-800 px-4 py-2 mt-3 rounded-t-lg flex flex-wrap gap-4 items-center text-[11px] font-semibold border border-slate-300 border-b-0">
+                <span class="text-slate-600"><i class="fa-solid fa-table-columns mr-1"></i> เปิด/ปิด คอลัมน์:</span>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-jobname" checked onchange="toggleIvDetailColumns()"> ชื่องาน</label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-origin" checked onchange="toggleIvDetailColumns()"> ต้นทาง</label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-dest" checked onchange="toggleIvDetailColumns()"> ปลายทาง</label>
+                <label class="flex items-center gap-1 cursor-pointer text-blue-700"><input type="checkbox" id="chk-cartype" checked onchange="toggleIvDetailColumns()"> ประเภทรถ</label>
+                <label class="flex items-center gap-1 cursor-pointer text-blue-700"><input type="checkbox" id="chk-driver" checked onchange="toggleIvDetailColumns()"> ชื่อคนขับ</label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-weight" checked onchange="toggleIvDetailColumns()"> น้ำหนัก</label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-trip" checked onchange="toggleIvDetailColumns()"> ค่าบรรทุก</label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-port" checked onchange="toggleIvDetailColumns()"> ผ่านท่า</label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-deposit" checked onchange="toggleIvDetailColumns()"> ฝาก</label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-lift" checked onchange="toggleIvDetailColumns()"> ยก</label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chk-shore" checked onchange="toggleIvDetailColumns()"> ชอร์</label>
+                
+                <button onclick="saveLayoutToCustomer()" id="btn-save-layout" class="ml-auto bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded shadow text-[10px] hidden transition-colors">
+                    <i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกฟอร์มให้ลูกค้ารายนี้
+                </button>
+            </div>
+
+            <!-- Grid ของตารางจะอยู่ติดกับแถบ Checkbox พอดี -->
+            <div id="iv-detail-grid" class="flex-1 w-full h-full border border-slate-200 rounded-b"></div>
+            
         </div>
     </div>
 

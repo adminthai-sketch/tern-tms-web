@@ -58,16 +58,20 @@ window.filterIvGrid = function() {
     const cust = (document.getElementById('filter-customer')?.value || '').toLowerCase().trim();
     const stat = document.getElementById('filter-status')?.value || '';
     const book = (document.getElementById('filter-booking')?.value || '').toLowerCase().trim();
+    // 🌟 ดึงค่าจากช่องค้นหา IV
+    const ivStr = (document.getElementById('filter-iv-no')?.value || '').toLowerCase().trim();
 
     const filtered = allIvData.filter(i => {
         const cName = String(i.customer_name || '').toLowerCase();
         const bList = Array.isArray(i.booking_list) ? i.booking_list.join(',').toLowerCase() : '';
+        const iNum = String(i.iv_no || '').toLowerCase();
 
         const matchCust = !cust || cName.includes(cust);
         const matchStat = !stat || i.billing_status === stat;
         const matchBook = !book || bList.includes(book);
+        const matchIv = !ivStr || iNum.includes(ivStr); // เช็คเงื่อนไข IV
 
-        return matchCust && matchStat && matchBook;
+        return matchCust && matchStat && matchBook && matchIv;
     });
 
     initIvGrid(filtered);

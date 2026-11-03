@@ -48,7 +48,9 @@
                 <input type="month" id="filter-month" onchange="loadIvData()" class="px-3 py-1 font-bold text-slate-700 bg-transparent outline-none cursor-pointer h-full">
             </div>
             
-            <!-- 🌟 เพิ่มช่องค้นหา 2 ช่อง: ลูกค้า และ Booking -->
+            <!-- 🌟 เพิ่มช่องค้นหาเลข IV ตรงนี้ -->
+            <input type="text" id="filter-iv-no" placeholder="📄 ค้นหาเลข IV..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-blue-400 font-bold text-blue-700">
+            
             <input type="text" id="filter-customer" placeholder="🏢 ค้นหาลูกค้า..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-36 focus:bg-white focus:border-blue-400">
             <input type="text" id="filter-booking" placeholder="📝 ค้นหา Booking..." onkeyup="filterIvGrid()" class="px-3 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-36 focus:bg-white focus:border-blue-400">
             
@@ -60,6 +62,13 @@
                 <option value="ยกเลิก">🔴 ยกเลิก</option>
             </select>
         </div>
+        <div class="flex gap-2">
+            <button onclick="saveIvChanges()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded shadow text-[11px] flex items-center gap-1.5">
+                <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลตาราง
+            </button>
+        </div>
+    </div>
+    
         <div class="flex gap-2">
             <button onclick="saveIvChanges()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded shadow text-[11px] flex items-center gap-1.5">
                 <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลตาราง

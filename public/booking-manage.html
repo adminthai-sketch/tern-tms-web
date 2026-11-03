@@ -240,16 +240,8 @@
     </div>
 
     <script src="js/modules/booking/manage.js"></script>
-    <script>
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedUser = localStorage.getItem('tms_user');
-            if (!savedUser) { window.location.href = '/login.html'; return; }
-            const user = JSON.parse(savedUser);
-            document.getElementById('user-fullname').innerText = user.fullName || user.username || 'ผู้ดูแลระบบ';
-        });
-        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
-    </script>
-<!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
+    
+    <!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
     <script src="/js/auth.js"></script>
     
     <!-- 2. ใส่สคริปต์เปลี่ยนรหัสผ่าน (เพิ่มกุญแจมุมขวาบน) -->

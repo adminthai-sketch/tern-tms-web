@@ -140,14 +140,9 @@
         let currentModalRow = -1;
         let currentModalProp = -1;
         
-        // 🌟 เพิ่มตัวแปรเก็บขนาดตู้
         let globalContainerSizes = ['20', '40', '40HC', '45HC'];
 
         window.addEventListener('DOMContentLoaded', async () => {
-            const savedUser = localStorage.getItem('tms_user');
-            if (!savedUser) { window.location.href = '/login.html'; return; }
-            const user = JSON.parse(savedUser);
-            document.getElementById('user-fullname').innerText = user.fullName;
             
             // ดึงเรทราคา
             try {
@@ -164,7 +159,7 @@
                 }
             } catch (err) {}
 
-            // 🌟 ดึงข้อมูลขนาดตู้จากฐานข้อมูล 🌟
+            // ดึงข้อมูลขนาดตู้จากฐานข้อมูล
             try {
                 const szRes = await fetch('/api/bookings/container-sizes');
                 const szResult = await szRes.json();
@@ -175,8 +170,6 @@
 
             loadUserGridSettingsAndInit();
         });
-
-        function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
 
         function formatExcelDate(val) {
             if (val === null || val === undefined || val === '') return '';
@@ -308,7 +301,6 @@
                 { title: 'ชื่องาน', type: 'text', className: 'font-bold text-primary htMiddle' }, 
                 { title: 'จำนวนตู้', type: 'numeric', className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/40' },
                 
-                // 🌟 เพิ่มคอลัมน์ขนาดตู้ 🌟
                 { title: 'ขนาดตู้', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 bg-blue-50/20' },
                 
                 { title: 'ลูกค้า', type: 'text', readOnly: true, className: 'text-slate-600 font-bold bg-slate-50 htMiddle' },
@@ -452,7 +444,6 @@
             setVal(sampleRow1, 'ชื่องาน', 'ตัวอย่างงานที่ 1');
             setVal(sampleRow1, 'จำนวนตู้', 1);
             
-            // 🌟 แทรกค่าตู้ในไฟล์โหลดแบบ Excel
             setVal(sampleRow1, 'ขนาดตู้', '40HC');
             
             setVal(sampleRow1, 'ลูกค้า', 'ระบบเติมอัตโนมัติ');
@@ -539,7 +530,6 @@
                     job_name: jobName, 
                     container_count: parseInt(getVal(r, 'จำนวนตู้')) || 1, 
                     
-                    // 🌟 ดึงข้อมูล "ขนาดตู้" เพื่อเตรียมเซฟลง DB
                     container_size: getVal(r, 'ขนาดตู้'), 
                     
                     customer_name: customer, 

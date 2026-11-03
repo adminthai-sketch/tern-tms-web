@@ -75,13 +75,13 @@
                     </div>
                     <div class="w-px h-5 bg-slate-200 hidden md:block mx-1"></div>
                     
-                    <input type="text" autocomplete="off" id="filter-run-date" list="dl-run-date" onchange="handleCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-primary">
+                    <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-run-date" list="dl-run-date" onchange="handleCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-primary">
                     <datalist id="dl-run-date"></datalist>
 
-                    <input type="text" autocomplete="off" id="filter-customer" list="dl-customer" onchange="handleCrossFilter()" placeholder="🏢 ชื่องาน/ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-primary">
+                    <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-customer" list="dl-customer" onchange="handleCrossFilter()" placeholder="🏢 ชื่องาน/ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-primary">
                     <datalist id="dl-customer"></datalist>
 
-                    <input type="text" autocomplete="off" id="filter-booking-no" list="dl-booking-no" onchange="handleCrossFilter()" placeholder="📝 เลข Booking/BL..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-40 focus:bg-white focus:border-primary">
+                    <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-booking-no" list="dl-booking-no" onchange="handleCrossFilter()" placeholder="📝 เลข Booking/BL..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-40 focus:bg-white focus:border-primary">
                     <datalist id="dl-booking-no"></datalist>
 
                     <div class="w-px h-5 bg-slate-200 hidden md:block mx-1"></div>
@@ -89,7 +89,7 @@
                     <!-- Global Fuzzy Search -->
                     <div class="relative">
                         <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
-                        <input type="text" autocomplete="off" id="global-search" oninput="applyFilters()" placeholder="ค้นหาครอบจักรวาล..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-white h-8 w-48 focus:border-primary shadow-sm">
+                        <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="global-search" oninput="applyFilters()" placeholder="ค้นหาครอบจักรวาล..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-white h-8 w-48 focus:border-primary shadow-sm">
                     </div>
                     
                     <button onclick="clearAllFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors" title="ล้างค่าตัวกรองทั้งหมด"><i class="fa-solid fa-eraser text-sm"></i></button>

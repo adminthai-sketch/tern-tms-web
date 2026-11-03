@@ -76,11 +76,11 @@
                 <option value="IMPORT">IMPORT</option>
                 <option value="TRANSFER">TRANSFER</option>
             </select>
-            <input type="text" autocomplete="off" id="filter-customer" placeholder="🏢 พิมพ์ชื่อลูกค้า..." oninput="renderTable()" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-slate-50 w-32">
+            <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-customer" placeholder="🏢 พิมพ์ชื่อลูกค้า..." oninput="renderTable()" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-slate-50 w-32">
             
             <div class="relative flex-1 min-w-[200px]">
                 <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-slate-400 text-xs"></i>
-                <input type="text" autocomplete="off" id="filter-search" oninput="renderTable()" placeholder="ค้นหา Booking, Order, เลขตู้, ชื่องาน..." class="pl-7 pr-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-white w-full shadow-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400">
+                <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-search" oninput="renderTable()" placeholder="ค้นหา Booking, Order, เลขตู้, ชื่องาน..." class="pl-7 pr-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-white w-full shadow-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400">
             </div>
             
             <button onclick="clearFilters()" class="text-slate-400 hover:text-red-500 px-2 transition-colors text-sm" title="ล้างตัวกรอง"><i class="fa-solid fa-eraser"></i></button>

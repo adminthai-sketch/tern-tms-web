@@ -60,24 +60,24 @@
                 <option value="billed">✅ วางบิลครบแล้ว</option>
             </select>
             
-            <input type="text" id="filter-run-date" list="dl-run-date" autocomplete="off"
+            <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" id="filter-run-date" list="dl-run-date" autocomplete="off"
                    oninput="handleCrossFilter('date')" onchange="handleCrossFilter('date')" 
                    placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-purple-400">
             <datalist id="dl-run-date"></datalist>
 
-            <input type="text" id="filter-customer" list="dl-customer" autocomplete="off"
+            <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" id="filter-customer" list="dl-customer" autocomplete="off"
                    oninput="handleCrossFilter('customer')" onchange="handleCrossFilter('customer')" 
                    placeholder="🏢 ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-purple-400">
             <datalist id="dl-customer"></datalist>
 
-            <input type="text" id="filter-booking-no" list="dl-booking-no" autocomplete="off"
+            <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" id="filter-booking-no" list="dl-booking-no" autocomplete="off"
                    oninput="handleCrossFilter('booking')" onchange="handleCrossFilter('booking')" 
                    placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-40 focus:bg-white focus:border-purple-400">
             <datalist id="dl-booking-no"></datalist>
 
             <div class="relative">
                 <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
-                <input type="text" autocomplete="off" id="global-search" oninput="handleMasterFilter()" placeholder="ค้นหาทั่วไป..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs outline-none bg-white h-8 w-44 focus:border-purple-400 shadow-sm">
+                <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="global-search" oninput="handleMasterFilter()" placeholder="ค้นหาทั่วไป..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs outline-none bg-white h-8 w-44 focus:border-purple-400 shadow-sm">
             </div>
             <button onclick="clearMasterFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser"></i></button>
         </div>

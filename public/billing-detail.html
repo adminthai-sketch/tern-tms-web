@@ -44,9 +44,9 @@
             <div class="px-3 py-1 bg-slate-200 border-r border-slate-300 text-slate-600 font-bold flex items-center h-full"><i class="fa-regular fa-calendar-check text-purple-600 mr-1"></i> เดือน:</div>
             <input type="month" id="filter-month" onchange="loadDetailData()" class="px-3 py-1 font-bold text-slate-700 bg-transparent outline-none cursor-pointer h-full">
         </div>
-        <input type="text" autocomplete="off" id="filter-run-date" list="dl-run-date" oninput="handleCrossFilterDetail()" onchange="handleCrossFilterDetail()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-purple-400">
+        <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-run-date" list="dl-run-date" oninput="handleCrossFilterDetail()" onchange="handleCrossFilterDetail()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-purple-400">
         <datalist id="dl-run-date"></datalist>
-        <input type="text" autocomplete="off" id="filter-customer" list="dl-customer" oninput="handleCrossFilterDetail()" onchange="handleCrossFilterDetail()" placeholder="🏢 เลือกลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-purple-400">
+        <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-customer" list="dl-customer" oninput="handleCrossFilterDetail()" onchange="handleCrossFilterDetail()" placeholder="🏢 เลือกลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-purple-400">
         <datalist id="dl-customer"></datalist>
         <input type="text" id="select-booking-no" list="dl-booking-no" oninput="handleCrossFilterDetail()" onchange="handleCrossFilterDetail()" placeholder="📝 เลือก Booking..." class="px-2 py-1 border border-purple-300 rounded text-xs font-bold text-purple-800 bg-purple-50/30 h-8 w-48 focus:bg-white focus:border-purple-400">
         <datalist id="dl-booking-no"></datalist>
@@ -111,7 +111,7 @@
             </div>
             <div class="flex gap-2 mt-3 items-center text-xs">
                 <span class="font-bold text-slate-600">ตัวกรอง:</span>
-                <input type="text" autocomplete="off" id="modal-filter-booking" placeholder="🔍 ค้นหาเลข Booking..." class="border border-slate-300 rounded px-2 py-1 outline-none w-48" oninput="filterUnbilledTable()">
+                <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="modal-filter-booking" placeholder="🔍 ค้นหาเลข Booking..." class="border border-slate-300 rounded px-2 py-1 outline-none w-48" oninput="filterUnbilledTable()">
                 <input type="date" id="modal-filter-date" class="border border-slate-300 rounded px-2 py-1 outline-none" onchange="filterUnbilledTable()">
                 <div class="flex-1"></div>
                 <button onclick="fetchUnbilledContainers()" class="bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded hover:bg-blue-200"><i class="fa-solid fa-rotate"></i> รีเฟรช</button>

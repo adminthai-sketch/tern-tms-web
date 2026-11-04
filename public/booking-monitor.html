@@ -39,7 +39,7 @@
 
     <main class="flex-1 p-4 overflow-hidden flex flex-col relative gap-3">
         
-        <!-- 📊 KPI CARDS (คลิกเพื่อกรองตารางได้) -->
+        <!-- 📊 KPI CARDS -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 shrink-0">
             <div onclick="setKpiFilter('today')" class="glass-card p-3 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-blue-400 hover:shadow-md transition-all">
                 <div class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-calendar-day text-blue-500"></i> งานวิ่งวันนี้</div>
@@ -104,7 +104,7 @@
                             <th class="py-2.5 px-3 text-[11px] font-bold uppercase w-24">วันที่วิ่งงาน</th>
                             <th class="py-2.5 px-3 text-[11px] font-bold uppercase w-48">ลูกค้า / ชื่องาน</th>
                             <th class="py-2.5 px-3 text-[11px] font-bold uppercase">เส้นทาง (ต้นทาง ➡️ ปลายทาง)</th>
-                            <th class="py-2.5 px-3 text-[11px] font-bold uppercase w-36 text-center">ภาพรวมสถานะ (ตู้)</th>
+                            <th class="py-2.5 px-3 text-[11px] font-bold uppercase w-44 text-center">สถานีงาน / เที่ยววิ่ง</th>
                             <th class="py-2.5 px-3 text-[11px] font-bold uppercase w-56">⏰ กำหนดการถัดไป (Next Deadline)</th>
                         </tr>
                     </thead>
@@ -122,16 +122,40 @@
         let activeKpi = null;
 
         window.addEventListener('DOMContentLoaded', () => {
-            // ตั้งค่าเดือนปัจจุบัน
             const date = new Date();
             const yy = date.getFullYear();
             const mm = String(date.getMonth() + 1).padStart(2, '0');
             document.getElementById('filter-month').value = `${yy}-${mm}`;
-            
             loadMonitorData();
         });
 
-        // 1. ดึงข้อมูลจาก API /shipments
+        // ฟังก์ชันระบุสถานีปัจจุบันของแต่ละ Order (ตู้)
+        function getOrderStage(o) {
+            const l1Done = (o.leg1_completed === true || o.leg1_completed === 'true');
+            const l2Done = (o.leg2_completed === true || o.leg2_completed === 'true');
+            const l3Done = (o.leg3_completed === true || o.leg3_completed === 'true');
+            const hasPlate = !!(o.leg1_plate || o.leg2_plate || o.leg3_plate);
+
+            if (o.overall_status === 'ปิดงาน' || o.overall_status === 'คืนตู้แล้ว' || l3Done || (l2Done && !o.leg3_plate)) {
+                return { key: 'completed', label: 'ปิดงานครบ', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+            }
+
+            if (!hasPlate && (!o.overall_status || o.overall_status === 'รอจัดรถ')) {
+                return { key: 'waiting', label: 'รอจัดรถ', badge: 'bg-slate-100 text-slate-600 border-slate-300' };
+            }
+
+            // ถ้ามีรถและกำลังดำเนินการ ดูว่าอยู่สถานีไหน
+            if (!l1Done) {
+                return { key: 'pickup', label: 'PICK UP (รับตู้)', badge: 'bg-blue-100 text-blue-700 border-blue-300 font-bold' };
+            } else if (!l2Done) {
+                return { key: 'delivery', label: 'DELIVERY (เข้าบรรจุ)', badge: 'bg-amber-100 text-amber-700 border-amber-300 font-bold' };
+            } else if (!l3Done) {
+                return { key: 'return', label: 'RETURN (คืนตู้)', badge: 'bg-purple-100 text-purple-700 border-purple-300 font-bold' };
+            }
+
+            return { key: 'completed', label: 'ปิดงาน', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+        }
+
         async function loadMonitorData() {
             document.getElementById('loading-overlay').classList.remove('hidden');
             const monthVal = document.getElementById('filter-month').value;
@@ -154,7 +178,6 @@
             }
         }
 
-        // 2. จัดกลุ่มข้อมูลราย Booking และคำนวณสถานะ/เวลา
         function processAndGroupData() {
             const map = {};
             const todayStr = new Date().toISOString().split('T')[0];
@@ -170,6 +193,8 @@
                         container_count: 0,
                         orders: [],
                         statusCount: { waiting: 0, progress: 0, completed: 0 },
+                        // 🌟 นับจำนวนเที่ยวในแต่ละสถานี
+                        stageCount: { pickup: 0, delivery: 0, return: 0, waiting: 0, completed: 0 },
                         nextDeadline: null
                     };
                 }
@@ -177,12 +202,13 @@
                 map[s.booking_no].orders.push(s);
                 map[s.booking_no].container_count++;
                 
-                // จัดหมวดหมู่สถานะ
-                const st = s.overall_status || 'รอจัดรถ';
-                if (st === 'รอจัดรถ') {
+                const stage = getOrderStage(s);
+                map[s.booking_no].stageCount[stage.key]++;
+
+                if (stage.key === 'waiting') {
                     map[s.booking_no].statusCount.waiting++;
                     kpi.waiting++;
-                } else if (st === 'ปิดงาน' || st === 'คืนตู้แล้ว') {
+                } else if (stage.key === 'completed') {
                     map[s.booking_no].statusCount.completed++;
                 } else {
                     map[s.booking_no].statusCount.progress++;
@@ -192,25 +218,20 @@
 
             groupedBookings = Object.values(map);
 
-            // คำนวณ Deadline ของแต่ละ Booking
             groupedBookings.forEach(bk => {
                 bk.nextDeadline = calculateNextDeadline(bk);
-                
-                // คำนวณ KPI ภาพรวม Booking
                 const runDateStr = bk.run_date ? bk.run_date.split('T')[0] : '';
                 if (runDateStr === todayStr) kpi.today++;
                 if (bk.nextDeadline.isOverdue || bk.nextDeadline.isNear) kpi.urgent++;
                 if (bk.statusCount.completed === bk.container_count) kpi.completed++;
             });
 
-            // อัปเดตตัวเลขบนการ์ด
             document.getElementById('kpi-today').innerText = kpi.today;
             document.getElementById('kpi-waiting').innerText = kpi.waiting;
             document.getElementById('kpi-progress').innerText = kpi.progress;
             document.getElementById('kpi-urgent').innerText = kpi.urgent;
             document.getElementById('kpi-completed').innerText = kpi.completed;
 
-            // Sort เอาเรื่องด่วน/งานวันนี้ขึ้นก่อน
             groupedBookings.sort((a, b) => {
                 if (a.nextDeadline.isOverdue !== b.nextDeadline.isOverdue) return a.nextDeadline.isOverdue ? -1 : 1;
                 if (a.nextDeadline.isNear !== b.nextDeadline.isNear) return a.nextDeadline.isNear ? -1 : 1;
@@ -222,7 +243,6 @@
             renderTable();
         }
 
-        // 3. Logic คำนวณ Deadline 
         function calculateNextDeadline(bk) {
             const now = new Date();
             const deadlines = [];
@@ -232,7 +252,6 @@
                 }
             };
 
-            // ดึงค่าวันที่จาก Order แรกของ Booking (เพราะปกติเวลาเดียวกันทั้งบุคกิ้ง)
             const ord = bk.orders[0];
             if (bk.mode === 'EXPORT') {
                 add('Load', ord.load_date);
@@ -250,18 +269,14 @@
             if (deadlines.length === 0) return { text: '<span class="text-slate-400">- ไม่มีระบุ -</span>', isOverdue: false, isNear: false };
 
             deadlines.sort((a, b) => a.time - b.time);
-            
-            // หาอันที่กำลังจะถึง (เวลายังมากกว่าปัจจุบัน)
             let next = deadlines.find(d => d.time > now);
             
             if (!next) {
-                // เลยเวลาทุกอันแล้ว
                 const last = deadlines[deadlines.length - 1];
                 const timeStr = last.time.toLocaleString('th-TH', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
                 return { text: `<i class="fa-solid fa-triangle-exclamation text-red-500 mr-1"></i><span class="text-red-600 font-bold">เลยกำหนด: ${last.name}</span><br><span class="text-[10px] text-red-500">${timeStr}</span>`, isOverdue: true, isNear: false };
             }
 
-            // ถ้ารอถึงเวลา เช็คว่าใกล้ไหม (ภายใน 24 ชม.)
             const diffHours = (next.time - now) / (1000 * 60 * 60);
             const isNear = diffHours <= 24;
             const timeStr = next.time.toLocaleString('th-TH', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
@@ -273,14 +288,10 @@
             }
         }
 
-        // 4. การกรองและแสดงผล
         function setKpiFilter(type) {
-            activeKpi = activeKpi === type ? null : type; // Toggle
-            
-            // เปลี่ยนสีการ์ดที่ถูกเลือก
+            activeKpi = activeKpi === type ? null : type;
             document.querySelectorAll('.glass-card').forEach(el => el.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500'));
             if(activeKpi) event.currentTarget.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
-            
             renderTable();
         }
 
@@ -303,30 +314,25 @@
 
             let html = '';
             const tbody = document.getElementById('monitor-tbody');
-
             let countShow = 0;
 
             groupedBookings.forEach(bk => {
-                // Apply Filters
                 const runDateStr = bk.run_date ? bk.run_date.split('T')[0] : '';
                 if (fDate && runDateStr !== fDate) return;
                 if (fMode && bk.mode !== fMode) return;
                 if (fCust && (!bk.customer_name || !bk.customer_name.toLowerCase().includes(fCust))) return;
                 
-                // KPI Filter
                 if (activeKpi === 'today' && runDateStr !== todayStr) return;
                 if (activeKpi === 'waiting' && bk.statusCount.waiting === 0) return;
                 if (activeKpi === 'progress' && bk.statusCount.progress === 0) return;
                 if (activeKpi === 'urgent' && !bk.nextDeadline.isOverdue && !bk.nextDeadline.isNear) return;
                 if (activeKpi === 'completed' && bk.statusCount.completed !== bk.container_count) return;
 
-                // Search Box
                 if (fSearch) {
                     const matchBk = bk.booking_no.toLowerCase().includes(fSearch);
                     const matchJob = (bk.job_name || '').toLowerCase().includes(fSearch);
-                    // Search in child orders too (Container No, Order ID)
                     const matchOrder = bk.orders.some(o => 
-                        o.order_id.toLowerCase().includes(fSearch) || 
+                        (o.order_id || '').toLowerCase().includes(fSearch) || 
                         (o.container_1_no || '').toLowerCase().includes(fSearch) ||
                         (o.leg1_plate || '').toLowerCase().includes(fSearch)
                     );
@@ -338,12 +344,26 @@
                 const dateDisplay = runDateStr ? runDateStr.split('-').reverse().join('/') : '-';
                 const modeColor = bk.mode === 'EXPORT' ? 'bg-amber-100 text-amber-800' : (bk.mode === 'IMPORT' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800');
                 
-                // Progress Bar Text
-                let progHtml = `<div class="flex flex-col gap-1 text-[10px]">`;
-                if(bk.statusCount.waiting > 0) progHtml += `<span class="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">รอจัดรถ: ${bk.statusCount.waiting}/${bk.container_count}</span>`;
-                if(bk.statusCount.progress > 0) progHtml += `<span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">กำลังวิ่ง: ${bk.statusCount.progress}/${bk.container_count}</span>`;
-                if(bk.statusCount.completed > 0) progHtml += `<span class="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200">ปิดงาน: ${bk.statusCount.completed}/${bk.container_count}</span>`;
-                progHtml += `</div>`;
+                // 🌟 แสดงจำนวนเที่ยวแยกตามสถานี (PICK UP / DELIVERY / RETURN)
+                let stageBadges = `<div class="flex flex-col gap-1 text-[10px]">`;
+                if (bk.stageCount.pickup > 0) {
+                    stageBadges += `<span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 font-semibold"><i class="fa-solid fa-truck-pickup text-[9px] mr-1"></i>PICK UP: <b>${bk.stageCount.pickup}</b> เที่ยว</span>`;
+                }
+                if (bk.stageCount.delivery > 0) {
+                    stageBadges += `<span class="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 font-semibold"><i class="fa-solid fa-truck-ramp-box text-[9px] mr-1"></i>DELIVERY: <b>${bk.stageCount.delivery}</b> เที่ยว</span>`;
+                }
+                if (bk.stageCount.return > 0) {
+                    stageBadges += `<span class="bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200 font-semibold"><i class="fa-solid fa-anchor text-[9px] mr-1"></i>RETURN: <b>${bk.stageCount.return}</b> เที่ยว</span>`;
+                }
+                if (bk.stageCount.waiting > 0) {
+                    stageBadges += `<span class="bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200"><i class="fa-solid fa-clock text-[9px] mr-1"></i>รอจัดรถ: <b>${bk.stageCount.waiting}</b> เที่ยว</span>`;
+                }
+                if (bk.stageCount.completed === bk.container_count) {
+                    stageBadges = `<span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200 font-bold text-[11px] inline-block"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>เสร็จครบทุกขา (${bk.container_count} เที่ยว)</span>`;
+                } else if (bk.stageCount.completed > 0) {
+                    stageBadges += `<span class="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-check text-[9px] mr-1"></i>ปิดงานแล้ว: <b>${bk.stageCount.completed}</b> เที่ยว</span>`;
+                }
+                stageBadges += `</div>`;
 
                 html += `
                     <tr class="hover:bg-slate-50 transition-colors border-b border-slate-200 bg-white">
@@ -366,12 +386,12 @@
                                 <span class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200 truncate max-w-[90px] inline-block" title="${bk.destination}">${bk.destination || '?'}</span>
                             </div>
                         </td>
-                        <td class="py-2 px-3 text-center">${progHtml}</td>
+                        <td class="py-2 px-3 text-center">${stageBadges}</td>
                         <td class="py-2 px-3 leading-tight">${bk.nextDeadline.text}</td>
                     </tr>
                 `;
 
-                // Sub-Table (Child Rows)
+                // Sub-Table (แสดงสถานีของแต่ละตู้)
                 html += `<tr id="child-${bk.booking_no}" class="hidden sub-table-row bg-slate-50/80"><td colspan="7" class="p-4 border-b border-slate-200">`;
                 html += `<div class="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                             <table class="w-full text-left">
@@ -381,15 +401,14 @@
                                         <th class="py-1.5 px-3 text-[10px] font-bold text-slate-600 border-b">ตู้ / ซีล</th>
                                         <th class="py-1.5 px-3 text-[10px] font-bold text-slate-600 border-b">ทะเบียนรถ</th>
                                         <th class="py-1.5 px-3 text-[10px] font-bold text-slate-600 border-b">พนักงานขับรถ</th>
-                                        <th class="py-1.5 px-3 text-[10px] font-bold text-slate-600 border-b">สถานะล่าสุด</th>
+                                        <th class="py-1.5 px-3 text-[10px] font-bold text-slate-600 border-b">สถานีปัจจุบัน (Current Stage)</th>
                                         <th class="py-1.5 px-3 text-[10px] font-bold text-slate-600 border-b text-center">จัดการ</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">`;
                 
                 bk.orders.forEach(o => {
-                    const st = o.overall_status || 'รอจัดรถ';
-                    const stBadge = st === 'รอจัดรถ' ? 'bg-amber-100 text-amber-700' : (st === 'ปิดงาน' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700');
+                    const stage = getOrderStage(o);
                     
                     html += `
                         <tr class="hover:bg-slate-50">
@@ -397,7 +416,7 @@
                             <td class="py-2 px-3 text-[11px] font-bold text-slate-700">${o.container_1_no ? `<a class="text-blue-700 underline" href="/booking-list.html?select=${encodeURIComponent(bk.booking_no)}&amp;month=${encodeURIComponent(String(bk.run_date || "").slice(0, 7))}">${o.container_1_no}</a>` : '<span class="text-slate-300">-</span>'} <br><span class="text-[9px] text-slate-400 font-normal">ซีล: ${o.seal_no || '-'}</span></td>
                             <td class="py-2 px-3 text-[11px] font-bold text-blue-800">${o.leg1_plate || '<span class="text-slate-300">-</span>'}</td>
                             <td class="py-2 px-3 text-[11px] text-slate-600">${o.leg1_driver || '<span class="text-slate-300">-</span>'}</td>
-                            <td class="py-2 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${stBadge}">${st}</span></td>
+                            <td class="py-2 px-3"><span class="px-2.5 py-1 rounded border text-[10px] ${stage.badge}">${stage.label}</span></td>
                             <td class="py-2 px-3 text-center">
                                 <a href="/booking-manage.html?select=${encodeURIComponent(bk.booking_no)}&amp;month=${encodeURIComponent(String(bk.run_date || "").slice(0, 7))}" class="bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white px-2 py-1 rounded text-[10px] font-bold transition-colors border border-blue-200 inline-block shadow-sm">
                                     <i class="fa-solid fa-truck-arrow-right"></i> จัดรถ
@@ -419,7 +438,6 @@
             tbody.innerHTML = html;
         }
 
-        // Toggle Expand Sub-Table
         function toggleChild(id, btn) {
             const el = document.getElementById(id);
             const icon = btn.querySelector('i');
@@ -435,7 +453,6 @@
         }
     </script>
     
-    <!-- สคริปต์ควบคุมสิทธิ์ตัวกลาง -->
     <script src="/js/auth.js"></script>
     <script src="/js/password.js"></script>
 </body>

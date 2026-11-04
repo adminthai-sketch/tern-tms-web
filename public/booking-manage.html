@@ -12,12 +12,13 @@
         tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
     </script>
 
-    <!-- Handsontable & Datepicker -->
+    <!-- Handsontable, Datepicker & Excel SheetJS -->
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/pikaday.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/css/pikaday.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col relative">
 
@@ -41,7 +42,7 @@
 
         <div class="h-5 w-px bg-slate-300 mx-1 hidden sm:block"></div>
 
-        <!-- 🌟 เปลี่ยนจาก button เป็น a href เพื่อลิงก์ข้ามไฟล์ 🌟 -->
+        <!-- 🌟 เมนูต่างๆ 🌟 -->
         <div class="flex gap-1 text-xs ml-0 sm:border-l sm:border-slate-200 sm:pl-3">
             <a href="/booking.html" class="text-slate-500 hover:text-blue-900 hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1">
                 <i class="fa-solid fa-pen-to-square"></i> 1. สร้างรับงาน
@@ -69,8 +70,10 @@
 
     <main class="flex-1 p-3 overflow-hidden flex flex-col gap-2 relative">
         <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2 shrink-0 z-10">
-            <!-- แถวบน: ตัวกรอง -->
+            <!-- แถวบน: ตัวกรอง และ กลุ่มปุ่มเครื่องมือ -->
             <div class="flex flex-wrap justify-between items-center gap-2">
+                
+                <!-- เครื่องมือกรองข้อมูล -->
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 h-8">
                         <label class="text-xs font-bold text-emerald-700 flex items-center gap-1"><i class="fa-regular fa-calendar-check"></i> เดือน:</label>
@@ -93,6 +96,7 @@
                     <button onclick="clearAllFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser text-sm"></i></button>
                 </div>
 
+                <!-- 🌟 กลุ่มปุ่มเครื่องมือด้านขวา 🌟 -->
                 <div class="flex items-center gap-2">
                     <button id="btn-toggle-drops" onclick="toggleDropYards()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-purple-200 h-8 shadow-sm transition-colors">
                         <i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้
@@ -107,12 +111,19 @@
                     <button onclick="addNewContainerRow()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-blue-200 h-8 shadow-sm">
                         <i class="fa-solid fa-plus"></i> เพิ่มตู้เข้า Booking
                     </button>
+                    
+                    <!-- 🌟 ปุ่มดาวน์โหลด Excel 🌟 -->
+                    <button onclick="exportToExcel()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-emerald-300 h-8 shadow-sm">
+                        <i class="fa-solid fa-file-excel text-emerald-600"></i> ดาวน์โหลด Excel
+                    </button>
+
                     <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm">
                         <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล
                     </button>
                 </div>
             </div>
             
+            <!-- แถวล่าง: Quick Filters -->
             <div class="flex items-center gap-2 text-xs border-t border-slate-100 pt-2">
                 <span class="font-bold text-slate-500"><i class="fa-solid fa-bolt text-amber-500"></i> ตัวกรองด่วน:</span>
                 <button id="qf-pending" onclick="setQuickFilter('pending')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">รอลงเบอร์ตู้</button>
@@ -239,12 +250,12 @@
         </div>
     </div>
 
+    <!-- เรียกใช้สคริปต์หลักของหน้า Manage -->
     <script src="js/modules/booking/manage.js"></script>
     
-    <!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
+    <!-- ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
     <script src="/js/auth.js"></script>
-    
-    <!-- 2. ใส่สคริปต์เปลี่ยนรหัสผ่าน (เพิ่มกุญแจมุมขวาบน) -->
+    <!-- สคริปต์เปลี่ยนรหัสผ่าน -->
     <script src="/js/password.js"></script>
 </body>
 </html>

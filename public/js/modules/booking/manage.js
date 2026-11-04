@@ -788,3 +788,64 @@ window.saveGridChanges = async function() {
         btn.innerHTML = orgText; btn.disabled = false;
     }
 };
+
+// ==========================================
+// 📥 EXPORT TO EXCEL (รูปแบบเดิมของบริษัท)
+// ==========================================
+window.exportToExcel = function() {
+    if (!filteredList || filteredList.length === 0) {
+        alert("⚠️ ไม่มีข้อมูลบนตารางสำหรับดาวน์โหลด");
+        return;
+    }
+
+    // แปลงข้อมูลให้อยู่ในรูปแบบเดียวกับไฟล์ "ตุลาคม.xlsx" ของบริษัท
+    const excelData = filteredList.map(item => {
+        // หาทะเบียนรถและคนขับ (ยึดจากขา 1 ก่อน ถ้าไม่มีให้ไปดูขา 2 หรือ ขา 3)
+        const plate = item.leg1_plate || item.leg2_plate || item.leg3_plate || '';
+        const driver = item.leg1_driver || item.leg2_driver || item.leg3_driver || '';
+        
+        return {
+            'ชื่องาน': item.job_name || '',
+            'ลูกค้า': item.customer_name || '',
+            'วันที่วิ่งงาน': item.run_date ? String(item.run_date).split('T')[0] : '',
+            'ต้นทาง': item.origin || '',
+            'ปลายทาง': item.destination || '',
+            'BOOKING NO.': item.booking_no || '',
+            'โหมด (วิ่งงาน)': item.mode || '',
+            'เบอร์ตู้1': item.container_1_no || '',
+            'เบอร์ตู้2': item.container_2_no || '',
+            'ค่าขนส่ง': parseFloat(item.trans_fee) || 0,
+            'ทะเบียนรถ': plate,
+            'ประเภทรถ': item.price_type || item.container_size || '', 
+            'พขร': driver,
+            'ค่าเที่ยว': parseFloat(item.trip_fee) || 0,
+            'จำนวน': 1, 
+            'ค่าผ่านลาน/ผ่านท่า': (parseFloat(item.port_pass_fee) || 0) + (parseFloat(item.deposit_fee) || 0),
+            'ค่ายกตู้': parseFloat(item.lift_fee) || 0,
+            'เบิกค่าใช้จ่ายอื่นๆ': (parseFloat(item.advance_fee) || 0) + (parseFloat(item.other_expense) || 0),
+            'หมายเหตุ': item.remark || ''
+        };
+    });
+
+    // สร้างแผ่นงาน (Worksheet)
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+
+    // จัดความกว้างของคอลัมน์ Excel ให้สวยงามอัตโนมัติ
+    const wscols = [
+        {wch: 25}, {wch: 15}, {wch: 12}, {wch: 15}, {wch: 15}, // ชื่องาน - ปลายทาง
+        {wch: 20}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 12}, // Booking - ค่าขนส่ง
+        {wch: 12}, {wch: 12}, {wch: 20}, {wch: 12}, {wch: 8},  // ทะเบียน - จำนวน
+        {wch: 18}, {wch: 12}, {wch: 18}, {wch: 25}             // ผ่านท่า - หมายเหตุ
+    ];
+    worksheet['!cols'] = wscols;
+
+    // ตั้งชื่อไฟล์ตามตัวกรองที่เลือก (รายวัน หรือ รายเดือน)
+    const filterDate = document.getElementById('filter-run-date').value;
+    const filterMonth = document.getElementById('filter-month').value;
+    const fileName = filterDate ? `TMS_Daily_Report_${filterDate}.xlsx` : `TMS_Monthly_Report_${filterMonth}.xlsx`;
+
+    // สั่งเบราว์เซอร์ดาวน์โหลดไฟล์
+    XLSX.writeFile(workbook, fileName);
+};

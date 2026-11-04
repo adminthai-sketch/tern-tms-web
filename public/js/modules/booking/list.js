@@ -230,7 +230,7 @@ function updateSummaryFooter(data) {
     document.getElementById('sum-trip').innerText = sumTrip.toLocaleString();
 }
 
-// 🌟 ปรับปรุงการแสดงผลคอลัมน์เวลาให้แสดง Demurrage และรองรับ Transfer ครบถ้วน
+// 🌟 แสดงผลคอลัมน์เวลา (รูปแบบ DD/MM และนำ DEMURRAGE ออกจากงาน EXPORT)
 function createTimeListHtml(mode, type, item) {
     let html = '<div class="flex flex-col w-full">';
     let hasData = false;
@@ -249,7 +249,7 @@ function createTimeListHtml(mode, type, item) {
             addRow('CY DATE', item.cy_date, 'text-blue-600'); 
             addRow('VGM CUT', item.vgm_cutoff, 'text-red-500'); 
             addRow('CUTOFF', item.cutoff_time, 'text-red-600'); 
-            if (item.demurrage) addRow('DEMURRAGE', item.demurrage, 'text-purple-600');
+            // ❌ เอา DEMURRAGE ออกจากงาน EXPORT แล้ว
         } 
         else if (type === 'DELIVERY') { 
             addRow('LOAD', item.load_date, 'text-amber-600'); 
@@ -262,7 +262,7 @@ function createTimeListHtml(mode, type, item) {
         if (type === 'PICKUP') { 
             addRow('CY DATE', item.cy_date, 'text-blue-600'); 
             addRow('RENT CUT', item.rent_cutoff, 'text-red-500'); 
-            addRow('DEMURRAGE', item.demurrage, 'text-purple-600'); // 🌟 เพิ่ม Demurrage ของ Import
+            addRow('DEMURRAGE', item.demurrage, 'text-purple-600'); 
         } 
         else if (type === 'DELIVERY') { 
             addRow('UNLOAD', item.unload_date, 'text-amber-600'); 
@@ -462,16 +462,27 @@ window.renderClickableTimeCell = function(instance, td, row, col, prop, value) {
     `;
 };
 
+// 🌟 แปลงรูปแบบวันที่เป็น DD/MM HH:mm (วัน/เดือน)
 function formatDateTime(dtStr) {
     if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return '';
-    const cleanStr = String(dtStr).replace('T', ' '); 
+    const cleanStr = String(dtStr).trim().replace('T', ' '); 
+    const parts = cleanStr.split(' ');
+    const dateParts = parts[0].split('-');
+    
+    // แปลงจาก YYYY-MM-DD เป็น DD/MM
+    if (dateParts.length === 3 && dateParts[0].length === 4) {
+        const dd = dateParts[2].padStart(2, '0');
+        const mm = dateParts[1].padStart(2, '0');
+        const timePart = parts[1] ? parts[1].substring(0, 5) : '';
+        return timePart ? `${dd}/${mm} ${timePart}` : `${dd}/${mm}`;
+    }
     return cleanStr.length >= 16 ? cleanStr.substring(5, 16) : cleanStr; 
 }
 
 let currentModalRow = -1; 
 let currentModalProp = -1;
 
-// 🌟 ปรับปรุง Modal ให้มี Demurrage และรองรับทุก Mode
+// 🌟 ปรับปรุง Modal: เอา Demurrage ออกจาก EXPORT และคงไว้เฉพาะ IMPORT/TRANSFER
 window.openDateTimeModal = function(row, prop) {
     currentModalRow = row; 
     currentModalProp = prop;
@@ -488,7 +499,7 @@ window.openDateTimeModal = function(row, prop) {
         if (mode === 'EXPORT') {
             html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
             html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
-            html += createDatetimeInput('demurrage', 'DEMURRAGE (Time)', item.demurrage);
+            // ❌ เอา DEMURRAGE (Time) ออกจากหน้าต่าง EXPORT แล้ว
         } else if (mode === 'IMPORT') {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (คืนตู้ฟรีถึง)', item.rent_cutoff);
             html += createDatetimeInput('demurrage', 'DEMURRAGE (Time)', item.demurrage);
@@ -527,12 +538,11 @@ window.openDateTimeModal = function(row, prop) {
     }, 10);
 };
 
-// 🌟 แก้ไขให้รองรับกรณีมีเฉพาะวันที่ เพื่อให้ input แสดงผลเวลาได้ถูกต้องเสมอ
 function createDatetimeInput(field, label, val) {
     let formattedVal = '';
     if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') {
         let clean = String(val).trim().replace(' ', 'T');
-        if (clean.length === 10) clean += 'T00:00'; // ถ้ามีเฉพาะวันที่ ให้เติมเวลา 00:00 เข้าไป
+        if (clean.length === 10) clean += 'T00:00';
         formattedVal = clean.substring(0, 16);
     }
     return `

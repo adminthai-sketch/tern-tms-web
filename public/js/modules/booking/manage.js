@@ -15,6 +15,11 @@ let driverAssignments = {};
 let globalContainerSizes = ['20', '40', '40HC', '45HC'];
 let isDropYardsHidden = true; 
 
+// 🌟 รายการ Index คอลัมน์ของลานฝาก DROP 1 และ DROP 2 ที่ถูกต้อง
+// DROP 1: 20 (ทะเบียน), 21 (คนขับ), 22 (สถานที่), 23 (เช็คถูกขาฝาก 1)
+// DROP 2: 29 (ทะเบียน), 30 (คนขับ), 31 (สถานที่), 32 (เช็คถูกขาฝาก 2)
+const DROP_YARD_COLUMNS = [20, 21, 22, 23, 29, 30, 31, 32];
+
 window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
     const today = new Date();
@@ -120,7 +125,6 @@ function applyZebraStripingCSS() {
             .ht-edited-row { border-left: 3px solid #f59e0b !important; }
             .unsaved-id-cell { color: #dc2626 !important; font-weight: 800 !important; background-color: #fde047 !important; }
 
-            /* 🌟 อนิเมชั่นไฟกระพริบที่ตัวหนังสือเวลา 🌟 */
             @keyframes vgm-text-blink {
                 0% { opacity: 1; color: #ef4444; }
                 50% { opacity: 0.3; color: #991b1b; transform: scale(1.05); }
@@ -264,7 +268,7 @@ function initContainerHandsontable(data) {
         const btnClass = isCompleted 
             ? 'bg-emerald-500 text-white shadow-inner border-emerald-600' 
             : 'bg-slate-100 text-slate-300 border-slate-200 hover:bg-emerald-50 hover:text-emerald-500 hover:border-emerald-200';
-        const icon = isCompleted ? '<i class="fa-solid fa-check"></i>' : '<i class="fa-solid fa-check"></i>';
+        const icon = '<i class="fa-solid fa-check"></i>';
         td.innerHTML = `<div class="p-0.5 w-full h-full"><button onclick="toggleStatusRow(${row}, '${prop}')" class="w-full h-full text-[11px] font-bold border rounded flex items-center justify-center transition-all ${btnClass}">${icon}</button></div>`;
     };
 
@@ -307,9 +311,7 @@ function initContainerHandsontable(data) {
         }
     };
 
-    // 🌟 ระบบกระพริบเตือนลงเบอร์ตู้ เป็นตัวหนังสือ HTML 🌟
     const vgmWarningRenderer = function(instance, td, row, col, prop, value, cellProperties) {
-        // ใช้ HtmlRenderer เพื่อให้ใส่ Tag HTML ตัวหนังสือเล็กๆ ได้
         Handsontable.renderers.HtmlRenderer.apply(this, arguments);
         td.style.fontWeight = '700';
         td.style.textAlign = 'center';
@@ -325,10 +327,8 @@ function initContainerHandsontable(data) {
             const vgmDate = new Date(vgmCutoff);
             const diffHours = (vgmDate - now) / (1000 * 60 * 60);
             
-            // เตือนล่วงหน้า 24 ชั่วโมง หรือเลยเวลาไปแล้ว
             if (diffHours < 24) {
-                td.style.backgroundColor = '#fef2f2'; // พื้นหลังแดงอ่อนๆ
-                // ใส่เวลาเข้าไปเป็น HTML ในช่องที่ยังว่างอยู่
+                td.style.backgroundColor = '#fef2f2';
                 td.innerHTML = `<div class="vgm-text-blink text-[9px] text-red-500 leading-[1.1]"><i class="fa-solid fa-clock"></i> CUTOFF<br>${formatShortDate(vgmCutoff)}</div>`;
                 td.title = `🚨 ใกล้ถึงหรือเลยเวลา VGM Cutoff (${formatShortDate(vgmCutoff)}) รีบใส่เบอร์ตู้ด่วน!`;
             } else {
@@ -336,7 +336,6 @@ function initContainerHandsontable(data) {
                 td.innerHTML = '';
             }
         } else {
-            // ถ้ากรอกเบอร์ตู้แล้ว หรือไม่เข้าเงื่อนไข ก็โชว์เบอร์ตู้ปกติสีน้ำเงิน
             td.style.backgroundColor = '';
             td.innerHTML = value ? value : '';
             td.style.color = '#1d4ed8'; 
@@ -390,7 +389,6 @@ function initContainerHandsontable(data) {
             
             { data: 'container_size', type: 'dropdown', source: globalContainerSizes, className: 'htCenter htMiddle font-bold text-blue-700 zone-container' }, 
             
-            // 🚨 ติดตั้ง Renderer ไฟกระพริบ ตรงช่องเบอร์ตู้ 1 และ 2 🚨
             { data: 'container_1_no', type: 'text', renderer: vgmWarningRenderer },
             { data: 'container_2_no', type: 'text', renderer: vgmWarningRenderer },
             
@@ -453,8 +451,9 @@ function initContainerHandsontable(data) {
         rowHeaders: true, width: '100%', height: '100%', stretchH: 'all',
         manualColumnResize: true, manualColumnMove: true,
         
+        // 🌟 แก้ไข Index คอลัมน์ที่ซ่อนตอนเริ่มต้นให้ตรงกับลานฝาก
         hiddenColumns: {
-            columns: isDropYardsHidden ? [19, 20, 21, 22, 28, 29, 30, 31] : [], 
+            columns: isDropYardsHidden ? DROP_YARD_COLUMNS : [], 
             indicators: true
         },
         
@@ -599,6 +598,7 @@ window.toggleDropRow = function(row, prop) {
     updateSaveStatusBadge();
 };
 
+// 🌟 แก้ไขฟังก์ชันซ่อน/แสดงลานฝาก ให้ระบุ Index ถูกต้อง
 window.toggleDropYards = function() {
     isDropYardsHidden = !isDropYardsHidden;
     const btn = document.getElementById('btn-toggle-drops');
@@ -606,13 +606,13 @@ window.toggleDropYards = function() {
     if (isDropYardsHidden) {
         btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้`;
         btn.classList.replace('bg-purple-600', 'bg-purple-50');
-        btn.classList.replace('text-white', 'text-purple-700');
-        hotGridInstance.getPlugin('hiddenColumns').hideColumns([19, 20, 21, 22, 28, 29, 30, 31]);
+        btn.classList.replace('text-purple-700', 'text-purple-700');
+        hotGridInstance.getPlugin('hiddenColumns').hideColumns(DROP_YARD_COLUMNS);
     } else {
         btn.innerHTML = `<i class="fa-solid fa-eye"></i> ซ่อนลานฝากตู้`;
         btn.classList.replace('bg-purple-50', 'bg-purple-600');
         btn.classList.replace('text-purple-700', 'text-white');
-        hotGridInstance.getPlugin('hiddenColumns').showColumns([19, 20, 21, 22, 28, 29, 30, 31]);
+        hotGridInstance.getPlugin('hiddenColumns').showColumns(DROP_YARD_COLUMNS);
     }
     hotGridInstance.render();
 };
@@ -730,6 +730,31 @@ window.deleteContainerRows = async function() {
     loadContainerGridData(); 
 };
 
+// 🌟 ฟังก์ชันคำนวณ overall_status ตามการติ๊กถูกจริง
+function calculateRowOverallStatus(row) {
+    const l1Done = (row.leg1_completed === true || row.leg1_completed === 'true');
+    const d1Done = (row.drop1_completed === true || row.drop1_completed === 'true');
+    const l2Done = (row.leg2_completed === true || row.leg2_completed === 'true');
+    const d2Done = (row.drop2_completed === true || row.drop2_completed === 'true');
+    const l3Done = (row.leg3_completed === true || row.leg3_completed === 'true');
+
+    const hasPlate = !!(row.leg1_plate || row.leg2_plate || row.leg3_plate);
+
+    // ถ้าจบขา 3 หรือถ้าไม่มีขา 3 แต่จบขา 2 ถือว่าปิดงาน
+    if (l3Done || (l2Done && !row.leg3_plate)) {
+        return 'ปิดงาน';
+    }
+    // ถ้าเริ่มติ๊กถูกเสร็จบางขาแล้ว ถือว่ากำลังเดินทาง
+    if (l1Done || d1Done || l2Done || d2Done) {
+        return 'กำลังเดินทาง';
+    }
+    // ถ้ามีการจัดรถแล้ว
+    if (hasPlate) {
+        return 'จัดรถแล้ว';
+    }
+    return 'รอจัดรถ';
+}
+
 window.saveGridChanges = async function() {
     if (!hotGridInstance || editedRowIndices.size === 0) return;
     const btn = document.getElementById('btn-save-grid');
@@ -737,7 +762,12 @@ window.saveGridChanges = async function() {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
 
     const dataToSave = [];
-    editedRowIndices.forEach(idx => { dataToSave.push(hotGridInstance.getSourceDataAtRow(idx)); });
+    editedRowIndices.forEach(idx => { 
+        const src = hotGridInstance.getSourceDataAtRow(idx);
+        // 🌟 คำนวณ overall_status จากการติ๊กถูกจริงก่อนส่งบันทึก
+        src.overall_status = calculateRowOverallStatus(src);
+        dataToSave.push(src); 
+    });
 
     try {
         const res = await fetch('/api/shipments', {
@@ -746,7 +776,7 @@ window.saveGridChanges = async function() {
         });
         const result = await res.json();
         if (res.ok && result.success) {
-            alert('✅ บันทึกข้อมูลตู้และค่าใช้จ่ายสำเร็จ!');
+            alert('✅ บันทึกข้อมูลตู้และสถานะสำเร็จ!');
             editedRowIndices.clear();
             loadContainerGridData(); 
         } else {

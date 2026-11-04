@@ -35,43 +35,57 @@
             <p class="text-slate-500">กรุณาเลือกระบบงานที่คุณต้องการเข้าใช้งาน</p>
         </div>
 
-        <!-- 🌟 ปรับ Grid ให้รองรับ 4 คอลัมน์สำหรับเมนูที่เหลืออยู่ -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-6xl px-4">
+        <!-- 🌟 ปรับ Grid ให้รองรับ 5 การ์ดหลัก (responsive 1 -> 2 -> 3 -> 5 คอลัมน์) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 w-full max-w-7xl px-4">
             
+            <!-- 🌟 เมนูใหม่: แดชบอร์ด (Dashboard) -->
+            <a href="/dashboard.html" id="menu-dashboard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-indigo-400 transition-all flex flex-col items-center text-center group">
+                <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-2xl mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <h3 class="font-bold text-lg text-slate-800 group-hover:text-primary">แดชบอร์ด</h3>
+                <p class="text-xs text-slate-400 mt-1">สรุปภาพรวม สถิติ และรายได้</p>
+            </a>
+
             <!-- เมนู 1: มอนิเตอร์ -->
             <a href="/booking-monitor.html" id="menu-monitor" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-blue-300 transition-all flex flex-col items-center text-center group">
-                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors"><i class="fa-solid fa-desktop"></i></div>
+                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <i class="fa-solid fa-desktop"></i>
+                </div>
                 <h3 class="font-bold text-lg text-slate-800 group-hover:text-primary">มอนิเตอร์งาน</h3>
+                <p class="text-xs text-slate-400 mt-1">ติดตามสถานะงานแบบ Real-time</p>
             </a>
 
             <!-- เมนู 2: สร้างบุคกิ้ง -->
             <a href="/booking.html" id="menu-booking" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-primary transition-all flex flex-col items-center text-center group">
-                <div class="w-16 h-16 bg-blue-50 text-primary rounded-full flex items-center justify-center text-2xl mb-4 group-hover:bg-primary group-hover:text-white transition-colors"><i class="fa-solid fa-file-signature"></i></div>
-                <h3 class="font-bold text-lg text-slate-800 group-hover:text-primary">สร้างบุคกิ้ง (Booking)</h3>
+                <div class="w-16 h-16 bg-blue-50 text-primary rounded-full flex items-center justify-center text-2xl mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                    <i class="fa-solid fa-file-signature"></i>
+                </div>
+                <h3 class="font-bold text-lg text-slate-800 group-hover:text-primary">สร้างบุคกิ้ง</h3>
+                <p class="text-xs text-slate-400 mt-1">เปิดใบงานและรับงานใหม่</p>
             </a>
 
-            <!-- เมนู 3: จัดการตู้และจัดรถ (Monitor & Dispatch) 🌟 รวมร่างใหม่ -->
-            <a href="/booking-manage.html" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-lg hover:border-emerald-300 transition-all group flex flex-col h-full relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[100px] -z-0 transition-transform group-hover:scale-110"></div>
-                <div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-inner z-10 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <i class="fa-solid fa-boxes-stacked"></i>
+            <!-- เมนู 3: จัดการตู้และจัดรถ (Monitor & Dispatch) -->
+            <a href="/booking-manage.html" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-lg hover:border-emerald-300 transition-all group flex flex-col text-center items-center h-full relative overflow-hidden">
+                <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-2xl mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <i class="fa-solid fa-truck-ramp-box"></i>
                 </div>
-                <h3 class="text-xl font-bold text-slate-800 mb-2 z-10">จัดการตู้ & จัดรถ</h3>
-                <p class="text-sm text-slate-500 flex-1 z-10">ลงข้อมูลตู้คอนเทนเนอร์ จัดคิวรถ และอัปเดตสถานะงาน (Dispatch)</p>
-                <div class="mt-4 flex items-center text-emerald-600 font-semibold text-sm z-10 group-hover:translate-x-1 transition-transform">
-                    เข้าสู่ระบบจัดการ <i class="fa-solid fa-arrow-right ml-2"></i>
-                </div>
+                <h3 class="font-bold text-lg text-slate-800 group-hover:text-primary">จัดการตู้ & จัดรถ</h3>
+                <p class="text-xs text-slate-400 mt-1">ลงเบอร์ตู้ จัดคิวรถ และอัปเดตงาน</p>
             </a>
 
             <!-- เมนู 4: วางบิล -->
             <a href="/billing.html" id="menu-billing" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg hover:border-purple-300 transition-all flex flex-col items-center text-center group">
-                <div class="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center text-2xl mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-                <h3 class="font-bold text-lg text-slate-800 group-hover:text-primary">ระบบวางบิล (Billing)</h3>
+                <div class="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center text-2xl mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <h3 class="font-bold text-lg text-slate-800 group-hover:text-primary">ระบบวางบิล</h3>
+                <p class="text-xs text-slate-400 mt-1">ออกเอกสารวางบิลและเก็บเงิน</p>
             </a>
         </div>
 
-        <!-- เมนู 5: Admin -->
-        <div id="admin-section" class="hidden mt-12 w-full max-w-6xl px-4 border-t border-slate-200 pt-8 flex flex-col items-center">
+        <!-- เมนู Admin -->
+        <div id="admin-section" class="hidden mt-12 w-full max-w-7xl px-4 border-t border-slate-200 pt-8 flex flex-col items-center">
             <a href="/admin.html" class="w-full max-w-sm bg-white p-5 rounded-xl shadow-sm border border-emerald-200 hover:shadow-lg hover:border-emerald-500 transition-all flex items-center gap-4 group">
                 <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl group-hover:bg-emerald-600 group-hover:text-white transition-colors"><i class="fa-solid fa-database"></i></div>
                 <div>
@@ -93,19 +107,19 @@
             document.getElementById('user-role-badge').innerText = roleName;
 
             const p = user.permissions || {};
-            // จัดการสิทธิ์การมองเห็นเมนูที่เหลืออยู่
+            // จัดการสิทธิ์การมองเห็นเมนู
             if (p.admin || roleName === 'ADMIN') document.getElementById('admin-section').classList.remove('hidden');
             if (p.monitor || roleName === 'ADMIN') { document.getElementById('menu-monitor').classList.remove('hidden'); document.getElementById('menu-monitor').style.display = 'flex'; }
             if (p.booking || roleName === 'ADMIN') { document.getElementById('menu-booking').classList.remove('hidden'); document.getElementById('menu-booking').style.display = 'flex'; }
             if (p.billing || roleName === 'ADMIN') { document.getElementById('menu-billing').classList.remove('hidden'); document.getElementById('menu-billing').style.display = 'flex'; }
+            
+            // เมนู Dashboard จะเปิดให้ทุกคนเข้าได้ หรือถ้ามี permission สามารถใส่:
+            // if (p.dashboard || roleName === 'ADMIN') { ... }
         });
 
         function logout() { localStorage.removeItem('tms_user'); window.location.href = '/login.html'; }
     </script>
-<!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
     <script src="/js/auth.js"></script>
-    
-    <!-- 2. ใส่สคริปต์เปลี่ยนรหัสผ่าน (เพิ่มกุญแจมุมขวาบน) -->
     <script src="/js/password.js"></script>
 </body>
 </html>

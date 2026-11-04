@@ -54,7 +54,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             if (datalist) datalist.innerHTML = '';
             
             d.data.forEach(r => {
-                // 🌟 ปรับ Index ใหม่: r[2] = job_name, r[1] = short_name
                 rateDataMap[r[2]] = {
                     customer: r[1], origin: r[3], dest: r[4], jobType: r[7],
                     trp6: r[8], trp10: r[9], trp12: r[10], trpCash: r[11],
@@ -63,7 +62,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 
                 if (datalist) {
                     const opt = document.createElement('option');
-                    opt.value = r[2]; // ใช้ชื่องานเป็น Value
+                    opt.value = r[2]; 
                     datalist.appendChild(opt);
                 }
             });
@@ -114,7 +113,10 @@ async function loadBookingGridData() {
             rawBookingList = result.data;
             filteredList = [...rawBookingList];
             editedRowIndices.clear();
-            updateSaveStatusBadge(); updateDropdownOptions(); initBookingHandsontable(filteredList); updateSummaryFooter(filteredList);
+            updateSaveStatusBadge(); 
+            updateDropdownOptions(); 
+            initBookingHandsontable(filteredList); 
+            updateSummaryFooter(filteredList);
         } else {
             rawBookingList = []; filteredList = []; initBookingHandsontable([]); updateSummaryFooter([]);
         }
@@ -142,17 +144,27 @@ function updateDropdownOptions() {
         if ((!dVal || iD === dVal) && (!cVal || iC === cVal || iJ === cVal) && iB) books.add(iB);
     });
 
-    const dlDate = document.getElementById('dl-run-date'); const dlCust = document.getElementById('dl-customer'); const dlBook = document.getElementById('dl-booking-no');
+    const dlDate = document.getElementById('dl-run-date'); 
+    const dlCust = document.getElementById('dl-customer'); 
+    const dlBook = document.getElementById('dl-booking-no');
     dlDate.innerHTML = ''; Array.from(dates).sort().forEach(v => dlDate.innerHTML += `<option value="${v}">`);
     dlCust.innerHTML = ''; Array.from(custs).sort().forEach(v => dlCust.innerHTML += `<option value="${v}">`);
     dlBook.innerHTML = ''; Array.from(books).sort().forEach(v => dlBook.innerHTML += `<option value="${v}">`);
 }
+
 window.handleCrossFilter = function() { updateDropdownOptions(); applyFilters(); };
+
 window.applyFilters = function() {
-    const d = document.getElementById('filter-run-date').value, c = document.getElementById('filter-customer').value, b = document.getElementById('filter-booking-no').value;
+    const d = document.getElementById('filter-run-date').value;
+    const c = document.getElementById('filter-customer').value;
+    const b = document.getElementById('filter-booking-no').value;
     const searchTxt = document.getElementById('global-search').value.toLowerCase().trim();
-    const isToday = document.getElementById('qf-today').classList.contains('bg-blue-50'), isTomorrow = document.getElementById('qf-tomorrow').classList.contains('bg-blue-50');
-    const todayStr = new Date().toISOString().split('T')[0]; const tomDate = new Date(); tomDate.setDate(tomDate.getDate() + 1); const tomorrowStr = tomDate.toISOString().split('T')[0];
+    const isToday = document.getElementById('qf-today').classList.contains('bg-blue-50');
+    const isTomorrow = document.getElementById('qf-tomorrow').classList.contains('bg-blue-50');
+    const todayStr = new Date().toISOString().split('T')[0]; 
+    const tomDate = new Date(); 
+    tomDate.setDate(tomDate.getDate() + 1); 
+    const tomorrowStr = tomDate.toISOString().split('T')[0];
 
     filteredList = rawBookingList.filter(item => {
         const iD = item.run_date ? String(item.run_date).split('T')[0] : '';
@@ -160,32 +172,65 @@ window.applyFilters = function() {
         const iJ = item.job_name ? String(item.job_name).trim() : '';
         const iB = item.booking_no ? String(item.booking_no).trim() : '';
         
-        const matchD = !d || iD === d; const matchC = !c || iC === c || iJ === c; const matchB = !b || iB === b;
+        const matchD = !d || iD === d; 
+        const matchC = !c || iC === c || iJ === c; 
+        const matchB = !b || iB === b;
         const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
-        let matchQF = true; if (isToday) matchQF = matchQF && (iD === todayStr); if (isTomorrow) matchQF = matchQF && (iD === tomorrowStr);
+        let matchQF = true; 
+        if (isToday) matchQF = matchQF && (iD === todayStr); 
+        if (isTomorrow) matchQF = matchQF && (iD === tomorrowStr);
         return matchD && matchC && matchB && matchGlobal && matchQF;
     });
-    initBookingHandsontable(filteredList); updateSummaryFooter(filteredList);
+    initBookingHandsontable(filteredList); 
+    updateSummaryFooter(filteredList);
 };
+
 window.clearAllFilters = function() {
-    document.getElementById('filter-run-date').value = ''; document.getElementById('filter-customer').value = ''; document.getElementById('filter-booking-no').value = ''; document.getElementById('global-search').value = '';
-    ['today', 'tomorrow'].forEach(id => { const btn = document.getElementById('qf-' + id); btn.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-300'); btn.classList.add('bg-white', 'text-slate-600'); });
-    updateDropdownOptions(); applyFilters();
-};
-window.setQuickFilter = function(type) {
-    const btn = document.getElementById('qf-' + type);
-    ['today', 'tomorrow'].forEach(id => { if (id !== type) { const b = document.getElementById('qf-' + id); b.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-300'); b.classList.add('bg-white', 'text-slate-600'); } });
-    btn.classList.toggle('bg-blue-50'); btn.classList.toggle('text-blue-600'); btn.classList.toggle('border-blue-300'); btn.classList.toggle('bg-white'); btn.classList.toggle('text-slate-600');
+    document.getElementById('filter-run-date').value = ''; 
+    document.getElementById('filter-customer').value = ''; 
+    document.getElementById('filter-booking-no').value = ''; 
+    document.getElementById('global-search').value = '';
+    ['today', 'tomorrow'].forEach(id => { 
+        const btn = document.getElementById('qf-' + id); 
+        btn.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-300'); 
+        btn.classList.add('bg-white', 'text-slate-600'); 
+    });
+    updateDropdownOptions(); 
     applyFilters();
 };
+
+window.setQuickFilter = function(type) {
+    const btn = document.getElementById('qf-' + type);
+    ['today', 'tomorrow'].forEach(id => { 
+        if (id !== type) { 
+            const b = document.getElementById('qf-' + id); 
+            b.classList.remove('bg-blue-50', 'text-blue-600', 'border-blue-300'); 
+            b.classList.add('bg-white', 'text-slate-600'); 
+        } 
+    });
+    btn.classList.toggle('bg-blue-50'); 
+    btn.classList.toggle('text-blue-600'); 
+    btn.classList.toggle('border-blue-300'); 
+    btn.classList.toggle('bg-white'); 
+    btn.classList.toggle('text-slate-600');
+    applyFilters();
+};
+
 function updateSummaryFooter(data) {
     let sumContainers = 0, sumTrans = 0, sumTrip = 0;
     data.forEach(item => {
-        let count = parseInt(item.container_count) || 0; sumContainers += count; sumTrans += (parseFloat(item.trans_fee) || 0) * count; sumTrip += (parseFloat(item.trip_fee) || 0) * count;
+        let count = parseInt(item.container_count) || 0; 
+        sumContainers += count; 
+        sumTrans += (parseFloat(item.trans_fee) || 0) * count; 
+        sumTrip += (parseFloat(item.trip_fee) || 0) * count;
     });
-    document.getElementById('sum-count').innerText = data.length.toLocaleString(); document.getElementById('sum-container').innerText = sumContainers.toLocaleString(); document.getElementById('sum-trans').innerText = sumTrans.toLocaleString(); document.getElementById('sum-trip').innerText = sumTrip.toLocaleString();
+    document.getElementById('sum-count').innerText = data.length.toLocaleString(); 
+    document.getElementById('sum-container').innerText = sumContainers.toLocaleString(); 
+    document.getElementById('sum-trans').innerText = sumTrans.toLocaleString(); 
+    document.getElementById('sum-trip').innerText = sumTrip.toLocaleString();
 }
 
+// 🌟 ปรับปรุงการแสดงผลคอลัมน์เวลาให้แสดง Demurrage และรองรับ Transfer ครบถ้วน
 function createTimeListHtml(mode, type, item) {
     let html = '<div class="flex flex-col w-full">';
     let hasData = false;
@@ -198,15 +243,47 @@ function createTimeListHtml(mode, type, item) {
             }
         }
     };
+
     if (mode === 'EXPORT') {
-        if (type === 'PICKUP') { addRow('CY DATE', item.cy_date, 'text-blue-600'); addRow('VGM CUT', item.vgm_cutoff, 'text-red-500'); addRow('CUTOFF', item.cutoff_time, 'text-red-600'); } 
-        else if (type === 'DELIVERY') { addRow('LOAD', item.load_date, 'text-amber-600'); } 
-        else if (type === 'RETURN') { addRow('OPEN GATE', item.open_gate, 'text-emerald-600'); addRow('CUTOFF', item.cutoff_time, 'text-red-600'); }
+        if (type === 'PICKUP') { 
+            addRow('CY DATE', item.cy_date, 'text-blue-600'); 
+            addRow('VGM CUT', item.vgm_cutoff, 'text-red-500'); 
+            addRow('CUTOFF', item.cutoff_time, 'text-red-600'); 
+            if (item.demurrage) addRow('DEMURRAGE', item.demurrage, 'text-purple-600');
+        } 
+        else if (type === 'DELIVERY') { 
+            addRow('LOAD', item.load_date, 'text-amber-600'); 
+        } 
+        else if (type === 'RETURN') { 
+            addRow('OPEN GATE', item.open_gate, 'text-emerald-600'); 
+            addRow('CUTOFF', item.cutoff_time, 'text-red-600'); 
+        }
     } else if (mode === 'IMPORT') {
-        if (type === 'PICKUP') { addRow('CY DATE', item.cy_date, 'text-blue-600'); addRow('RENT CUT', item.rent_cutoff, 'text-red-500'); } 
-        else if (type === 'DELIVERY') { addRow('UNLOAD', item.unload_date, 'text-amber-600'); } 
-        else if (type === 'RETURN') { addRow('RETURN', item.return_date, 'text-slate-700'); }
+        if (type === 'PICKUP') { 
+            addRow('CY DATE', item.cy_date, 'text-blue-600'); 
+            addRow('RENT CUT', item.rent_cutoff, 'text-red-500'); 
+            addRow('DEMURRAGE', item.demurrage, 'text-purple-600'); // 🌟 เพิ่ม Demurrage ของ Import
+        } 
+        else if (type === 'DELIVERY') { 
+            addRow('UNLOAD', item.unload_date, 'text-amber-600'); 
+        } 
+        else if (type === 'RETURN') { 
+            addRow('RETURN', item.return_date, 'text-slate-700'); 
+        }
+    } else if (mode === 'TRANSFER') {
+        if (type === 'PICKUP') { 
+            addRow('PICK UP', item.cy_date, 'text-blue-600'); 
+            if (item.demurrage) addRow('DEMURRAGE', item.demurrage, 'text-purple-600');
+        } 
+        else if (type === 'DELIVERY') { 
+            addRow('LOAD', item.load_date, 'text-amber-600'); 
+            addRow('UNLOAD', item.unload_date, 'text-amber-600'); 
+        } 
+        else if (type === 'RETURN') { 
+            addRow('RETURN', item.return_date, 'text-slate-700'); 
+        }
     }
+
     html += '</div>';
     return hasData ? html : '<span class="text-slate-300 italic text-[10px] w-full text-center block py-1">+ เพิ่มเวลา</span>';
 }
@@ -286,7 +363,7 @@ function initBookingHandsontable(data) {
         hiddenColumns: { indicators: true },
         contextMenu: ['hidden_columns_hide', 'hidden_columns_show', '---------', 'alignment', 'copy'],
 
-        colWidths: userGridSettings.columnWidths || [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 130, 120, 130],
+        colWidths: userGridSettings.columnWidths || [30, 50, 40, 100, 70, 75, 90, 70, 110, 70, 75, 75, 35, 55, 45, 55, 55, 145, 120, 130],
         filters: true, dropdownMenu: ['filter_by_condition', 'filter_by_value', 'filter_action_bar'],
         licenseKey: 'non-commercial-and-evaluation',
 
@@ -296,7 +373,6 @@ function initBookingHandsontable(data) {
                 if (oldVal !== newVal && prop !== 0) {
                     editedRowIndices.add(row);
                     
-                    // 🌟 ระบบ Auto-Fill อัตโนมัติเมื่อแก้ชื่องาน หรือ ประเภทรถ 🌟
                     const colName = this.getColHeader(prop);
                     const headersNow = this.getColHeader(); 
                     
@@ -347,7 +423,6 @@ function initBookingHandsontable(data) {
     }
 }
 
-// 🌟 ฟังก์ชันช่วยคำนวณราคาย่อย 🌟
 function applyRateDynamicallyInList(hot, row, rate, type, tripIdx, transIdx) {
     if(tripIdx < 0 || transIdx < 0) return;
     if(type === '6W') { hot.setDataAtCell(row, tripIdx, rate.trp6||''); hot.setDataAtCell(row, transIdx, rate.trn6||''); }
@@ -391,8 +466,10 @@ function formatDateTime(dtStr) {
     return cleanStr.length >= 16 ? cleanStr.substring(5, 16) : cleanStr; 
 }
 
-let currentModalRow = -1; let currentModalProp = -1;
+let currentModalRow = -1; 
+let currentModalProp = -1;
 
+// 🌟 ปรับปรุง Modal ให้มี Demurrage และรองรับทุก Mode
 window.openDateTimeModal = function(row, prop) {
     currentModalRow = row; 
     currentModalProp = prop;
@@ -405,18 +482,25 @@ window.openDateTimeModal = function(row, prop) {
     let html = '', title = '';
     if (prop === 17) { 
         title = `เวลา PICK UP (${mode})`;
-        html += createDatetimeInput('cy_date', 'CY Date & Time', item.cy_date);
+        html += createDatetimeInput('cy_date', 'CY Date & Time (วัน-เวลารับตู้)', item.cy_date);
         if (mode === 'EXPORT') {
             html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
             html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
+            html += createDatetimeInput('demurrage', 'Demurrage (ถ้ามี)', item.demurrage);
         } else if (mode === 'IMPORT') {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (คืนตู้ฟรีถึง)', item.rent_cutoff);
+            html += createDatetimeInput('demurrage', 'Demurrage (วันครบกำหนดคืนตู้ / ปลอดค่าปรับ)', item.demurrage); // 🌟 เพิ่มตรงนี้
+        } else if (mode === 'TRANSFER') {
+            html += createDatetimeInput('demurrage', 'Demurrage (ถ้ามี)', item.demurrage);
         }
     } else if (prop === 18) { 
         title = `เวลา DELIVERY (${mode})`;
         if (mode === 'EXPORT') {
             html += createDatetimeInput('load_date', 'Load Date & Time (โหลดของ)', item.load_date);
         } else if (mode === 'IMPORT') {
+            html += createDatetimeInput('unload_date', 'Unload Date & Time (ลงของ)', item.unload_date);
+        } else if (mode === 'TRANSFER') {
+            html += createDatetimeInput('load_date', 'Load Date & Time (ขึ้นของ)', item.load_date);
             html += createDatetimeInput('unload_date', 'Unload Date & Time (ลงของ)', item.unload_date);
         }
     } else if (prop === 19) { 
@@ -426,18 +510,29 @@ window.openDateTimeModal = function(row, prop) {
             html += createDatetimeInput('cutoff_time', 'Cutoff Time (แก้ไขที่นี่ได้ด้วย)', item.cutoff_time);
         } else if (mode === 'IMPORT') {
             html += createDatetimeInput('return_date', 'Return Date & Time (เวลาที่คืนตู้จริง)', item.return_date);
+        } else if (mode === 'TRANSFER') {
+            html += createDatetimeInput('return_date', 'Return Date & Time', item.return_date);
         }
     } else { return; }
 
-    document.getElementById('modal-title').innerText = title; document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('modal-title').innerText = title; 
+    document.getElementById('modal-body').innerHTML = html;
     const modal = document.getElementById('datetime-modal');
     modal.classList.remove('hidden'); modal.classList.add('flex');
-    setTimeout(() => { modal.classList.remove('opacity-0'); document.getElementById('datetime-modal-content').classList.remove('scale-95'); }, 10);
+    setTimeout(() => { 
+        modal.classList.remove('opacity-0'); 
+        document.getElementById('datetime-modal-content').classList.remove('scale-95'); 
+    }, 10);
 };
 
+// 🌟 แก้ไขให้รองรับกรณีมีเฉพาะวันที่ เพื่อให้ input แสดงผลเวลาได้ถูกต้องเสมอ
 function createDatetimeInput(field, label, val) {
     let formattedVal = '';
-    if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') formattedVal = String(val).replace(' ', 'T').substring(0, 16);
+    if (val && String(val).trim() !== 'NaN' && String(val).trim() !== 'null') {
+        let clean = String(val).trim().replace(' ', 'T');
+        if (clean.length === 10) clean += 'T00:00'; // ถ้ามีเฉพาะวันที่ ให้เติมเวลา 00:00 เข้าไป
+        formattedVal = clean.substring(0, 16);
+    }
     return `
         <div>
             <label class="block text-xs font-bold text-slate-600 mb-1">${label}</label>
@@ -448,7 +543,8 @@ function createDatetimeInput(field, label, val) {
 
 window.closeDateTimeModal = function() {
     const modal = document.getElementById('datetime-modal');
-    modal.classList.add('opacity-0'); document.getElementById('datetime-modal-content').classList.add('scale-95');
+    modal.classList.add('opacity-0'); 
+    document.getElementById('datetime-modal-content').classList.add('scale-95');
     setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 200);
 };
 
@@ -459,7 +555,10 @@ window.saveDateTimeModal = function() {
     if(!item) return;
 
     const inputs = document.querySelectorAll('#modal-body input[type="datetime-local"]');
-    inputs.forEach(input => { const field = input.id.replace('modal_input_', ''); item[field] = input.value ? input.value.replace('T', ' ') : null; });
+    inputs.forEach(input => { 
+        const field = input.id.replace('modal_input_', ''); 
+        item[field] = input.value ? input.value.replace('T', ' ') : null; 
+    });
 
     editedRowIndices.add(currentModalRow);
     
@@ -471,11 +570,14 @@ window.saveDateTimeModal = function() {
     if (currentModalProp === 18) hotGridInstance.setDataAtRowProp(currentModalRow, 18, delivery);
     if (currentModalProp === 19) hotGridInstance.setDataAtRowProp(currentModalRow, 19, ret);
 
-    updateSaveStatusBadge(); closeDateTimeModal();
+    updateSaveStatusBadge(); 
+    closeDateTimeModal();
 };
 
 function updateSaveStatusBadge() {
-    const badge = document.getElementById('save-status-badge'); if(!badge) return; const count = editedRowIndices.size;
+    const badge = document.getElementById('save-status-badge'); 
+    if(!badge) return; 
+    const count = editedRowIndices.size;
     if (count > 0) {
         badge.className = "ml-auto text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse";
         badge.innerHTML = `<i class="fa-solid fa-pen"></i> ${count} รอเซฟ`;
@@ -487,11 +589,18 @@ function updateSaveStatusBadge() {
 
 window.saveGridChanges = async function() {
     if (!hotGridInstance || editedRowIndices.size === 0) return;
-    const btn = document.getElementById('btn-save-grid'); const orgText = btn.innerHTML; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; btn.disabled = true;
-    const data = hotGridInstance.getData(); let successCount = 0; let lastError = "";
+    const btn = document.getElementById('btn-save-grid'); 
+    const orgText = btn.innerHTML; 
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; 
+    btn.disabled = true;
+    const data = hotGridInstance.getData(); 
+    let successCount = 0; 
+    let lastError = "";
 
     for (let rowIndex of editedRowIndices) {
-        const row = data[rowIndex]; if (!row[3]) continue; const item = filteredList.find(i => i.booking_no === row[3]);
+        const row = data[rowIndex]; 
+        if (!row[3]) continue; 
+        const item = filteredList.find(i => i.booking_no === row[3]);
         const updateData = {
             booking_no: row[3], mode: row[4], run_date: row[5], customer_name: row[6], agent: row[7], job_name: row[8], job_type: row[9], origin: row[10], 
             destination: row[11], container_count: row[12], container_size: row[13], price_type: row[14], trip_fee: row[15], trans_fee: row[16],
@@ -499,7 +608,11 @@ window.saveGridChanges = async function() {
             load_date: item.load_date, unload_date: item.unload_date, open_gate: item.open_gate, return_date: item.return_date
         };
         try {
-            const res = await fetch(`/api/bookings/${row[2]}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updateData) });
+            const res = await fetch(`/api/bookings/${row[2]}`, { 
+                method: 'PUT', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(updateData) 
+            });
             const resData = await res.json();
             if (res.ok && resData.success) {
                 successCount++;
@@ -509,9 +622,9 @@ window.saveGridChanges = async function() {
         } catch (err) { lastError = err.message; }
     }
     
-    btn.innerHTML = orgText; btn.disabled = false;
+    btn.innerHTML = orgText; 
+    btn.disabled = false;
     
-    // แจ้งเตือนสถานะชัดเจน
     if (successCount > 0) { 
         alert(`✅ บันทึกข้อมูลสำเร็จ ${successCount} รายการ`); 
         editedRowIndices.clear(); 

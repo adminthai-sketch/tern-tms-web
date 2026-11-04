@@ -213,7 +213,7 @@ window.saveIvChanges = async function() {
             body: JSON.stringify({ data: sourceData }) 
         });
         const result = await res.json();
-        if (result.success) {
+        if (res.ok && result.success) {
             alert(`✅ บันทึกสถานะบัญชีเรียบร้อย!`);
             await loadIvData(); 
         } else {

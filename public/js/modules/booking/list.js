@@ -39,7 +39,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
-        const szRes = await fetch('/api/bookings/container-sizes');
+        const szRes = await fetch('/api/container-sizes');
         const szResult = await szRes.json();
         if (szResult.success && szResult.data && szResult.data.length > 0) {
             globalContainerSizes = szResult.data.map(r => r.size_name);
@@ -440,12 +440,14 @@ window.saveGridSettings = async function() {
     let positions = []; if (movePlugin && typeof movePlugin.columnsMapper !== 'undefined') { positions = movePlugin.columnsMapper.getIndexesSequence(); }
 
     try {
-        await fetch('/api/users/grid-settings', {
+        const response = await fetch('/api/users/grid-settings', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.id, gridName: 'booking_list', settings: { columnWidths: widths, columnPositions: positions } })
         });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'บันทึกมุมมองไม่สำเร็จ');
         alert('✅ บันทึกมุมมองตารางเรียบร้อยแล้ว!');
-    } catch (err) {}
+    } catch (err) { alert('❌ ' + err.message); }
 };
 
 window.goToFormEdit = function(bookingNo) { window.location.href = `/booking.html?edit=${encodeURIComponent(bookingNo)}`; };
@@ -486,12 +488,12 @@ window.openDateTimeModal = function(row, prop) {
         if (mode === 'EXPORT') {
             html += createDatetimeInput('vgm_cutoff', 'VGM Cutoff', item.vgm_cutoff);
             html += createDatetimeInput('cutoff_time', 'Cutoff Time', item.cutoff_time);
-            html += createDatetimeInput('demurrage', 'Demurrage (ถ้ามี)', item.demurrage);
+            html += createDatetimeInput('demurrage', 'DEMURRAGE (Time)', item.demurrage);
         } else if (mode === 'IMPORT') {
             html += createDatetimeInput('rent_cutoff', 'Rent Cutoff (คืนตู้ฟรีถึง)', item.rent_cutoff);
-            html += createDatetimeInput('demurrage', 'Demurrage (วันครบกำหนดคืนตู้ / ปลอดค่าปรับ)', item.demurrage); // 🌟 เพิ่มตรงนี้
+            html += createDatetimeInput('demurrage', 'DEMURRAGE (Time)', item.demurrage);
         } else if (mode === 'TRANSFER') {
-            html += createDatetimeInput('demurrage', 'Demurrage (ถ้ามี)', item.demurrage);
+            html += createDatetimeInput('demurrage', 'DEMURRAGE (Time)', item.demurrage);
         }
     } else if (prop === 18) { 
         title = `เวลา DELIVERY (${mode})`;
@@ -594,7 +596,8 @@ window.saveGridChanges = async function() {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> บันทึก...'; 
     btn.disabled = true;
     const data = hotGridInstance.getData(); 
-    let successCount = 0; 
+    let successCount = 0;
+    const savedRows = [];
     let lastError = "";
 
     for (let rowIndex of editedRowIndices) {
@@ -616,6 +619,7 @@ window.saveGridChanges = async function() {
             const resData = await res.json();
             if (res.ok && resData.success) {
                 successCount++;
+                savedRows.push(rowIndex);
             } else {
                 lastError = resData.message || "เกิดข้อผิดพลาดไม่ทราบสาเหตุ";
             }
@@ -625,11 +629,15 @@ window.saveGridChanges = async function() {
     btn.innerHTML = orgText; 
     btn.disabled = false;
     
-    if (successCount > 0) { 
-        alert(`✅ บันทึกข้อมูลสำเร็จ ${successCount} รายการ`); 
-        editedRowIndices.clear(); 
-        loadBookingGridData(); 
+    if (successCount > 0) {
+        savedRows.forEach(row => editedRowIndices.delete(row));
+        if (editedRowIndices.size) {
+            alert(`⚠️ บันทึกสำเร็จ ${successCount} รายการ ยังไม่สำเร็จ ${editedRowIndices.size} รายการ: ${lastError}`);
+        } else {
+            alert(`✅ บันทึกข้อมูลสำเร็จ ${successCount} รายการ`);
+            loadBookingGridData();
+        }
     } else {
-        alert(`❌ ไม่สามารถบันทึกข้อมูลได้: ${lastError}`);
+        alert('❌ ไม่สามารถบันทึกข้อมูลได้: ' + lastError);
     }
 };

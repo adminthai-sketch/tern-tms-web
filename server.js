@@ -2,18 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
-const { Pool } = require('pg'); // เพิ่มตัวเชื่อมฐานข้อมูล
+const pool = require('./config/db');
 require('dotenv').config();
 
 const app = express();
-
-// ==========================================
-// 🔗 ตั้งค่าการเชื่อมต่อฐานข้อมูล Neon DB
-// ==========================================
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
 
 // Middlewares
 app.use(cors());
@@ -64,7 +56,7 @@ app.post('/api/change-password', async (req, res) => {
         
         res.json({ success: true, message: 'เปลี่ยนรหัสผ่านสำเร็จ! กรุณาล็อกอินใหม่' });
     } catch (err) {
-        console.error('Change Password Error:', err);
+        console.error('Change Password Error');
         res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดบนเซิร์ฟเวอร์' });
     }
 });

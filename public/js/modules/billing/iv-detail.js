@@ -3,7 +3,6 @@ let currentIvNo = '';
 let currentIvContainers = [];
 let currentCustomerId = null;
 let cachedCustomerLayout = {};
-
 window.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     currentIvNo = (urlParams.get('iv') || urlParams.get('iv_no') || '').trim();
@@ -149,6 +148,7 @@ window.saveLayoutToCustomer = async function() {
             body: JSON.stringify({ customer_id: currentCustomerId, layout: layout })
         });
         const data = await res.json();
+        if (!res.ok || !data.success) throw new Error('บันทึกรูปแบบเอกสารไม่สำเร็จ');
         if(data.success && btn) {
             btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> บันทึกสำเร็จ!';
             btn.classList.replace('bg-emerald-600', 'bg-blue-600');
@@ -256,6 +256,7 @@ window.saveAllIvDetails = async function() {
     const overlay = document.getElementById('iv-detail-loading');
     if (overlay) overlay.classList.remove('hidden');
 
+    let rowsSaved = false;
     try {
         const status = document.getElementById('input-billing-status').value;
         const bDate = document.getElementById('input-billing-date').value || null;
@@ -263,13 +264,17 @@ window.saveAllIvDetails = async function() {
         const rNo = (document.getElementById('input-receipt-no').value || '').trim() || null;
 
         const containersData = hotIvDetailInstance.getSourceData();
-        await fetch('/api/billing/shipments', {
+        const rowsResponse = await fetch('/api/billing/shipments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: containersData })
         });
 
-        await fetch('/api/billing/update-iv-header', {
+        const rowsResult = await rowsResponse.json();
+        if (!rowsResponse.ok || !rowsResult.success) throw new Error(rowsResult.message || 'บันทึกรายการไม่สำเร็จ');
+        rowsSaved = true;
+
+        const headerResponse = await fetch('/api/billing/update-iv-header', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -281,10 +286,12 @@ window.saveAllIvDetails = async function() {
             })
         });
 
+        const headerResult = await headerResponse.json();
+        if (!headerResponse.ok || !headerResult.success) throw new Error(headerResult.message || 'บันทึกหัวบิลไม่สำเร็จ');
         alert('✅ บันทึกข้อมูลใบแจ้งหนี้เรียบร้อย!');
         await loadIvDetailData();
     } catch (err) {
-        alert('❌ บันทึกล้มเหลว: ' + err.message);
+        alert((rowsSaved ? '⚠️ บันทึกรายการแล้ว แต่ขั้นตอนหัวบิลยังไม่สำเร็จหรือยังยืนยันผลไม่ได้: ' : '❌ ยังยืนยันการบันทึกรายการไม่สำเร็จ: ') + err.message);
     } finally {
         if (overlay) overlay.classList.add('hidden');
     }

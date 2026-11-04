@@ -84,7 +84,7 @@ async function submitPasswordChange() {
         });
         const result = await res.json();
         
-        if (result.success) {
+        if (res.ok && result.success) {
             alert('✅ ' + result.message);
             localStorage.removeItem('tms_user');
             window.location.href = '/login.html';

@@ -105,12 +105,14 @@ window.saveGridSettings = async function() {
         positions = movePlugin.columnsMapper.getIndexesSequence();
     }
     try {
-        await fetch('/api/users/grid-settings', {
+        const response = await fetch('/api/users/grid-settings', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.id, gridName: gridName, settings: { columnWidths: widths, columnPositions: positions } })
         });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'บันทึกมุมมองไม่สำเร็จ');
         alert(`✅ บันทึกการตั้งค่าตารางโหมด ${mode} เรียบร้อยแล้ว!`);
-    } catch (err) {}
+    } catch (err) { alert('❌ ' + err.message); }
 };
 
 window.openBulkDateTimeModal = function(row, prop, title) {

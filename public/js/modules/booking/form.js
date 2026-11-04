@@ -89,6 +89,7 @@ async function loadBookingForEdit(bookingNo) {
                 setDateTime('pCyExp', item.cy_date); setDateTime('pVgmExp', item.vgm_cutoff);
                 setDateTime('pCutoffExp', item.cutoff_time); setDateTime('pLoadExp', item.load_date);
                 setDateTime('pOpenGateExp', item.open_gate);
+                setDateTime('pDemExp', item.demurrage);
                 setDateTime('pCutoffReturnExp', item.cutoff_time);
             } else if (item.mode === 'IMPORT') {
                 if (document.getElementById('pBookingImp')) document.getElementById('pBookingImp').value = item.booking_no || '';
@@ -98,6 +99,7 @@ async function loadBookingForEdit(bookingNo) {
                 setDateTime('pDemImp', item.demurrage); setDateTime('pUnloadImp', item.unload_date);
                 setDateTime('pReturnImp', item.return_date);
             } else if (item.mode === 'TRANSFER') {
+                setDateTime('pDemTrans', item.demurrage);
                 if (document.getElementById('pRefTrans')) {
                     document.getElementById('pRefTrans').value = item.booking_no || '';
                 }
@@ -197,12 +199,14 @@ window.submitBookingForm = async function(btn) {
         cyDate = getCombinedDateTime('pCyExp'); vgmCutoff = getCombinedDateTime('pVgmExp');
         cutoffTime = getCombinedDateTime('pCutoffExp'); loadDate = getCombinedDateTime('pLoadExp');
         openGate = getCombinedDateTime('pOpenGateExp');
+        demurrage = getCombinedDateTime('pDemExp');
     } else if (mode === 'IMPORT') {
         b_no = document.getElementById('pBookingImp') ? document.getElementById('pBookingImp').value : '';
         cyDate = getCombinedDateTime('pCyImp'); rentCutoff = getCombinedDateTime('pRentImp');
         demurrage = getCombinedDateTime('pDemImp'); unloadDate = getCombinedDateTime('pUnloadImp');
         returnDate = getCombinedDateTime('pReturnImp');
     } else if (mode === 'TRANSFER') {
+        demurrage = getCombinedDateTime('pDemTrans');
         const trRef = document.getElementById('pRefTrans');
         if(trRef) b_no = trRef.value;
     }
@@ -257,7 +261,7 @@ window.submitBookingForm = async function(btn) {
         }
 
         const result = await res.json();
-        if (result.success || res.ok) {
+        if (res.ok && result.success) {
             alert('✅ บันทึก Booking เรียบร้อย!');
             if(editBookingNo) window.location.href = '/booking-list.html';
             else window.location.reload(); 

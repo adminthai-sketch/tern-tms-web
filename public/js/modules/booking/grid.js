@@ -83,7 +83,7 @@ async function loadFleetData() {
     try {
         const response = await fetch('/api/truck_assignments');
         const result = await response.json();
-        if (result.success) {
+        if (res.ok && result.success) {
             globalTruckList = result.truckList || [];
             globalDriverList = result.driverList || [];
         }

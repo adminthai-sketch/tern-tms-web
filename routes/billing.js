@@ -57,7 +57,7 @@ router.get('/shipments', async (req, res) => {
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
-        console.error("GET /shipments Error:", err.message);
+        console.error("GET /shipments Error:");
         res.status(500).json({ success: false, message: err.message });
     }
 });
@@ -101,7 +101,9 @@ router.post('/shipments', async (req, res) => {
                 getNum(row.lift_fee),
                 getNum(row.shore_fee),
                 getNum(row.other_expense),
-                status
+                status,
+                ...['trip_fee', 'port_pass_fee', 'deposit_fee', 'lift_fee', 'shore_fee', 'other_expense']
+                    .map(field => Object.prototype.hasOwnProperty.call(row, field))
             ];
 
             const updateRes = await client.query(`
@@ -113,12 +115,12 @@ router.post('/shipments', async (req, res) => {
                     billing_remark = $5, 
                     billing_date = $6,
                     billing_status = $13,
-                    trip_fee = COALESCE($7, trip_fee),
-                    port_pass_fee = $8,
-                    deposit_fee = $9,
-                    lift_fee = $10,
-                    shore_fee = $11,
-                    other_expense = $12
+                    trip_fee = CASE WHEN $14 THEN $7 ELSE trip_fee END,
+                    port_pass_fee = CASE WHEN $15 THEN $8 ELSE port_pass_fee END,
+                    deposit_fee = CASE WHEN $16 THEN $9 ELSE deposit_fee END,
+                    lift_fee = CASE WHEN $17 THEN $10 ELSE lift_fee END,
+                    shore_fee = CASE WHEN $18 THEN $11 ELSE shore_fee END,
+                    other_expense = CASE WHEN $19 THEN $12 ELSE other_expense END
                 WHERE order_id::text = $1::text
             `, params);
 
@@ -129,14 +131,14 @@ router.post('/shipments', async (req, res) => {
                         trip_fee, port_pass_fee, deposit_fee, lift_fee, shore_fee, other_expense, billing_status
                     )
                     VALUES ($1, $2, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                `, params);
+                `, params.slice(0, 13));
             }
         }
         await client.query('COMMIT');
         res.json({ success: true, message: 'บันทึกข้อมูลสำเร็จ' });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error("POST /shipments Error:", error.message);
+        console.error("POST /shipments Error:");
         res.status(500).json({ success: false, message: error.message });
     } finally { 
         client.release(); 
@@ -152,7 +154,7 @@ router.get('/unbilled-containers', async (req, res) => {
     try {
         let query = `
             SELECT 
-                s.order_id, b.booking_no, s.container_1_no, s.container_2_no, s.container_size,
+                s.order_id, b.booking_no, b.customer_id, s.container_1_no, s.container_2_no, b.container_size,
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS leg1_plate, 
                 b.run_date, b.origin, b.destination, c.short_name AS customer_name,
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, 
@@ -177,7 +179,7 @@ router.get('/unbilled-containers', async (req, res) => {
         const result = await pool.query(query, params);
         res.json({ success: true, data: result.rows });
     } catch (err) { 
-        console.error("GET /unbilled-containers Error:", err.message);
+        console.error("GET /unbilled-containers Error:");
         res.status(500).json({ success: false, message: err.message }); 
     }
 });
@@ -234,7 +236,7 @@ router.get('/iv-summary', async (req, res) => {
 
         res.json({ success: true, data: result.rows });
     } catch (err) { 
-        console.error("GET /iv-summary Error:", err.message);
+        console.error("GET /iv-summary Error:");
         res.status(500).json({ success: false, message: err.message }); 
     }
 });
@@ -273,7 +275,7 @@ router.post('/update-iv', async (req, res) => {
         res.json({ success: true, message: 'บันทึกสถานะ IV สำเร็จ' });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error("POST /update-iv Error:", error.message);
+        console.error("POST /update-iv Error:");
         res.status(500).json({ success: false, message: error.message });
     } finally {
         client.release();
@@ -312,7 +314,7 @@ router.get('/iv-detail', async (req, res) => {
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
-        console.error("GET /iv-detail Error:", err.message);
+        console.error("GET /iv-detail Error:");
         res.status(500).json({ success: false, message: err.message });
     }
 });
@@ -342,7 +344,7 @@ router.post('/update-iv-header', async (req, res) => {
 
         res.json({ success: true, message: 'อัปเดตข้อมูล IV สำเร็จ' });
     } catch (err) {
-        console.error("POST /update-iv-header Error:", err.message);
+        console.error("POST /update-iv-header Error:");
         res.status(500).json({ success: false, message: err.message });
     }
 });
@@ -397,7 +399,7 @@ router.get('/print-data', async (req, res) => {
 
         res.json({ success: true, data: result.rows });
     } catch (err) { 
-        console.error("GET /print-data Error:", err.message);
+        console.error("GET /print-data Error:");
         res.status(500).json({ success: false, message: err.message }); 
     }
 });

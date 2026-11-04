@@ -9,6 +9,29 @@ const cleanNum = (val) => {
     return isNaN(num) ? 0 : num;
 };
 
+const hasField = (data, field) => Object.prototype.hasOwnProperty.call(data, field);
+const reductionMessage = 'ยังไม่อนุญาตให้ลดจำนวน Order จากหัว Booking กรุณาคงจำนวนเดิม จนกว่าจะยืนยันขั้นตอนยกเลิกงาน';
+
+function requestError(message, status = 400) {
+    return Object.assign(new Error(message), { status });
+}
+
+function bookingCount(value) {
+    const count = Number(value);
+    if (value === null || String(value).trim() === '' || !Number.isSafeInteger(count) || count < 1) {
+        throw requestError('จำนวน Order ต้องเป็นจำนวนเต็มตั้งแต่ 1');
+    }
+    return count;
+}
+
+function priceValue(value) {
+    if (value === null) return null;
+    const normalized = String(value).replace(/,/g, '').trim();
+    const price = Number(normalized);
+    if (normalized === '' || !Number.isFinite(price)) throw requestError('ราคาไม่ถูกต้อง กรุณาระบุตัวเลขหรือ null');
+    return price;
+}
+
 // 🌟 ดึงค่า AGENT ยืดหยุ่น รองรับทุกฟิลด์ที่ส่งมาจาก Frontend
 const getAgentVal = (b) => {
     const raw = b.agent || b.agent_name || b.agentName || b.shipping_agent || b.agent_code || b.shipping_line || b.line || b.pAgent || b.pAgentExp || b.pAgentImp;
@@ -27,7 +50,8 @@ async function syncShipments(client, b) {
     const res = await client.query('SELECT order_id FROM shipment_operations WHERE booking_no = $1 ORDER BY order_id ASC', [b.booking_no]);
     const current_shipments = res.rows;
     const current_count = current_shipments.length;
-    const target_count = parseInt(b.container_count || 1);
+    const target_count = bookingCount(b.container_count);
+    if (current_count > target_count) throw requestError(reductionMessage, 409);
     
     if (current_count < target_count) {
         const to_create = target_count - current_count;
@@ -37,6 +61,7 @@ async function syncShipments(client, b) {
         const dd = String(dateObj.getDate()).padStart(2, '0');
         const prefix = `ORD-${yy}${mm}${dd}-`;
 
+        await client.query('SELECT pg_advisory_xact_lock(718204)');
         const lastOrderRes = await client.query(`SELECT order_id FROM shipment_operations WHERE order_id LIKE $1 ORDER BY order_id DESC LIMIT 1`, [`${prefix}%`]);
         let start_num = 1;
         if (lastOrderRes.rows.length > 0) {
@@ -49,14 +74,6 @@ async function syncShipments(client, b) {
             await client.query(`INSERT INTO shipment_operations (order_id, booking_no, overall_status) VALUES ($1, $2, 'รอจัดรถ')`, [new_order_id, b.booking_no]);
             await client.query(`INSERT INTO financials (order_id, trip_fee, trans_fee) VALUES ($1, $2, $3)`, [new_order_id, cleanNum(b.trip_fee), cleanNum(b.trans_fee)]);
         }
-    } 
-    else if (current_count > target_count) {
-        const ids_to_delete = [];
-        for (let i = current_count - 1; i >= target_count; i--) ids_to_delete.push(current_shipments[i].order_id);
-        if (ids_to_delete.length > 0) {
-            const placeholders = ids_to_delete.map((_, idx) => `$${idx + 1}`).join(',');
-            await client.query(`DELETE FROM shipment_operations WHERE order_id IN (${placeholders})`, ids_to_delete);
-        }
     }
 }
 
@@ -68,6 +85,11 @@ router.post('/bookings/header', async (req, res) => {
     try {
         await client.query('BEGIN');
         b.booking_no = b.booking_no || `BK-${Date.now()}`;
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [b.booking_no]);
+        const existingResult = await client.query('SELECT * FROM bookings WHERE booking_no = $1 FOR UPDATE', [b.booking_no]);
+        const existing = existingResult.rows[0];
+        b.container_count = hasField(b, 'container_count') ? bookingCount(b.container_count) : (existing ? (existing.container_count ?? 1) : 1);
+        if (existing && b.container_count < existing.container_count) throw requestError(reductionMessage, 409);
         const customer_id = await getCustomerId(client, b.customer_name);
         const query = `
             INSERT INTO bookings (
@@ -90,30 +112,31 @@ router.post('/bookings/header', async (req, res) => {
                 load_date = COALESCE(EXCLUDED.load_date, bookings.load_date), 
                 open_gate = COALESCE(EXCLUDED.open_gate, bookings.open_gate), 
                 rent_cutoff = COALESCE(EXCLUDED.rent_cutoff, bookings.rent_cutoff), 
-                demurrage = COALESCE(EXCLUDED.demurrage, bookings.demurrage), 
+                demurrage = CASE WHEN $26 THEN EXCLUDED.demurrage ELSE bookings.demurrage END,
                 unload_date = COALESCE(EXCLUDED.unload_date, bookings.unload_date), 
                 return_date = COALESCE(EXCLUDED.return_date, bookings.return_date), 
                 job_type = EXCLUDED.job_type, 
                 price_type = EXCLUDED.price_type, 
-                trip_fee = EXCLUDED.trip_fee, 
-                trans_fee = EXCLUDED.trans_fee, 
+                trip_fee = CASE WHEN $24 THEN EXCLUDED.trip_fee ELSE bookings.trip_fee END,
+                trans_fee = CASE WHEN $25 THEN EXCLUDED.trans_fee ELSE bookings.trans_fee END,
                 container_size = EXCLUDED.container_size,
                 updated_at = CURRENT_TIMESTAMP
-            RETURNING id, booking_no;
+            RETURNING *;
         `;
         const values = [
             b.booking_no, cleanVal(b.mode), b.run_date, b.job_name || '', customer_id, parseInt(b.container_count || 1), b.origin || '', b.destination || '',
             getAgentVal(b), cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), cleanVal(b.load_date), cleanVal(b.open_gate),
             cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.unload_date), cleanVal(b.return_date),
-            cleanVal(b.job_type), cleanVal(b.price_type), cleanNum(b.trip_fee), cleanNum(b.trans_fee), cleanVal(b.container_size)
+            cleanVal(b.job_type), cleanVal(b.price_type), hasField(b, 'trip_fee') ? priceValue(b.trip_fee) : 0, hasField(b, 'trans_fee') ? priceValue(b.trans_fee) : 0, cleanVal(b.container_size),
+            hasField(b, 'trip_fee'), hasField(b, 'trans_fee'), hasField(b, 'demurrage')
         ];
-        await client.query(query, values);
-        await syncShipments(client, b); 
+        const saved = await client.query(query, values);
+        await syncShipments(client, saved.rows[0]);
         await client.query('COMMIT');
         res.json({ success: true, message: `บันทึกหัวบุคกิ้งเลข ${b.booking_no} เรียบร้อย!` });
     } catch (error) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: error.message });
+        res.status(error.status || 500).json({ success: false, message: error.message });
     } finally { client.release(); }
 });
 
@@ -124,98 +147,48 @@ router.put('/bookings/:id', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const customer_id = await getCustomerId(client, b.customer_name);
-        const agentVal = getAgentVal(b);
-        const bookingNoParam = b.booking_no || cleanVal(id);
-
-        let updateBookingQuery;
-        let bookingValues;
-
-        if (!isNaN(Number(id))) {
-            updateBookingQuery = `
-                UPDATE bookings 
-                SET mode = COALESCE($1, mode), 
-                    run_date = COALESCE($2, run_date), 
-                    customer_id = COALESCE($3, customer_id), 
-                    agent = CASE WHEN $4::text IS NOT NULL AND $4::text != '' THEN $4::text ELSE agent END,
-                    job_name = COALESCE($5, job_name), 
-                    job_type = COALESCE($6, job_type), 
-                    origin = COALESCE($7, origin), 
-                    destination = COALESCE($8, destination), 
-                    container_count = COALESCE($9, container_count), 
-                    container_size = COALESCE($10, container_size), 
-                    price_type = COALESCE($11, price_type), 
-                    trip_fee = COALESCE($12, trip_fee), 
-                    trans_fee = COALESCE($13, trans_fee), 
-                    cy_date = COALESCE($14, cy_date), 
-                    vgm_cutoff = COALESCE($15, vgm_cutoff), 
-                    cutoff_time = COALESCE($16, cutoff_time), 
-                    rent_cutoff = COALESCE($17, rent_cutoff), 
-                    demurrage = COALESCE($18, demurrage), 
-                    load_date = COALESCE($19, load_date), 
-                    unload_date = COALESCE($20, unload_date), 
-                    open_gate = COALESCE($21, open_gate), 
-                    return_date = COALESCE($22, return_date), 
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = $23 OR booking_no = $24
-                RETURNING id, booking_no;
-            `;
-            bookingValues = [
-                cleanVal(b.mode), b.run_date, customer_id, agentVal, b.job_name || null, cleanVal(b.job_type), 
-                b.origin || null, b.destination || null, b.container_count ? parseInt(b.container_count) : null, cleanVal(b.container_size), cleanVal(b.price_type), 
-                b.trip_fee ? cleanNum(b.trip_fee) : null, b.trans_fee ? cleanNum(b.trans_fee) : null, cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
-                cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), 
-                cleanVal(b.open_gate), cleanVal(b.return_date), parseInt(id), bookingNoParam
-            ];
-        } else {
-            updateBookingQuery = `
-                UPDATE bookings 
-                SET mode = COALESCE($1, mode), 
-                    run_date = COALESCE($2, run_date), 
-                    customer_id = COALESCE($3, customer_id), 
-                    agent = CASE WHEN $4::text IS NOT NULL AND $4::text != '' THEN $4::text ELSE agent END,
-                    job_name = COALESCE($5, job_name), 
-                    job_type = COALESCE($6, job_type), 
-                    origin = COALESCE($7, origin), 
-                    destination = COALESCE($8, destination), 
-                    container_count = COALESCE($9, container_count), 
-                    container_size = COALESCE($10, container_size), 
-                    price_type = COALESCE($11, price_type), 
-                    trip_fee = COALESCE($12, trip_fee), 
-                    trans_fee = COALESCE($13, trans_fee), 
-                    cy_date = COALESCE($14, cy_date), 
-                    vgm_cutoff = COALESCE($15, vgm_cutoff), 
-                    cutoff_time = COALESCE($16, cutoff_time), 
-                    rent_cutoff = COALESCE($17, rent_cutoff), 
-                    demurrage = COALESCE($18, demurrage), 
-                    load_date = COALESCE($19, load_date), 
-                    unload_date = COALESCE($20, unload_date), 
-                    open_gate = COALESCE($21, open_gate), 
-                    return_date = COALESCE($22, return_date), 
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE booking_no = $23
-                RETURNING id, booking_no;
-            `;
-            bookingValues = [
-                cleanVal(b.mode), b.run_date, customer_id, agentVal, b.job_name || null, cleanVal(b.job_type), 
-                b.origin || null, b.destination || null, b.container_count ? parseInt(b.container_count) : null, cleanVal(b.container_size), cleanVal(b.price_type), 
-                b.trip_fee ? cleanNum(b.trip_fee) : null, b.trans_fee ? cleanNum(b.trans_fee) : null, cleanVal(b.cy_date), cleanVal(b.vgm_cutoff), cleanVal(b.cutoff_time), 
-                cleanVal(b.rent_cutoff), cleanVal(b.demurrage), cleanVal(b.load_date), cleanVal(b.unload_date), 
-                cleanVal(b.open_gate), cleanVal(b.return_date), bookingNoParam
-            ];
+        const lookup = /^\d+$/.test(id) ? 'id = $1' : 'booking_no = $1';
+        const currentResult = await client.query('SELECT * FROM bookings WHERE ' + lookup + ' FOR UPDATE', [id]);
+        const current = currentResult.rows[0];
+        if (!current) throw requestError('ไม่พบ Booking ที่ต้องการแก้ไข', 404);
+        const updates = [];
+        const values = [];
+        const setField = (field, value) => {
+            values.push(value);
+            updates.push(field + ' = $' + values.length);
+        };
+        if (hasField(b, 'container_count')) {
+            const count = bookingCount(b.container_count);
+            if (count < current.container_count) throw requestError(reductionMessage, 409);
+            setField('container_count', count);
         }
-
-        const bResult = await client.query(updateBookingQuery, bookingValues);
-        if (bResult.rows.length > 0) {
-            b.booking_no = bResult.rows[0].booking_no; 
-            await syncShipments(client, b); 
+        for (const field of ['trip_fee', 'trans_fee']) {
+            if (hasField(b, field)) setField(field, priceValue(b[field]));
         }
+        for (const field of ['mode', 'run_date', 'job_name', 'job_type', 'origin', 'destination', 'container_size', 'price_type',
+            'cy_date', 'vgm_cutoff', 'cutoff_time', 'rent_cutoff', 'load_date', 'unload_date', 'open_gate', 'return_date']) {
+            if (hasField(b, field) && cleanVal(b[field]) !== null) setField(field, cleanVal(b[field]));
+        }
+        if (hasField(b, 'demurrage')) setField('demurrage', cleanVal(b.demurrage));
+        if (hasField(b, 'customer_name')) {
+            const customerId = await getCustomerId(client, b.customer_name);
+            if (customerId !== null) setField('customer_id', customerId);
+        }
+        const agent = getAgentVal(b);
+        if (agent !== null) setField('agent', agent);
+        let saved = current;
+        if (updates.length) {
+            values.push(current.id);
+            const result = await client.query('UPDATE bookings SET ' + updates.join(', ') +
+                ', updated_at = CURRENT_TIMESTAMP WHERE id = $' + values.length + ' RETURNING *', values);
+            saved = result.rows[0];
+        }
+        if (hasField(b, 'container_count')) await syncShipments(client, saved);
         await client.query('COMMIT');
         res.json({ success: true, message: 'อัปเดตข้อมูลสำเร็จ' });
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error("PUT /bookings/:id Error:", err);
-        res.status(500).json({ success: false, message: err.message });
+        res.status(err.status || 500).json({ success: false, message: err.message });
     } finally { client.release(); }
 });
 
@@ -223,22 +196,13 @@ router.put('/bookings/:id', async (req, res) => {
 router.get('/shipments', async (req, res) => {
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ success: false, message: 'กรุณาระบุปีและเดือน' });
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-        const bookingsRes = await client.query(`
-            SELECT booking_no, run_date, container_count, trip_fee, trans_fee 
-            FROM bookings WHERE EXTRACT(MONTH FROM run_date) = $1::INTEGER AND EXTRACT(YEAR FROM run_date) = $2::INTEGER
-        `, [month, year]);
-        for (const b of bookingsRes.rows) { await syncShipments(client, b); }
-        await client.query('COMMIT');
-
         const result = await pool.query(`
             SELECT 
                 s.*,
                 b.id AS booking_id, b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
                 b.origin, b.destination, b.container_size, b.job_type, b.agent, b.job_name,
-                b.cy_date, b.vgm_cutoff, b.cutoff_time, b.load_date, b.unload_date, b.return_date, b.open_gate,
+                b.cy_date, b.vgm_cutoff, b.cutoff_time, b.demurrage, b.load_date, b.unload_date, b.return_date, b.open_gate,
                 f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense
             FROM shipment_operations s
             JOIN bookings b ON s.booking_no = b.booking_no
@@ -250,10 +214,9 @@ router.get('/shipments', async (req, res) => {
         `, [month, year]);
         res.json({ success: true, data: result.rows });
     } catch (err) {
-        await client.query('ROLLBACK');
-        console.error("API GET Shipments Error:", err);
+        console.error("API GET Shipments Error:");
         res.status(500).json({ success: false, message: err.message });
-    } finally { client.release(); }
+    }
 });
 
 // 4. บันทึกข้อมูลตู้แบบ Batch
@@ -267,6 +230,9 @@ router.post('/shipments', async (req, res) => {
         for (const row of data) {
             let final_order_id = row.order_id;
             if (final_order_id && final_order_id.includes('ORD-ADD-')) {
+                const booking = await client.query('SELECT id FROM bookings WHERE booking_no = $1 FOR UPDATE', [row.booking_no]);
+                if (!booking.rows.length) throw requestError('ไม่พบ Booking สำหรับเพิ่ม Order', 404);
+                await client.query('SELECT pg_advisory_xact_lock(718204)');
                 const dateObj = new Date();
                 const yy = String(dateObj.getFullYear()).substring(2);
                 const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -331,19 +297,28 @@ router.post('/shipments', async (req, res) => {
             
             await client.query(`
                 UPDATE financials SET 
-                    trip_fee=$1, trans_fee=$2, port_pass_fee=$3, shore_fee=$4, lift_fee=$5, deposit_fee=$6, advance_fee=$7, other_expense=$8 
+                    trip_fee = CASE WHEN $10 THEN $1 ELSE trip_fee END,
+                    trans_fee = CASE WHEN $11 THEN $2 ELSE trans_fee END,
+                    port_pass_fee = CASE WHEN $12 THEN $3 ELSE port_pass_fee END,
+                    shore_fee = CASE WHEN $13 THEN $4 ELSE shore_fee END,
+                    lift_fee = CASE WHEN $14 THEN $5 ELSE lift_fee END,
+                    deposit_fee = CASE WHEN $15 THEN $6 ELSE deposit_fee END,
+                    advance_fee = CASE WHEN $16 THEN $7 ELSE advance_fee END,
+                    other_expense = CASE WHEN $17 THEN $8 ELSE other_expense END
                 WHERE order_id=$9
             `, [
-                cleanNum(row.trip_fee), cleanNum(row.trans_fee), 
-                cleanNum(row.port_pass_fee), cleanNum(row.shore_fee), cleanNum(row.lift_fee), cleanNum(row.deposit_fee),
-                cleanNum(row.advance_fee), cleanNum(row.other_expense), final_order_id
+                ...['trip_fee', 'trans_fee', 'port_pass_fee', 'shore_fee', 'lift_fee', 'deposit_fee', 'advance_fee', 'other_expense']
+                    .map(field => hasField(row, field) ? priceValue(row[field]) : null),
+                final_order_id,
+                ...['trip_fee', 'trans_fee', 'port_pass_fee', 'shore_fee', 'lift_fee', 'deposit_fee', 'advance_fee', 'other_expense']
+                    .map(field => hasField(row, field))
             ]);
         }
         await client.query('COMMIT');
         res.json({ success: true, message: 'บันทึกสำเร็จ' });
     } catch (error) {
         await client.query('ROLLBACK');
-        res.status(500).json({ success: false, message: error.message });
+        res.status(error.status || 500).json({ success: false, message: error.message });
     } finally { client.release(); }
 });
 

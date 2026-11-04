@@ -34,7 +34,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     
     try {
-        const szRes = await fetch('/api/bookings/container-sizes');
+        const szRes = await fetch('/api/container-sizes');
         const szResult = await szRes.json();
         if (szResult.success && szResult.data && szResult.data.length > 0) {
             globalContainerSizes = szResult.data.map(r => r.size_name);
@@ -648,12 +648,14 @@ window.saveGridSettings = async function() {
     const fixedCols = hotGridInstance.getSettings().fixedColumnsLeft || 0;
 
     try {
-        await fetch('/api/users/grid-settings', {
+        const response = await fetch('/api/users/grid-settings', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.id, gridName: 'container_manage', settings: { columnWidths: widths, columnPositions: positions, fixedColumns: fixedCols } })
         });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'บันทึกมุมมองไม่สำเร็จ');
         alert('✅ บันทึกมุมมองตาราง (ขนาด, ตำแหน่ง, และการตรึงคอลัมน์) เรียบร้อยแล้ว!');
-    } catch (err) {}
+    } catch (err) { alert('❌ ' + err.message); }
 };
 
 window.addNewContainerRow = function() {
@@ -720,7 +722,7 @@ window.deleteContainerRows = async function() {
                 body: JSON.stringify({ order_ids: idsToDelete }) 
             }); 
             const result = await res.json();
-            if(!result.success) { alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message); return; }
+            if(!res.ok || !result.success) { alert('❌ ลบในฐานข้อมูลไม่สำเร็จ: ' + result.message); return; }
         } catch (e) { alert('❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์'); return; }
     }
     
@@ -743,7 +745,7 @@ window.saveGridChanges = async function() {
             body: JSON.stringify({ data: dataToSave }) 
         });
         const result = await res.json();
-        if (result.success) {
+        if (res.ok && result.success) {
             alert('✅ บันทึกข้อมูลตู้และค่าใช้จ่ายสำเร็จ!');
             editedRowIndices.clear();
             loadContainerGridData(); 

@@ -296,7 +296,7 @@ window.saveDetailBillingChanges = async function() {
             body: JSON.stringify({ data: rowsToSave }) 
         });
         const result = await res.json();
-        if (result.success) {
+        if (res.ok && result.success) {
             alert(`✅ บันทึกข้อมูลตารางเรียบร้อย!`);
             await loadDetailData(); 
         } else {
@@ -311,8 +311,14 @@ window.saveDetailBillingChanges = async function() {
 
 let currentUnbilledData = [];
 
+function selectedBookingCustomerId() {
+    const bookingNo = document.getElementById('select-booking-no').value.trim();
+    const booking = allRawShipments.find(row => row.booking_no === bookingNo);
+    return booking?.customer_id ?? null;
+}
+
 window.openUnbilledModal = async function() {
-    const activeCustId = allRawShipments.length > 0 ? allRawShipments[0].customer_id : null;
+    const activeCustId = selectedBookingCustomerId();
     if (!activeCustId) { 
         alert("⚠️ ไม่พบข้อมูลลูกค้า โปรดเลือก Booking หลักด้านบนก่อน เพื่อให้ระบบรู้ว่าต้องดึงตู้ตกค้างของใคร"); 
         return; 
@@ -329,18 +335,24 @@ window.openUnbilledModal = async function() {
 window.closeUnbilledModal = function() { document.getElementById('unbilled-modal').classList.add('hidden'); };
 
 window.fetchUnbilledContainers = async function(custId) {
-    if(!custId && allRawShipments.length > 0) custId = allRawShipments[0].customer_id;
+    custId = selectedBookingCustomerId();
+    currentUnbilledData = [];
     if(!custId) return;
 
     try {
-        const res = await fetch(`/api/billing/unbilled-containers?customer_id=${custId}&_t=${Date.now()}`);
+        const res = await fetch(`/api/billing/unbilled-containers?customer_id=${encodeURIComponent(custId)}&_t=${Date.now()}`);
         const result = await res.json();
+        if (!res.ok || !result.success) throw new Error(result.message || 'โหลดงานค้างไม่สำเร็จ');
         if (result.success) {
             const existingIds = hotDetailInstance.getSourceData().map(r => r.order_id);
-            currentUnbilledData = result.data.filter(d => !existingIds.includes(d.order_id));
+            currentUnbilledData = result.data.filter(d => String(d.customer_id) === String(custId) && !existingIds.includes(d.order_id));
             filterUnbilledTable();
         }
-    } catch(e) { console.error(e); }
+    } catch(e) {
+        currentUnbilledData = [];
+        filterUnbilledTable();
+        alert('❌ ' + e.message);
+    }
 };
 
 window.filterUnbilledTable = function() {
@@ -395,8 +407,8 @@ window.appendSelectedUnbilled = function() {
     const selectedCbs = document.querySelectorAll('.unbilled-cb:checked');
     if (selectedCbs.length === 0) { alert("⚠️ กรุณาติ๊กเลือกตู้อย่างน้อย 1 รายการ"); return; }
 
-    const selectedIds = Array.from(selectedCbs).map(cb => Number(cb.value));
-    const itemsToAdd = currentUnbilledData.filter(i => selectedIds.includes(i.order_id));
+    const selectedIds = Array.from(selectedCbs).map(cb => String(cb.value));
+    const itemsToAdd = currentUnbilledData.filter(i => selectedIds.includes(String(i.order_id)) && String(i.customer_id) === String(selectedBookingCustomerId()));
 
     const existingData = hotDetailInstance.getSourceData();
     itemsToAdd.forEach(item => { 

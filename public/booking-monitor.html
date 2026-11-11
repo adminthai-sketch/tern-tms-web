@@ -64,27 +64,40 @@
         </div>
 
         <!-- 🔍 FILTER BAR -->
-        <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-3 items-center shrink-0">
-            <div class="flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
-                <i class="fa-regular fa-calendar-check text-blue-600 text-sm"></i>
+        <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2.5 items-center shrink-0">
+            <!-- ตัวเลือกแสดงค่าเริ่มต้น: งานวันนี้+งานค้าง หรือ งานทั้งหมด -->
+            <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-bold">
+                <button type="button" id="btn-scope-active" onclick="setViewScope('active')" class="px-2.5 py-1 rounded-md bg-blue-600 text-white shadow-sm transition-all flex items-center gap-1">
+                    <i class="fa-solid fa-fire text-amber-300"></i> วันนี้ + งานค้าง
+                </button>
+                <button type="button" id="btn-scope-all" onclick="setViewScope('all')" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition-all">
+                    ทั้งหมดในเดือน
+                </button>
+            </div>
+
+            <div class="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200">
+                <i class="fa-regular fa-calendar-check text-blue-600 text-xs"></i>
                 <input type="month" id="filter-month" onchange="loadMonitorData()" class="bg-transparent text-xs font-bold text-blue-800 outline-none cursor-pointer">
             </div>
-            <input type="date" id="filter-run-date" onchange="renderTable()" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-slate-50 focus:bg-white" title="วันที่วิ่งงาน">
+            
+            <input type="date" id="filter-run-date" onchange="renderTable()" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-slate-50 focus:bg-white" title="กรองวันที่เฉพาะเจาะจง">
+            
             <select id="filter-mode" onchange="renderTable()" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold outline-none bg-slate-50">
-                <option value="">-- ทุกประเภท (Mode) --</option>
+                <option value="">-- ทุก Mode --</option>
                 <option value="EXPORT">EXPORT</option>
                 <option value="IMPORT">IMPORT</option>
                 <option value="TRANSFER">TRANSFER</option>
             </select>
-            <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-customer" placeholder="🏢 พิมพ์ชื่อลูกค้า..." oninput="renderTable()" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-slate-50 w-32">
             
-            <div class="relative flex-1 min-w-[200px]">
+            <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-customer" placeholder="🏢 ชื่อลูกค้า..." oninput="renderTable()" class="px-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-slate-50 w-28">
+            
+            <div class="relative flex-1 min-w-[180px]">
                 <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-slate-400 text-xs"></i>
                 <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-search" oninput="renderTable()" placeholder="ค้นหา Booking, Order, เลขตู้, ชื่องาน..." class="pl-7 pr-2 py-1.5 border border-slate-300 rounded-lg text-xs outline-none bg-white w-full shadow-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400">
             </div>
             
             <button onclick="clearFilters()" class="text-slate-400 hover:text-red-500 px-2 transition-colors text-sm" title="ล้างตัวกรอง"><i class="fa-solid fa-eraser"></i></button>
-            <button onclick="loadMonitorData()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-4 rounded-lg shadow-sm transition-colors text-xs flex items-center gap-1.5">
+            <button onclick="loadMonitorData()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3.5 rounded-lg shadow-sm transition-colors text-xs flex items-center gap-1.5">
                 <i class="fa-solid fa-rotate"></i> รีเฟรช
             </button>
         </div>
@@ -120,6 +133,7 @@
         let rawShipments = [];
         let groupedBookings = [];
         let activeKpi = null;
+        let currentScope = 'active'; // 🌟 ค่าเริ่มต้น: 'active' (งานวันนี้ + งานค้าง)
 
         window.addEventListener('DOMContentLoaded', () => {
             const date = new Date();
@@ -128,6 +142,21 @@
             document.getElementById('filter-month').value = `${yy}-${mm}`;
             loadMonitorData();
         });
+
+        function setViewScope(scope) {
+            currentScope = scope;
+            const btnActive = document.getElementById('btn-scope-active');
+            const btnAll = document.getElementById('btn-scope-all');
+            
+            if (scope === 'active') {
+                btnActive.className = "px-2.5 py-1 rounded-md bg-blue-600 text-white shadow-sm transition-all flex items-center gap-1";
+                btnAll.className = "px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition-all";
+            } else {
+                btnAll.className = "px-2.5 py-1 rounded-md bg-blue-600 text-white shadow-sm transition-all";
+                btnActive.className = "px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center gap-1";
+            }
+            renderTable();
+        }
 
         // ฟังก์ชันระบุสถานีปัจจุบันของแต่ละ Order (ตู้)
         function getOrderStage(o) {
@@ -144,7 +173,6 @@
                 return { key: 'waiting', label: 'รอจัดรถ', badge: 'bg-slate-100 text-slate-600 border-slate-300' };
             }
 
-            // ถ้ามีรถและกำลังดำเนินการ ดูว่าอยู่สถานีไหน
             if (!l1Done) {
                 return { key: 'pickup', label: 'PICK UP (รับตู้)', badge: 'bg-blue-100 text-blue-700 border-blue-300 font-bold' };
             } else if (!l2Done) {
@@ -180,7 +208,8 @@
 
         function processAndGroupData() {
             const map = {};
-            const todayStr = new Date().toISOString().split('T')[0];
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
             let kpi = { today: 0, waiting: 0, progress: 0, urgent: 0, completed: 0 };
 
@@ -193,7 +222,6 @@
                         container_count: 0,
                         orders: [],
                         statusCount: { waiting: 0, progress: 0, completed: 0 },
-                        // 🌟 นับจำนวนเที่ยวในแต่ละสถานี
                         stageCount: { pickup: 0, delivery: 0, return: 0, waiting: 0, completed: 0 },
                         nextDeadline: null
                     };
@@ -220,7 +248,7 @@
 
             groupedBookings.forEach(bk => {
                 bk.nextDeadline = calculateNextDeadline(bk);
-                const runDateStr = bk.run_date ? bk.run_date.split('T')[0] : '';
+                const runDateStr = bk.run_date ? String(bk.run_date).split('T')[0] : '';
                 if (runDateStr === todayStr) kpi.today++;
                 if (bk.nextDeadline.isOverdue || bk.nextDeadline.isNear) kpi.urgent++;
                 if (bk.statusCount.completed === bk.container_count) kpi.completed++;
@@ -302,7 +330,7 @@
             document.getElementById('filter-search').value = '';
             activeKpi = null;
             document.querySelectorAll('.glass-card').forEach(el => el.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500'));
-            renderTable();
+            setViewScope('active');
         }
 
         function renderTable() {
@@ -310,14 +338,26 @@
             const fMode = document.getElementById('filter-mode').value;
             const fCust = document.getElementById('filter-customer').value.toLowerCase();
             const fSearch = document.getElementById('filter-search').value.toLowerCase();
-            const todayStr = new Date().toISOString().split('T')[0];
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
             let html = '';
             const tbody = document.getElementById('monitor-tbody');
             let countShow = 0;
 
             groupedBookings.forEach(bk => {
-                const runDateStr = bk.run_date ? bk.run_date.split('T')[0] : '';
+                const runDateStr = bk.run_date ? String(bk.run_date).split('T')[0] : '';
+                const isCompletedAll = (bk.statusCount.completed === bk.container_count);
+
+                // 🌟 ตัวกรองค่าเริ่มต้น: 'active' (เฉพาะงานวิ่งวันนี้ หรือ งานที่ยังค้างอยู่)
+                if (currentScope === 'active' && !fDate && !activeKpi) {
+                    const isToday = (runDateStr === todayStr);
+                    const isPendingOrRunning = !isCompletedAll; // มีตู้ที่ยังไม่ปิดงาน
+                    if (!isToday && !isPendingOrRunning) {
+                        return; // ข้ามใบงานที่ปิดงานสมบูรณ์แล้วในวันอื่น
+                    }
+                }
+
                 if (fDate && runDateStr !== fDate) return;
                 if (fMode && bk.mode !== fMode) return;
                 if (fCust && (!bk.customer_name || !bk.customer_name.toLowerCase().includes(fCust))) return;
@@ -326,7 +366,7 @@
                 if (activeKpi === 'waiting' && bk.statusCount.waiting === 0) return;
                 if (activeKpi === 'progress' && bk.statusCount.progress === 0) return;
                 if (activeKpi === 'urgent' && !bk.nextDeadline.isOverdue && !bk.nextDeadline.isNear) return;
-                if (activeKpi === 'completed' && bk.statusCount.completed !== bk.container_count) return;
+                if (activeKpi === 'completed' && !isCompletedAll) return;
 
                 if (fSearch) {
                     const matchBk = bk.booking_no.toLowerCase().includes(fSearch);
@@ -342,9 +382,10 @@
                 countShow++;
 
                 const dateDisplay = runDateStr ? runDateStr.split('-').reverse().join('/') : '-';
+                const isTodayJob = (runDateStr === todayStr);
                 const modeColor = bk.mode === 'EXPORT' ? 'bg-amber-100 text-amber-800' : (bk.mode === 'IMPORT' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800');
                 
-                // 🌟 แสดงจำนวนเที่ยวแยกตามสถานี (PICK UP / DELIVERY / RETURN)
+                // แสดงจำนวนเที่ยวแยกตามสถานี
                 let stageBadges = `<div class="flex flex-col gap-1 text-[10px]">`;
                 if (bk.stageCount.pickup > 0) {
                     stageBadges += `<span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 font-semibold"><i class="fa-solid fa-truck-pickup text-[9px] mr-1"></i>PICK UP: <b>${bk.stageCount.pickup}</b> เที่ยว</span>`;
@@ -358,7 +399,7 @@
                 if (bk.stageCount.waiting > 0) {
                     stageBadges += `<span class="bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200"><i class="fa-solid fa-clock text-[9px] mr-1"></i>รอจัดรถ: <b>${bk.stageCount.waiting}</b> เที่ยว</span>`;
                 }
-                if (bk.stageCount.completed === bk.container_count) {
+                if (isCompletedAll) {
                     stageBadges = `<span class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200 font-bold text-[11px] inline-block"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>เสร็จครบทุกขา (${bk.container_count} เที่ยว)</span>`;
                 } else if (bk.stageCount.completed > 0) {
                     stageBadges += `<span class="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-check text-[9px] mr-1"></i>ปิดงานแล้ว: <b>${bk.stageCount.completed}</b> เที่ยว</span>`;
@@ -366,7 +407,7 @@
                 stageBadges += `</div>`;
 
                 html += `
-                    <tr class="hover:bg-slate-50 transition-colors border-b border-slate-200 bg-white">
+                    <tr class="hover:bg-slate-50 transition-colors border-b border-slate-200 ${isTodayJob ? 'bg-blue-50/20' : 'bg-white'}">
                         <td class="py-2 px-3 text-center">
                             <button onclick="toggleChild('child-${bk.booking_no}', this)" class="bg-slate-100 hover:bg-slate-200 text-slate-600 w-7 h-7 rounded-full transition-colors focus:outline-none shadow-sm"><i class="fa-solid fa-chevron-down"></i></button>
                         </td>
@@ -374,7 +415,10 @@
                             <div class="font-bold text-slate-800 text-xs">${bk.booking_no}</div>
                             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${modeColor} mt-1 inline-block">${bk.mode}</span>
                         </td>
-                        <td class="py-2 px-3 text-[11px] font-semibold text-slate-600">${dateDisplay}</td>
+                        <td class="py-2 px-3 text-[11px] font-semibold text-slate-600">
+                            ${dateDisplay}
+                            ${isTodayJob ? '<br><span class="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded">วันนี้</span>' : ''}
+                        </td>
                         <td class="py-2 px-3">
                             <div class="font-bold text-slate-800 text-[11px] truncate w-44" title="${bk.customer_name || '-'}">${bk.customer_name || '-'}</div>
                             <div class="text-[10px] text-slate-500 truncate w-44">${bk.job_name || '-'}</div>
@@ -391,7 +435,7 @@
                     </tr>
                 `;
 
-                // Sub-Table (แสดงสถานีของแต่ละตู้)
+                // Sub-Table
                 html += `<tr id="child-${bk.booking_no}" class="hidden sub-table-row bg-slate-50/80"><td colspan="7" class="p-4 border-b border-slate-200">`;
                 html += `<div class="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                             <table class="w-full text-left">
@@ -432,7 +476,7 @@
             });
 
             if(countShow === 0) {
-                html = `<tr><td colspan="7" class="text-center py-10 text-slate-500 font-medium"><i class="fa-solid fa-box-open text-3xl mb-3 block text-slate-300"></i>ไม่พบข้อมูลในเงื่อนไขที่เลือก</td></tr>`;
+                html = `<tr><td colspan="7" class="text-center py-10 text-slate-500 font-medium"><i class="fa-solid fa-box-open text-3xl mb-3 block text-slate-300"></i>ไม่มีงานวิ่งของวันนี้ หรือไม่มีงานค้างในระบบ</td></tr>`;
             }
 
             tbody.innerHTML = html;

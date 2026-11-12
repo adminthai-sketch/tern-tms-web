@@ -32,6 +32,45 @@ function priceValue(value) {
     return price;
 }
 
+const shipmentSteps = [
+    ['leg1', 'appointment'], ['drop1', 'location'],
+    ['leg2', 'appointment'], ['drop2', 'location'], ['leg3', 'appointment']
+];
+const shipmentStepFields = shipmentSteps.flatMap(([prefix, extra], index) =>
+    ['plate', 'driver', 'completed', extra].map(field => {
+        const column = prefix + '_' + field;
+        return 'step' + (index + 1) + '.' + field + ' AS ' + column;
+    })
+).join(', ');
+const shipmentStepJoins = shipmentSteps.map((_, index) => {
+    const step = index + 1;
+    return 'LEFT JOIN shipment_legs step' + step +
+        ' ON step' + step + '.order_id = s.order_id AND step' + step + '.step_no = ' + step;
+}).join('\n');
+
+async function saveShipmentContainers(client, orderId, row) {
+    for (const position of [1, 2]) {
+        const fields = ['container_' + position + '_no', 'seal_' + position + '_no',
+            'tare_' + position, 'max_gross_' + position];
+        const provided = fields.map(field => hasField(row, field));
+        if (!provided.some(Boolean)) continue;
+
+        const values = fields.map((field, index) => {
+            if (!provided[index] || row[field] == null || String(row[field]).trim() === '') return null;
+            return index < 2 ? cleanVal(row[field]) : priceValue(row[field]);
+        });
+        await client.query(`
+            INSERT INTO shipment_containers (order_id, container_position, container_no, seal_no, tare, max_gross)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (order_id, container_position) DO UPDATE SET
+                container_no = CASE WHEN $7 THEN EXCLUDED.container_no ELSE shipment_containers.container_no END,
+                seal_no = CASE WHEN $8 THEN EXCLUDED.seal_no ELSE shipment_containers.seal_no END,
+                tare = CASE WHEN $9 THEN EXCLUDED.tare ELSE shipment_containers.tare END,
+                max_gross = CASE WHEN $10 THEN EXCLUDED.max_gross ELSE shipment_containers.max_gross END
+        `, [orderId, position, ...values, ...provided]);
+    }
+}
+
 // 🌟 ดึงค่า AGENT ยืดหยุ่น รองรับทุกฟิลด์ที่ส่งมาจาก Frontend
 const getAgentVal = (b) => {
     const raw = b.agent || b.agent_name || b.agentName || b.shipping_agent || b.agent_code || b.shipping_line || b.line || b.pAgent || b.pAgentExp || b.pAgentImp;
@@ -203,11 +242,19 @@ router.get('/shipments', async (req, res) => {
                 b.id AS booking_id, b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
                 b.origin, b.destination, b.container_size, b.job_type, b.agent, b.job_name,
                 b.cy_date, b.vgm_cutoff, b.cutoff_time, b.demurrage, b.load_date, b.unload_date, b.return_date, b.open_gate,
-                f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense
+                f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense,
+                container1.container_no AS container_1_no, container1.seal_no AS seal_1_no,
+                container1.tare AS tare_1, container1.max_gross AS max_gross_1,
+                container2.container_no AS container_2_no, container2.seal_no AS seal_2_no,
+                container2.tare AS tare_2, container2.max_gross AS max_gross_2,
+                ${shipmentStepFields}
             FROM shipment_operations s
             JOIN bookings b ON s.booking_no = b.booking_no
             LEFT JOIN customers c ON b.customer_id = c.id
             LEFT JOIN financials f ON s.order_id = f.order_id
+            LEFT JOIN shipment_containers container1 ON container1.order_id = s.order_id AND container1.container_position = 1
+            LEFT JOIN shipment_containers container2 ON container2.order_id = s.order_id AND container2.container_position = 2
+            ${shipmentStepJoins}
             WHERE EXTRACT(MONTH FROM b.run_date) = $1::INTEGER 
               AND EXTRACT(YEAR FROM b.run_date) = $2::INTEGER
             ORDER BY s.order_id ASC
@@ -277,7 +324,11 @@ router.post('/shipments', async (req, res) => {
 
             await client.query(`
                 UPDATE shipment_operations SET
-                    container_1_no=$1, container_2_no=$2, seal_no=$3, pop_no=$4, tare=$5, max_gross=$6,
+                    container_1_no=CASE WHEN $32 THEN $1 ELSE container_1_no END,
+                    container_2_no=CASE WHEN $33 THEN $2 ELSE container_2_no END,
+                    seal_no=CASE WHEN $34 THEN $3 ELSE seal_no END, pop_no=$4,
+                    tare=CASE WHEN $35 THEN $5 ELSE tare END,
+                    max_gross=CASE WHEN $36 THEN $6 ELSE max_gross END,
                     leg1_plate=$7, leg1_driver=$8, leg1_appointment=$9, leg1_is_drop=$10, leg1_completed=$11,
                     drop1_plate=$12, drop1_driver=$13, drop1_location=$14, drop1_completed=$15,
                     leg2_plate=$16, leg2_driver=$17, leg2_appointment=$18, leg2_is_drop=$19, leg2_completed=$20,
@@ -292,8 +343,10 @@ router.post('/shipments', async (req, res) => {
                 cleanVal(row.leg2_plate), cleanVal(row.leg2_driver), cleanVal(row.leg2_appointment), !!row.leg2_is_drop, !!row.leg2_completed,
                 cleanVal(row.drop2_plate), cleanVal(row.drop2_driver), cleanVal(row.drop2_location), !!row.drop2_completed,
                 cleanVal(row.leg3_plate), cleanVal(row.leg3_driver), cleanVal(row.leg3_appointment), !!row.leg3_completed,
-                cleanVal(row.remark), cleanVal(row.overall_status) || 'รอจัดรถ', final_order_id
+                cleanVal(row.remark), cleanVal(row.overall_status) || 'รอจัดรถ', final_order_id,
+                ...['container_1_no', 'container_2_no', 'seal_no', 'tare', 'max_gross'].map(field => hasField(row, field))
             ]);
+            await saveShipmentContainers(client, final_order_id, row);
             
             await client.query(`
                 UPDATE financials SET 

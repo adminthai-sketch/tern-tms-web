@@ -40,6 +40,7 @@ function database(containerCount = 3) {
     let state = {
         bookings: [{ id: 1, booking_no: 'BK-OLD', run_date: '2026-10-31', mode: 'EXPORT', container_count: containerCount, trip_fee: 100, trans_fee: 200 }],
         shipments: [1, 2, 3].map(n => ({ order_id: 'ORD-261031-00' + n, booking_no: 'BK-OLD' })),
+        containers: [],
         financials: [1, 2, 3].map(n => ({ order_id: 'ORD-261031-00' + n, trip_fee: 100, trans_fee: 200 }))
     };
     let snapshot;
@@ -96,6 +97,18 @@ function database(containerCount = 3) {
             return result([]);
         }
         if (sql.startsWith('UPDATE shipment_operations')) return result([]);
+        if (sql.startsWith('INSERT INTO shipment_containers')) {
+            const [orderId, position] = values;
+            let container = state.containers.find(c => c.order_id === orderId && c.position === position);
+            if (!container) {
+                container = { order_id: orderId, position };
+                state.containers.push(container);
+            }
+            ['container_no', 'seal_no', 'tare', 'max_gross'].forEach((field, index) => {
+                if (values[6 + index]) container[field] = values[2 + index];
+            });
+            return result([container]);
+        }
         if (sql.startsWith('UPDATE financials')) {
             const row = state.financials.find(f => f.order_id === values[8]);
             const fields = ['trip_fee', 'trans_fee', 'port_pass_fee', 'shore_fee', 'lift_fee', 'deposit_fee', 'advance_fee', 'other_expense'];
@@ -120,7 +133,9 @@ test('dispatch and Monitor GET is read-only even when counts do not match', asyn
     }
     assert.deepEqual(db.state(), before);
     assert.ok(db.queries.every(sql => sql.startsWith('SELECT s.*')));
-    assert.match(read('public/booking-monitor.html'), /fetch\(`\/api\/shipments/);
+    const monitor = read('public/booking-monitor.html');
+    assert.match(monitor, /const apiUrl = `\/api\/shipments\?/);
+    assert.match(monitor, /fetch\(apiUrl/);
 });
 
 test('PUT without count preserves Orders, financials, count and omitted prices', async () => {
@@ -187,6 +202,22 @@ test('add Order through dispatch save still works and omitted prices stay unchan
     response = await request(routes['post /shipments'], { data: [{ order_id: 'ORD-261031-001', container_1_no: 'TEST' }] });
     assert.equal(response.code, 200);
     assert.equal(db.state().financials[0].trip_fee, 100);
+});
+
+test('dispatch stores separate container details and preserves omitted values', async () => {
+    const db = database();
+    const save = routesFor('routes/bookings.js', db)['post /shipments'];
+    const order_id = 'ORD-261031-001';
+    const response = await request(save, { data: [{
+        order_id, container_1_no: 'FIRST', seal_1_no: 'SEAL-A', tare_1: 0,
+        container_2_no: 'SECOND', seal_2_no: 'SEAL-B', tare_2: 2300
+    }] });
+    assert.equal(response.code, 200);
+    assert.equal((await request(save, { data: [{ order_id, seal_2_no: null }] })).code, 200);
+    assert.deepEqual(db.state().containers, [
+        { order_id, position: 1, container_no: 'FIRST', seal_no: 'SEAL-A', tare: 0 },
+        { order_id, position: 2, container_no: 'SECOND', seal_no: null, tare: 2300 }
+    ]);
 });
 
 test('price zero, null and omission are distinct for Booking and dispatch', async () => {

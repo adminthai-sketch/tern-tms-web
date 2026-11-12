@@ -19,7 +19,7 @@ let isDropYardsHidden = true;
 // 🌟 Index คอลัมน์ลานฝาก (เท่าเดิมเพราะจำนวนคอลัมน์รวมโซนหน้ายัง 16 คอลัมน์)
 // DROP 1: 22 (ทะเบียน), 23 (คนขับ), 24 (สถานที่), 25 (เช็คถูกขาฝาก 1)
 // DROP 2: 31 (ทะเบียน), 32 (คนขับ), 33 (สถานที่), 34 (เช็คถูกขาฝาก 2)
-const DROP_YARD_COLUMNS = [22, 23, 24, 25, 31, 32, 33, 34];
+const DROP_YARD_COLUMNS = [25, 26, 27, 28, 34, 35, 36, 37];
 
 window.addEventListener('DOMContentLoaded', async () => {
     applyZebraStripingCSS(); 
@@ -400,9 +400,8 @@ function initContainerHandsontable(data) {
 
         nestedHeaders: [
             [
-                // 🌟 ปรับ Colspan ให้ข้อมูลงานเหลือ 8 และ ข้อมูลตู้เพิ่มเป็น 8
                 { label: '📋 ข้อมูลงาน', colspan: 8 }, 
-                { label: '📦 ข้อมูลตู้', colspan: 8 }, 
+                { label: '📦 ข้อมูลตู้', colspan: 11 },
                 { label: '🚚 ขา 1: PICK UP (รับตู้)', colspan: 6 },
                 { label: '🅿️ ขาฝาก 1 (DROP 1)', colspan: 4 },
                 { label: '🏭 ขา 2: DELIVERY (เข้าบรรจุ) <button onclick="copyLegToAllRows(\'leg1\', \'leg2\')" class="ml-1 bg-blue-100 text-blue-700 border border-blue-300 px-1 py-0.5 rounded shadow-sm hover:bg-blue-600 hover:text-white transition-colors text-[10px]" title="ดึงทะเบียนรถและคนขับจาก ขา 1 มาใส่ ขา 2 ทั้งหมด"><i class="fa-solid fa-angles-right"></i> ดึงรถขา 1</button>', colspan: 5 }, 
@@ -415,7 +414,8 @@ function initContainerHandsontable(data) {
             [
                 // 🌟 ย้ายคอลัมน์ วันที่วิ่งงาน มาไว้หลัง ขนาดตู้
                 '✔', 'Order ID', 'Booking', 'MODE', 'ลูกค้า', 'ชื่องาน', 'ต้นทาง', 'ปลายทาง', 
-                'ขนาดตู้', '📅 วันที่วิ่งงาน', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'SEAL NO', 'POP', 'TARE', 'MAX GROSS', 
+                'ขนาดตู้', '📅 วันที่วิ่งงาน', 'เบอร์ตู้ 1', 'เบอร์ตู้ 2', 'ซีลตู้ 1', 'TARE ตู้ 1', 'MAX GROSS ตู้ 1',
+                'ซีลตู้ 2', 'TARE ตู้ 2', 'MAX GROSS ตู้ 2', 'POP',
                 'ทะเบียนรถ', 'ประเภทรถ', 'คนขับ', '📅 เวลานัด (🚚 Auto-Fill)', 'เส้นทาง', '✅', 
                 'ทะเบียนรถ', 'คนขับ', 'สถานที่ (ลานฝาก)', '✅', 
                 'ทะเบียนรถ', 'คนขับ', '📅 เวลานัด', 'เส้นทาง', '✅', 
@@ -442,10 +442,13 @@ function initContainerHandsontable(data) {
             { data: '_disp_run_date', type: 'text', readOnly: true, className: 'font-bold text-blue-800 htCenter htMiddle zone-container bg-blue-50/50' }, // 🌟 วันที่วิ่งงาน ย้ายมาตรงนี้
             { data: 'container_1_no', type: 'text', renderer: vgmWarningRenderer },
             { data: 'container_2_no', type: 'text', renderer: vgmWarningRenderer },
-            { data: 'seal_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
+            { data: 'seal_1_no', type: 'text', className: 'htCenter htMiddle font-bold uppercase zone-container' },
+            { data: 'tare_1', type: 'numeric', className: 'htCenter htMiddle zone-container' },
+            { data: 'max_gross_1', type: 'numeric', className: 'htCenter htMiddle zone-container' },
+            { data: 'seal_2_no', type: 'text', className: 'htCenter htMiddle font-bold uppercase zone-container' },
+            { data: 'tare_2', type: 'numeric', className: 'htCenter htMiddle zone-container' },
+            { data: 'max_gross_2', type: 'numeric', className: 'htCenter htMiddle zone-container' },
             { data: 'pop_no', type: 'text', className: 'htCenter htMiddle font-bold text-blue-700 uppercase zone-container' },
-            { data: 'tare', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
-            { data: 'max_gross', type: 'numeric', className: 'htCenter htMiddle text-blue-700 zone-container' },
 
             // --- 🚚 ขา 1: PICK UP ---
             { data: 'leg1_plate', type: 'autocomplete', source: globalTruckList, strict: false, className: 'zone-leg1 font-bold htCenter htMiddle text-emerald-700' },
@@ -494,7 +497,7 @@ function initContainerHandsontable(data) {
         ],
         colWidths: [
             30, 110, 100, 75, 100, 160, 80, 80, // Info (8)
-            60, 80, 100, 100, 100, 90, 80, 70,  // Container (8)
+            60, 80, 100, 100, 100, 90, 110, 100, 90, 110, 90, // Container (11)
             90, 80, 110, 120, 110, 45, 
             90, 110, 110, 45, 
             90, 110, 110, 110, 45, 
@@ -528,7 +531,7 @@ function initContainerHandsontable(data) {
             changes.forEach(([row, prop, oldVal, newVal]) => {
                 if (oldVal !== newVal && prop !== '_checkbox') editedRowIndices.add(row);
                 
-                if (['container_1_no', 'container_2_no', 'seal_no', 'pop_no'].includes(prop) && newVal && typeof newVal === 'string') {
+            if (['container_1_no', 'container_2_no', 'seal_1_no', 'seal_2_no', 'pop_no'].includes(prop) && newVal && typeof newVal === 'string') {
                     const cleanVal = newVal.replace(/\s/g, '').toUpperCase();
                     if (cleanVal !== newVal) {
                         setTimeout(() => hotGridInstance.setDataAtRowProp(row, prop, cleanVal, 'auto'), 10);
@@ -843,9 +846,9 @@ window.saveGridChanges = async function() {
 
     const dataToSave = [];
     editedRowIndices.forEach(idx => { 
-        const src = hotGridInstance.getSourceDataAtRow(idx);
-        src.overall_status = calculateRowOverallStatus(src);
-        dataToSave.push(src); 
+        const { seal_no, tare, max_gross, ...row } = hotGridInstance.getSourceDataAtRow(idx);
+        row.overall_status = calculateRowOverallStatus(row);
+        dataToSave.push(row);
     });
 
     try {

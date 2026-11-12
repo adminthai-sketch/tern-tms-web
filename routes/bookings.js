@@ -37,9 +37,12 @@ const shipmentSteps = [
     ['leg2', 'appointment'], ['drop2', 'location'], ['leg3', 'appointment']
 ];
 const shipmentStepFields = shipmentSteps.flatMap(([prefix, extra], index) =>
-    ['plate', 'driver', 'completed', extra].map(field => {
+    ['plate', 'driver', 'completed', 'vehicle_type', extra].map(field => {
         const column = prefix + '_' + field;
-        return 'step' + (index + 1) + '.' + field + ' AS ' + column;
+        const alias = 'step' + (index + 1);
+        // Let dispatch keep loading while the vehicle type migration is pending.
+        const value = field === 'vehicle_type' ? "to_jsonb(" + alias + ")->>'vehicle_type'" : alias + '.' + field;
+        return value + ' AS ' + column;
     })
 ).join(', ');
 const shipmentStepJoins = shipmentSteps.map((_, index) => {

@@ -223,13 +223,14 @@ router.get('/truck_assignments', async (req, res) => {
             FROM truck_assignments ta JOIN trucks t ON ta.truck_id = t.id LEFT JOIN drivers d ON ta.driver_id = d.id ORDER BY ta.id ASC
         `;
         const result = await pool.query(query);
-        const trucks = await pool.query("SELECT plate_number FROM trucks WHERE status = 'ACTIVE'");
+        const trucks = await pool.query('SELECT plate_number, vehicle_type, status FROM trucks');
         const drivers = await pool.query("SELECT driver_name FROM drivers WHERE status = 'ACTIVE'");
         
         res.json({ 
             success: true, 
             data: result.rows.map(r => [r.id, r.plate_number, r.vehicle_type || '', r.driver_name || '']),
-            truckList: trucks.rows.map(t => t.plate_number),
+            truckList: trucks.rows.filter(t => t.status === 'ACTIVE').map(t => t.plate_number),
+            truckTypes: Object.fromEntries(trucks.rows.map(t => [t.plate_number, t.vehicle_type])),
             driverList: drivers.rows.map(d => d.driver_name)
         });
     } catch (err) { res.json({ success: true, data: [], truckList: [], driverList: [] }); }

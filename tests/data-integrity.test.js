@@ -123,6 +123,25 @@ function database(containerCount = 3) {
     };
 }
 
+test('additional revenue validates amounts and saves only against a matching unbilled Order', async () => {
+    const calls = [];
+    let rowCount = 1;
+    const handler = routesFor('routes/billing.js', { async query(sql, values) {
+        calls.push({ sql, values });
+        return { rowCount };
+    } })['put /additional-revenue'];
+    const body = { booking_no: 'BK-A', order_id: 'ORD-1', items: [{ type: ' OT ', amount: 500.25 }, { type: 'ค่ารอ', amount: 300 }] };
+    assert.equal((await request(handler, { ...body, items: [{ type: 'OT', amount: 5.123 }] })).code, 400);
+    assert.equal(calls.length, 0);
+    assert.equal((await request(handler, body)).data.success, true);
+    assert.match(calls[0].sql, /s.booking_no = \$3/);
+    assert.match(calls[0].sql, /f.iv_no/);
+    assert.match(calls[0].sql, /f.ar_no/);
+    assert.deepEqual(JSON.parse(calls[0].values[0]), [{ type: 'OT', amount: 500.25, note: '' }, { type: 'ค่ารอ', amount: 300, note: '' }]);
+    rowCount = 0;
+    assert.equal((await request(handler, body)).code, 409);
+});
+
 test('dispatch patch preserves omitted fields and computes status from the actual endpoint', async () => {
     for (const [order, input, expected] of [
         [{ mode: 'EXPORT', leg2_completed: true }, { actual_load_date: '2026-11-18 10:00' }, 'กำลังเดินทาง'],

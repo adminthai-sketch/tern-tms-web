@@ -26,7 +26,8 @@ router.get('/shipments', async (req, res) => {
                 COALESCE(b.container_count, 1) AS container_count,
                 COALESCE(b.container_count, 1) AS booking_container_count,
                 COALESCE(b.trip_fee, 0) AS booking_trip_fee,
-                s.order_id, s.container_1_no, s.container_2_no,
+                s.order_id, s.container_1_no, s.container_2_no, s.overall_status,
+                to_jsonb(f)->'additional_revenue' AS additional_revenue,
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS plate,
                 s.leg1_plate, s.leg1_driver, s.leg2_plate, s.leg3_plate,
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee,
@@ -59,6 +60,41 @@ router.get('/shipments', async (req, res) => {
     } catch (err) {
         console.error("GET /shipments Error:");
         res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+router.put('/additional-revenue', async (req, res) => {
+    const { booking_no, order_id, items } = req.body;
+    if (!booking_no || !order_id || !Array.isArray(items) || items.length > 100) {
+        return res.status(400).json({ success: false, message: 'กรุณาระบุเที่ยวและรายการรายได้ให้ถูกต้อง' });
+    }
+    const normalized = [];
+    for (const item of items) {
+        const type = typeof item?.type === 'string' ? item.type.trim() : '';
+        const amount = item?.amount;
+        const note = typeof item?.note === 'string' ? item.note.trim() : '';
+        if (!type || type.length > 100 || note.length > 500 || !Number.isFinite(amount) || amount <= 0 || amount > 99999999 ||
+            Number(amount.toFixed(2)) !== amount) {
+            return res.status(400).json({ success: false, message: 'ระบุประเภทรายได้และจำนวนเงินมากกว่า 0 (ทศนิยมไม่เกิน 2 ตำแหน่ง)' });
+        }
+        normalized.push({ type, amount, note });
+    }
+    try {
+        const result = await pool.query(`
+            UPDATE financials f SET additional_revenue = $1::jsonb
+            FROM shipment_operations s
+            WHERE f.order_id::text = s.order_id::text AND s.order_id = $2 AND s.booking_no = $3
+              AND s.overall_status IN ('รอวางบิล', 'ปิดงาน', 'คืนตู้แล้ว')
+              AND COALESCE(BTRIM(f.iv_no), '') IN ('', 'รอออก IV')
+              AND COALESCE(BTRIM(f.ar_no), '') = ''
+            RETURNING f.order_id
+        `, [JSON.stringify(normalized), order_id, booking_no]);
+        if (!result.rowCount) return res.status(409).json({ success: false, message: 'รายการนี้ยังไม่พร้อมวางบิลหรือมีเลขเอกสารแล้ว' });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(error.code === '42703' ? 503 : 500).json({
+            success: false, message: error.code === '42703' ? 'กรุณารัน migration 006 ก่อนเปิดใช้รายได้อื่น ๆ' : 'บันทึกรายได้อื่น ๆ ไม่สำเร็จ'
+        });
     }
 });
 
@@ -388,7 +424,8 @@ router.get('/print-data', async (req, res) => {
                 f.deposit_fee, 
                 f.other_expense,
                 COALESCE(f.bill_weight, f.gross_weight) AS gross_weight,
-                f.ar_no, f.iv_no, f.billing_date, f.billing_remark
+                f.ar_no, f.iv_no, f.billing_date, f.billing_remark,
+                to_jsonb(f)->'additional_revenue' AS additional_revenue
             FROM bookings b 
             LEFT JOIN shipment_operations s ON b.booking_no = s.booking_no 
             LEFT JOIN customers c ON b.customer_id = c.id 

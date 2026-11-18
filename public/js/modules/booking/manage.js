@@ -308,6 +308,8 @@ function renderDispatchStages(booking, rows) {
     const tabs = document.getElementById('dispatch-stage-tabs');
     const summary = document.getElementById('dispatch-booking-summary');
     tabs.replaceChildren();
+    const help = document.getElementById('dispatch-stage-help');
+    help.textContent = '';
     const first = rows[0];
     summary.textContent = first && booking
         ? [booking, first.customer_name, first.mode, String(first.run_date || '').slice(0, 10)].filter(Boolean).join(' · ')
@@ -315,9 +317,9 @@ function renderDispatchStages(booking, rows) {
     if (!booking) return;
     const imports = first?.mode === 'IMPORT';
     const labels = {
-        all: 'ทุกเที่ยว', pickup: imports ? 'รับตู้จากท่าเรือ' : 'รับตู้จากลาน',
-        container: 'ลงเบอร์ตู้', factory: imports ? 'เข้าโรงงานลงของ' : 'เข้าโรงงานบรรจุ',
-        return: imports ? 'คืนตู้ที่ลาน' : 'ส่งตู้เข้าท่าเรือ', done: 'จบงาน'
+        all: 'ทุกเที่ยว', pickup: imports ? '1. รับตู้จากท่าเรือ' : '1. ไปรับตู้',
+        container: '2. ลงเบอร์ตู้', factory: imports ? '3. ไปโรงงานลงของ' : '3. ไปโรงงานบรรจุ',
+        return: imports ? '4. คืนตู้ที่ลาน' : '4. ไปลงตู้ที่ท่าเรือ'
     };
     for (const [key, label] of Object.entries(labels)) {
         const button = document.createElement('button');
@@ -334,6 +336,19 @@ function renderDispatchStages(booking, rows) {
         };
         tabs.append(button);
     }
+    for (const [section, label] of [['revenue', '5. รายได้อื่น ๆ'], ['costs', '6. ลงค่าใช้จ่าย']]) {
+        const link = document.createElement('a');
+        link.href = '/billing-detail.html?' + new URLSearchParams({ booking, month: loadedDispatchMonth, section });
+        link.className = 'rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-800 hover:bg-violet-100';
+        link.textContent = label;
+        link.onclick = event => {
+            if (!editedRowIndices.size) return;
+            event.preventDefault();
+            alert('กรุณาบันทึกตารางก่อนเปิดหน้าวางบิล');
+        };
+        tabs.append(link);
+    }
+    help.textContent = rows.filter(row => getDispatchStage(row) === 'done').length + ' เที่ยวจบงาน · รายได้อื่น ๆ และค่าใช้จ่ายบันทึกในหน้าวางบิล';
 }
 
 window.applyFilters = function() {

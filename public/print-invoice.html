@@ -174,6 +174,11 @@
             </tbody>
             <tfoot id="detail-tfoot" class="font-bold bg-slate-100"></tfoot>
         </table>
+        <section id="print-extra-revenue" hidden class="mt-3 text-xs">
+            <h2 class="font-bold">รายได้อื่น ๆ</h2>
+            <ul id="print-extra-revenue-items"></ul>
+            <p id="print-extra-revenue-total" class="font-bold"></p>
+        </section>
     </div>
 
     <script>
@@ -311,13 +316,29 @@
         }
 
         function renderPrintTable() {
+            const fmtMoney = (v) => Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
+            const revenueList = document.getElementById('print-extra-revenue-items');
+            revenueList.replaceChildren();
+            let revenueCents = 0;
+            for (const row of printData) {
+                if (!Array.isArray(row.additional_revenue)) continue;
+                for (const item of row.additional_revenue) {
+                    const amount = Number(item?.amount);
+                    if (!item?.type || !Number.isFinite(amount) || amount <= 0) continue;
+                    const entry = document.createElement('li');
+                    entry.textContent = [row.order_id, item.type, item.note, fmtMoney(amount) + ' บาท'].filter(Boolean).join(' · ');
+                    revenueList.append(entry);
+                    revenueCents += Math.round(amount * 100);
+                }
+            }
+            document.getElementById('print-extra-revenue').hidden = !revenueList.children.length;
+            document.getElementById('print-extra-revenue-total').textContent = 'รวมรายได้อื่น ๆ ' + fmtMoney(revenueCents / 100) + ' บาท';
             const tbody = document.getElementById('detail-tbody');
             const tfoot = document.getElementById('detail-tfoot');
             tbody.innerHTML = '';
 
             let sumWeight = 0, sumTrip = 0, sumPort = 0, sumDeposit = 0, sumLift = 0, sumShore = 0;
             let sumVatPort = 0, sumVatLift = 0, sumVatShore = 0;
-            const fmtMoney = (v) => Number(v) > 0 ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-';
             const calcVat = (amt) => (Number(amt) > 0) ? (Number(amt) * 7 / 107) : 0;
 
             printData.forEach((row, idx) => {

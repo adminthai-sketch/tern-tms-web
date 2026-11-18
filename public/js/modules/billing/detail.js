@@ -26,6 +26,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('select-booking-no').value = initialBooking;
         handleCrossFilterDetail();
     }
+    const section = urlParams.get('section');
+    if (section === 'revenue') document.getElementById('billing-revenue-panel').open = true;
+    if (section === 'costs') document.getElementById('billing-cost-section').scrollIntoView({ block: 'start' });
 });
 
 // ดึงข้อมูลสดใหม่
@@ -62,8 +65,97 @@ window.loadDetailData = async function() {
 };
 
 window.handleCrossFilterDetail = function() {
+    refreshBillingRevenueOrders();
     updateDetailFilterDropdowns();
     applyDetailFilter();
+};
+
+function refreshBillingRevenueOrders() {
+    const select = document.getElementById('billing-revenue-order');
+    if (!select) return;
+    const booking = document.getElementById('select-booking-no').value.trim();
+    const previous = select.value;
+    select.replaceChildren(new Option('เลือกเที่ยว', ''));
+    for (const row of allRawShipments) {
+        if (!booking || row.booking_no !== booking) continue;
+        if (!['รอวางบิล', 'ปิดงาน', 'คืนตู้แล้ว'].includes(row.overall_status)) continue;
+        if ((row.iv_no && row.iv_no !== 'รอออก IV') || row.ar_no) continue;
+        select.add(new Option([row.order_id, row.container_1_no].filter(Boolean).join(' · '), row.order_id));
+    }
+    if (Array.from(select.options).some(option => option.value === previous)) select.value = previous;
+    selectBillingRevenueOrder();
+}
+
+window.selectBillingRevenueOrder = function() {
+    const select = document.getElementById('billing-revenue-order');
+    const row = allRawShipments.find(item => item.order_id === select.value);
+    document.getElementById('billing-revenue-rows').replaceChildren();
+    document.getElementById('billing-revenue-actions').hidden = !row;
+    document.getElementById('billing-revenue-message').textContent = row ? '' :
+        (select.options.length > 1 ? 'เลือกเที่ยวเพื่อดูหรือแก้ไขรายการ' : 'เลือก Booking ที่มีเที่ยวจบงานและยังไม่มีเลข IV/AR');
+    if (Array.isArray(row?.additional_revenue)) row.additional_revenue.forEach(addBillingRevenueRow);
+    updateBillingRevenueTotal();
+};
+
+window.addBillingRevenueRow = function(item = {}) {
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-2 gap-2 sm:grid-cols-[1fr_9rem_1fr_auto]';
+    for (const [field, label, placeholder] of [
+        ['type', 'ประเภทรายได้', 'เช่น ค่า OT หรือค่ารอ'],
+        ['amount', 'จำนวนเงิน', 'บาท'],
+        ['note', 'หมายเหตุ', 'รายละเอียด (ถ้ามี)']
+    ]) {
+        const input = document.createElement('input');
+        input.name = field;
+        input.value = item?.[field] ?? '';
+        input.placeholder = placeholder;
+        input.setAttribute('aria-label', label);
+        input.className = 'min-w-0 rounded border px-2 py-1.5 text-sm';
+        if (field === 'amount') {
+            input.type = 'number'; input.step = '0.01'; input.min = '0.01'; input.max = '99999999';
+            input.oninput = updateBillingRevenueTotal;
+        } else input.maxLength = field === 'type' ? 100 : 500;
+        input.required = field !== 'note';
+        row.append(input);
+    }
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'ลบ';
+    remove.onclick = () => { row.remove(); updateBillingRevenueTotal(); };
+    row.append(remove);
+    document.getElementById('billing-revenue-rows').append(row);
+    updateBillingRevenueTotal();
+};
+
+function updateBillingRevenueTotal() {
+    const cents = Array.from(document.querySelectorAll('#billing-revenue-rows input[name="amount"]'))
+        .reduce((sum, input) => sum + Math.round((Number(input.value) || 0) * 100), 0);
+    document.getElementById('billing-revenue-total').textContent = 'รวม ' +
+        (cents / 100).toLocaleString('th-TH', { style: 'currency', currency: 'THB' });
+}
+
+window.saveBillingRevenue = async function(button) {
+    const order = allRawShipments.find(item => item.order_id === document.getElementById('billing-revenue-order').value);
+    if (!order) return;
+    for (const input of document.querySelectorAll('#billing-revenue-rows input')) if (!input.reportValidity()) return;
+    const items = Array.from(document.getElementById('billing-revenue-rows').children, row => ({
+        type: row.querySelector('[name="type"]').value.trim(),
+        amount: Number(row.querySelector('[name="amount"]').value),
+        note: row.querySelector('[name="note"]').value.trim()
+    }));
+    const message = document.getElementById('billing-revenue-message');
+    button.disabled = true;
+    try {
+        const response = await fetch('/api/billing/additional-revenue', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: order.order_id, booking_no: order.booking_no, items })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'บันทึกไม่สำเร็จ');
+        order.additional_revenue = items;
+        message.textContent = 'บันทึกรายได้ของ ' + order.order_id + ' แล้ว';
+    } catch (error) { message.textContent = error.message; }
+    finally { button.disabled = false; }
 };
 
 function updateDetailFilterDropdowns() {

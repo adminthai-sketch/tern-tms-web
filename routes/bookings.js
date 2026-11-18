@@ -10,6 +10,41 @@ const cleanNum = (val) => {
 };
 
 const hasField = (data, field) => Object.prototype.hasOwnProperty.call(data, field);
+function containerList(value) {
+    if (!Array.isArray(value) || !value.length || value.length > 100) throw requestError('กรุณาระบุจำนวนและขนาดตู้');
+    const rows = value.map(row => {
+        if (!row || typeof row.size !== 'string' || !row.size.trim() || row.size.length > 50) throw requestError('ขนาดตู้ไม่ถูกต้อง');
+        return { qty: bookingCount(row.qty), size: row.size.trim().toUpperCase() };
+    });
+    if (rows.reduce((n, row) => n + row.qty, 0) > 1000) throw requestError('สร้างได้ไม่เกิน 1,000 Order ต่อครั้ง');
+    return rows;
+}
+
+async function saveBookingDetails(client, b, saved, existing) {
+    if (hasField(b, 'container_list')) {
+        const list = containerList(b.container_list);
+        if (existing) {
+            const old = existing.container_list || [{ qty: existing.container_count, size: existing.container_size || '' }];
+            if (JSON.stringify(list) !== JSON.stringify(old)) throw requestError('ยังไม่รองรับการเปลี่ยนชุดตู้ของ Booking เดิม กรุณาจัดการ Order แยก', 409);
+        }
+        const result = await client.query('UPDATE bookings SET container_list = $1::jsonb WHERE id = $2 RETURNING *', [JSON.stringify(list), saved.id]);
+        saved = result.rows[0];
+    }
+    for (const field of ['job_owner', 'factory']) {
+        if (hasField(b, field)) {
+            const result = await client.query('UPDATE bookings SET ' + field + ' = $1 WHERE id = $2 RETURNING *', [cleanVal(b[field]), saved.id]);
+            saved = result.rows[0];
+        }
+    }
+    return saved;
+}
+
+async function selectedCustomer(client, b) {
+    if (!hasField(b, 'customer_id')) return getCustomerId(client, b.customer_name);
+    const result = await client.query('SELECT id FROM customers WHERE id = $1', [b.customer_id]);
+    if (!result.rows.length) throw requestError('ไม่พบลูกค้าที่เลือก กรุณาเลือกลูกค้าใหม่');
+    return result.rows[0].id;
+}
 const reductionMessage = 'ยังไม่อนุญาตให้ลดจำนวน Order จากหัว Booking กรุณาคงจำนวนเดิม จนกว่าจะยืนยันขั้นตอนยกเลิกงาน';
 
 function requestError(message, status = 400) {
@@ -86,7 +121,7 @@ async function getCustomerId(client, customerName) {
     return res.rows.length > 0 ? res.rows[0].id : null;
 }
 
-async function syncShipments(client, b) {
+async function syncShipments(client, b, allowCreate = true) {
     if (!b.booking_no) return; 
     
     const res = await client.query('SELECT order_id FROM shipment_operations WHERE booking_no = $1 ORDER BY order_id ASC', [b.booking_no]);
@@ -94,45 +129,80 @@ async function syncShipments(client, b) {
     const current_count = current_shipments.length;
     const target_count = bookingCount(b.container_count);
     if (current_count > target_count) throw requestError(reductionMessage, 409);
+    if (!allowCreate) return;
     
     if (current_count < target_count) {
         const to_create = target_count - current_count;
-        const dateObj = b.run_date ? new Date(b.run_date) : new Date();
-        const yy = String(dateObj.getFullYear()).substring(2);
-        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const dd = String(dateObj.getDate()).padStart(2, '0');
-        const prefix = `ORD-${yy}${mm}${dd}-`;
+        const date = typeof b.run_date === 'string' ? b.run_date.slice(0, 10) : new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(b.run_date || new Date());
+        const prefix = `ORD-${date.replace(/-/g, '').slice(2)}-`;
 
         await client.query('SELECT pg_advisory_xact_lock(718204)');
-        const lastOrderRes = await client.query(`SELECT order_id FROM shipment_operations WHERE order_id LIKE $1 ORDER BY order_id DESC LIMIT 1`, [`${prefix}%`]);
+        const lastOrderRes = await client.query(`SELECT order_id FROM shipment_operations WHERE order_id LIKE $1 ORDER BY length(order_id) DESC, order_id DESC LIMIT 1`, [`${prefix}%`]);
         let start_num = 1;
         if (lastOrderRes.rows.length > 0) {
             const parts = lastOrderRes.rows[0].order_id.split('-');
             if (parts.length === 3) start_num = parseInt(parts[2], 10) + 1;
         }
 
+        const sizes = b.container_list ? containerList(b.container_list).flatMap(row => Array(row.qty).fill(row.size)) : Array(target_count).fill(b.container_size || null);
         for (let i = 0; i < to_create; i++) {
             const new_order_id = `${prefix}${String(start_num + i).padStart(3, '0')}`;
-            await client.query(`INSERT INTO shipment_operations (order_id, booking_no, overall_status) VALUES ($1, $2, 'รอจัดรถ')`, [new_order_id, b.booking_no]);
+            await client.query(`INSERT INTO shipment_operations (order_id, booking_no, overall_status, order_container_size) VALUES ($1, $2, 'รอจัดรถ', $3)`, [new_order_id, b.booking_no, sizes[current_count + i]]);
             await client.query(`INSERT INTO financials (order_id, trip_fee, trans_fee) VALUES ($1, $2, $3)`, [new_order_id, cleanNum(b.trip_fee), cleanNum(b.trans_fee)]);
         }
     }
 }
 
 // 1. สร้างหัวบุคกิ้งใหม่
+router.post('/customers/quick', async (req, res) => {
+    let client;
+    try {
+        const fields = ['short_name', 'customer_name', 'billing_name', 'tax_id', 'address'];
+        const values = fields.map(field => cleanVal(req.body[field]));
+        if (!values[0] || !values[1]) throw requestError('กรุณากรอกตัวย่อและชื่อลูกค้า');
+        const limits = [100, 255, 255, 50, 10000];
+        if (values.some((value, index) => value && value.length > limits[index])) throw requestError('ข้อมูลลูกค้ายาวเกินไป');
+        client = await pool.connect();
+        await client.query('BEGIN');
+        // Also serialize against existing admin writers, which do not use advisory locks.
+        await client.query('LOCK TABLE customers IN SHARE ROW EXCLUSIVE MODE');
+        const duplicate = await client.query('SELECT id FROM customers WHERE lower(trim(short_name)) = lower($1)', [values[0]]);
+        if (duplicate.rows.length) throw requestError('ตัวย่อลูกค้านี้มีอยู่แล้ว กรุณาเลือกจากรายการ', 409);
+        const result = await client.query(`INSERT INTO customers (short_name, customer_name, billing_name, tax_id, address)
+            VALUES ($1, $2, $3, $4, $5) RETURNING id, short_name, customer_name`, values);
+        await client.query('COMMIT');
+        res.json({ success: true, customer_id: result.rows[0].id, data: result.rows[0] });
+    } catch (error) {
+        if (client) await client.query('ROLLBACK');
+        res.status(error.status || 500).json({ success: false, message: error.status ? error.message : 'เพิ่มลูกค้าไม่สำเร็จ' });
+    } finally { if (client) client.release(); }
+});
+
 router.post('/bookings/header', async (req, res) => {
     const b = req.body;
     if (!b.mode || !b.run_date) return res.status(400).json({ success: false, message: 'กรุณากรอก Mode และวันที่วิ่งงาน' });
-    const client = await pool.connect();
+    let client;
     try {
+        client = await pool.connect();
         await client.query('BEGIN');
         b.booking_no = b.booking_no || `BK-${Date.now()}`;
         await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [b.booking_no]);
         const existingResult = await client.query('SELECT * FROM bookings WHERE booking_no = $1 FOR UPDATE', [b.booking_no]);
         const existing = existingResult.rows[0];
+        const previousCount = existing?.container_count;
+        if (existing?.container_list && !hasField(b, 'container_list') &&
+            ((hasField(b, 'container_count') && Number(b.container_count) !== existing.container_count) ||
+             (hasField(b, 'container_size') && cleanVal(b.container_size) !== cleanVal(existing.container_size)))) {
+            throw requestError('กรุณาคงชุดตู้เดิมของ Booking ที่มีหลายขนาด', 409);
+        }
+        if (hasField(b, 'container_list')) {
+            b.container_list = containerList(b.container_list);
+            b.container_count = b.container_list.reduce((n, row) => n + row.qty, 0);
+            b.container_size = b.container_list.length === 1 ? b.container_list[0].size : null;
+        }
         b.container_count = hasField(b, 'container_count') ? bookingCount(b.container_count) : (existing ? (existing.container_count ?? 1) : 1);
         if (existing && b.container_count < existing.container_count) throw requestError(reductionMessage, 409);
-        const customer_id = await getCustomerId(client, b.customer_name);
+        const customer_id = await selectedCustomer(client, b);
         const query = `
             INSERT INTO bookings (
                 booking_no, mode, booking_date, run_date, job_name, customer_id, container_count, origin, destination,
@@ -173,26 +243,38 @@ router.post('/bookings/header', async (req, res) => {
             hasField(b, 'trip_fee'), hasField(b, 'trans_fee'), hasField(b, 'demurrage')
         ];
         const saved = await client.query(query, values);
-        await syncShipments(client, saved.rows[0]);
+        const header = await saveBookingDetails(client, b, saved.rows[0], existing);
+        await syncShipments(client, header, !existing || header.container_count > previousCount);
         await client.query('COMMIT');
         res.json({ success: true, message: `บันทึกหัวบุคกิ้งเลข ${b.booking_no} เรียบร้อย!` });
     } catch (error) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         res.status(error.status || 500).json({ success: false, message: error.message });
-    } finally { client.release(); }
+    } finally { if (client) client.release(); }
 });
 
 // 2. แก้ไขข้อมูลบุคกิ้ง
 router.put('/bookings/:id', async (req, res) => {
     const { id } = req.params;
     const b = req.body;
-    const client = await pool.connect();
+    let client;
     try {
+        client = await pool.connect();
         await client.query('BEGIN');
         const lookup = /^\d+$/.test(id) ? 'id = $1' : 'booking_no = $1';
         const currentResult = await client.query('SELECT * FROM bookings WHERE ' + lookup + ' FOR UPDATE', [id]);
         const current = currentResult.rows[0];
         if (!current) throw requestError('ไม่พบ Booking ที่ต้องการแก้ไข', 404);
+        const previousCount = current.container_count;
+        if (hasField(b, 'container_list')) {
+            const list = containerList(b.container_list);
+            const old = current.container_list || [{ qty: current.container_count, size: current.container_size || '' }];
+            if (JSON.stringify(list) !== JSON.stringify(old)) throw requestError('ยังไม่รองรับการเปลี่ยนชุดตู้ของ Booking เดิม', 409);
+        }
+        if (current.container_list && ((hasField(b, 'container_count') && Number(b.container_count) !== current.container_count) ||
+            (hasField(b, 'container_size') && cleanVal(b.container_size) !== cleanVal(current.container_size)))) {
+            throw requestError('กรุณาคงชุดตู้เดิมของ Booking ที่มีหลายขนาด', 409);
+        }
         const updates = [];
         const values = [];
         const setField = (field, value) => {
@@ -212,8 +294,8 @@ router.put('/bookings/:id', async (req, res) => {
             if (hasField(b, field) && cleanVal(b[field]) !== null) setField(field, cleanVal(b[field]));
         }
         if (hasField(b, 'demurrage')) setField('demurrage', cleanVal(b.demurrage));
-        if (hasField(b, 'customer_name')) {
-            const customerId = await getCustomerId(client, b.customer_name);
+        if (hasField(b, 'customer_id') || hasField(b, 'customer_name')) {
+            const customerId = await selectedCustomer(client, b);
             if (customerId !== null) setField('customer_id', customerId);
         }
         const agent = getAgentVal(b);
@@ -225,13 +307,14 @@ router.put('/bookings/:id', async (req, res) => {
                 ', updated_at = CURRENT_TIMESTAMP WHERE id = $' + values.length + ' RETURNING *', values);
             saved = result.rows[0];
         }
-        if (hasField(b, 'container_count')) await syncShipments(client, saved);
+        saved = await saveBookingDetails(client, b, saved, current);
+        if (hasField(b, 'container_count')) await syncShipments(client, saved, saved.container_count > previousCount);
         await client.query('COMMIT');
         res.json({ success: true, message: 'อัปเดตข้อมูลสำเร็จ' });
     } catch (err) {
-        await client.query('ROLLBACK');
+        if (client) await client.query('ROLLBACK');
         res.status(err.status || 500).json({ success: false, message: err.message });
-    } finally { client.release(); }
+    } finally { if (client) client.release(); }
 });
 
 // 3. ดึงรายการตู้ตามเดือน/ปี
@@ -243,7 +326,7 @@ router.get('/shipments', async (req, res) => {
             SELECT 
                 s.*,
                 b.id AS booking_id, b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
-                b.origin, b.destination, b.container_size, b.job_type, b.agent, b.job_name,
+                b.origin, b.destination, COALESCE(s.order_container_size, b.container_size) AS container_size, b.job_type, b.agent, b.job_name, b.job_owner, b.factory,
                 b.cy_date, b.vgm_cutoff, b.cutoff_time, b.demurrage, b.load_date, b.unload_date, b.return_date, b.open_gate,
                 f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense,
                 container1.container_no AS container_1_no, container1.seal_no AS seal_1_no,
@@ -289,7 +372,7 @@ router.post('/shipments', async (req, res) => {
                 const dd = String(dateObj.getDate()).padStart(2, '0');
                 const prefix = `ORD-${yy}${mm}${dd}-`;
 
-                const lastOrderRes = await client.query(`SELECT order_id FROM shipment_operations WHERE order_id LIKE $1 ORDER BY order_id DESC LIMIT 1`, [`${prefix}%`]);
+                const lastOrderRes = await client.query(`SELECT order_id FROM shipment_operations WHERE order_id LIKE $1 ORDER BY length(order_id) DESC, order_id DESC LIMIT 1`, [`${prefix}%`]);
                 let start_num = 1;
                 if (lastOrderRes.rows.length > 0) {
                     const parts = lastOrderRes.rows[0].order_id.split('-');
@@ -297,7 +380,7 @@ router.post('/shipments', async (req, res) => {
                 }
                 final_order_id = `${prefix}${String(start_num).padStart(3, '0')}`;
                 
-                await client.query(`INSERT INTO shipment_operations (order_id, booking_no) VALUES ($1, $2)`, [final_order_id, row.booking_no]);
+                await client.query(`INSERT INTO shipment_operations (order_id, booking_no, order_container_size) VALUES ($1, $2, $3)`, [final_order_id, row.booking_no, cleanVal(row.container_size)]);
                 await client.query(`
                     INSERT INTO financials (order_id, trip_fee, trans_fee, port_pass_fee, shore_fee, lift_fee, deposit_fee, advance_fee, other_expense) 
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)

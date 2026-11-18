@@ -84,12 +84,12 @@ function database(containerCount = 3) {
         if (sql.startsWith('UPDATE bookings SET')) {
             const booking = state.bookings.find(b => b.id === values[values.length - 1]);
             for (const match of sql.matchAll(/(\w+) = \$(\d+)/g)) {
-                if (match[1] !== 'id') booking[match[1]] = values[Number(match[2]) - 1];
+                if (match[1] !== 'id') booking[match[1]] = match[1] === 'container_list' ? JSON.parse(values[Number(match[2]) - 1]) : values[Number(match[2]) - 1];
             }
             return result([booking]);
         }
         if (sql.startsWith('INSERT INTO shipment_operations')) {
-            state.shipments.push({ order_id: values[0], booking_no: values[1] });
+            state.shipments.push({ order_id: values[0], booking_no: values[1], order_container_size: values[2] });
             return result([]);
         }
         if (sql.startsWith('INSERT INTO financials')) {
@@ -359,7 +359,7 @@ test('POST upsert preserves missing count and prices, and rejects invalid counts
     }
 });
 
-test('Booking form stops on master-rate save failure before saving Booking', async () => {
+test('Booking form reports save failure and never writes Master Rates', async () => {
     const html = read('public/booking.html');
     const scripts = Array.from(html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g), match => match[1]);
     const values = {
@@ -370,7 +370,8 @@ test('Booking form stops on master-rate save failure before saving Booking', asy
     const alerts = [];
     let calls = 0;
     const context = {
-        window: { addEventListener() {} },
+        window: { addEventListener() {}, location: { search: '' } },
+        phaseBookingPayload: value => value,
         document: { getElementById: id => ({ value: values[id] || '' }) },
         confirm: () => true, alert: message => alerts.push(message),
         fetch: async () => { calls++; return { ok: false, json: async () => ({ success: false }) }; },
@@ -380,12 +381,13 @@ test('Booking form stops on master-rate save failure before saving Booking', asy
     scripts.forEach(script => vm.runInContext(script, context));
     await context.submitBookingForm({});
     assert.equal(calls, 1);
-    assert.ok(alerts.some(message => message.includes('ยังไม่ได้บันทึก Booking')));
+    assert.ok(alerts.some(message => message.includes('เกิดข้อผิดพลาด')));
+    assert.ok(!html.includes("fetch('/api/rates/single'"));
     assert.ok(!alerts.some(message => message.startsWith('✅')));
 });
 
 test('changed JavaScript and HTML inline scripts parse without connecting to a database', () => {
-    const files = ['server.js', 'config/db.js', 'routes/bookings.js', 'routes/billing.js',
+    const files = ['server.js', 'config/db.js', 'routes/bookings.js', 'routes/billing.js', 'public/js/booking-phase1.js',
         'public/js/modules/billing/detail.js', 'public/js/modules/billing/iv-detail.js', 'public/js/modules/billing/iv.js',
         'public/js/modules/booking/list.js', 'public/js/modules/booking/manage.js',
         'public/js/modules/booking/bulk.js', 'public/js/modules/booking/form.js', 'public/js/modules/booking/grid.js', 'public/js/password.js'];
@@ -439,4 +441,131 @@ test('DEMURRAGE can be set, retained when omitted and cleared by PUT and POST', 
         assert.equal(response.code, 200);
         assert.equal(db.state().bookings[0].demurrage, time || null);
     }
+});
+
+test('mixed sizes create eight sized Orders and preserve their sizes when reopening and editing', async () => {
+    const db = database();
+    const routes = routesFor('routes/bookings.js', db);
+    const body = { booking_no: 'BK-MIX', mode: 'EXPORT', run_date: '2026-11-18', customer_id: 7,
+        container_list: [{ qty: 5, size: '40HC' }, { qty: 3, size: '20' }], job_owner: 'Owner', factory: 'Factory', trip_fee: 0 };
+    const response = await request(routes['post /bookings/header'], body);
+    assert.equal(response.code, 200, response.data.message);
+    const orders = db.state().shipments.filter(s => s.booking_no === 'BK-MIX');
+    assert.equal(orders.length, 8);
+    assert.deepEqual(orders.map(s => s.order_container_size), [...Array(5).fill('40HC'), ...Array(3).fill('20')]);
+    assert.equal(new Set(orders.map(s => s.order_id)).size, 8);
+    assert.ok(orders.every(s => /^ORD-261118-\d{3}$/.test(s.order_id)));
+    assert.ok(db.queries.indexOf('SELECT pg_advisory_xact_lock(718204)') < db.queries.findIndex(s => s.includes('WHERE order_id LIKE')));
+    const before = db.state().shipments;
+    assert.equal((await request(routes['put /bookings/:id'], { job_owner: 'Changed', factory: 'B' }, { id: '2' })).code, 200);
+    assert.deepEqual(db.state().shipments, before);
+    assert.equal(db.state().bookings[1].container_list.length, 2);
+    assert.equal(db.state().bookings[1].job_owner, 'Changed');
+    await request(routes['get /shipments'], {}, {}, { year: '2026', month: '11' });
+    assert.deepEqual(db.state().shipments, before);
+});
+
+test('failure at fifth Order rolls back mixed Booking, Orders and finance and releases client', async () => {
+    const db = database(); const before = db.state(); let released = 0; let inserted = 0;
+    db.connect = async () => ({ release() { released++; }, query: async (sql, values) => {
+        if (sql.includes('INSERT INTO shipment_operations') && ++inserted === 5) throw new Error('Simulated insert failure');
+        return db.query(sql, values);
+    } });
+    const result = await request(routesFor('routes/bookings.js', db)['post /bookings/header'], {
+        booking_no: 'BK-FAIL-MIX', mode: 'EXPORT', run_date: '2026-11-18',
+        container_list: [{ qty: 5, size: '40HC' }, { qty: 3, size: '20' }]
+    });
+    assert.equal(result.code, 500); assert.deepEqual(db.state(), before); assert.equal(released, 1);
+});
+
+test('invalid dynamic rows roll back without creating orders', async () => {
+    for (const list of [null, [], [{ qty: 0, size: '20' }], [{ qty: 1.5, size: '20' }], [{ qty: 1, size: '' }], [{ qty: 1001, size: '20' }]]) {
+        const db = database(); const before = db.state();
+        const response = await request(routesFor('routes/bookings.js', db)['post /bookings/header'], {
+            booking_no: 'BK-BAD', mode: 'EXPORT', run_date: '2026-11-18', container_list: list
+        });
+        assert.equal(response.code, 400); assert.deepEqual(db.state(), before);
+    }
+});
+
+test('missing old Orders are not silently recreated on an unchanged header', async () => {
+    const db = database(8); const before = db.state().shipments;
+    const routes = routesFor('routes/bookings.js', db);
+    await request(routes['put /bookings/:id'], { container_count: 8 });
+    await request(routes['post /bookings/header'], { booking_no: 'BK-OLD', mode: 'EXPORT', run_date: '2026-10-31' });
+    assert.deepEqual(db.state().shipments, before);
+});
+
+test('Quick Add validates duplicates, returns ID, rolls back failures and releases its client', async () => {
+    for (const scenario of ['ok', 'duplicate', 'failure']) {
+        const queries = []; let released = 0;
+        const pool = { connect: async () => ({ release() { released++; }, query: async (sql, values) => {
+            queries.push(sql);
+            if (sql.startsWith('SELECT id')) return { rows: scenario === 'duplicate' ? [{ id: 1 }] : [] };
+            if (sql.startsWith('INSERT')) {
+                if (scenario === 'failure') throw new Error('mock write failure');
+                assert.deepEqual(Array.from(values), ['ABC', 'Company', 'Billing', '123', 'Address']);
+                return { rows: [{ id: 42, short_name: 'ABC', customer_name: 'Company' }] };
+            }
+            return { rows: [] };
+        } }) };
+        const response = await request(routesFor('routes/bookings.js', pool)['post /customers/quick'], {
+            short_name: 'ABC', customer_name: 'Company', billing_name: 'Billing', tax_id: '123', address: 'Address'
+        });
+        assert.equal(released, 1);
+        assert.ok(queries.includes('LOCK TABLE customers IN SHARE ROW EXCLUSIVE MODE'));
+        if (scenario === 'ok') { assert.equal(response.data.customer_id, 42); assert.ok(queries.includes('COMMIT')); }
+        else { assert.equal(response.code, scenario === 'duplicate' ? 409 : 500); assert.ok(queries.includes('ROLLBACK')); }
+    }
+});
+
+test('Booking connection acquisition failure is returned as failure', async () => {
+    const pool = { connect: async () => { throw new Error('Connection unavailable'); } };
+    const routes = routesFor('routes/bookings.js', pool);
+    for (const key of ['post /bookings/header', 'put /bookings/:id']) {
+        const result = await request(routes[key], { mode: 'EXPORT', run_date: '2026-11-18' });
+        assert.equal(result.code, 500); assert.equal(result.data.success, false);
+    }
+});
+
+test('phase 1 form defaults, legacy loading and payload preserve hidden DEMU and omit old counts', async () => {
+    const elements = {};
+    const listeners = [];
+    function element() { return { value: '', dataset: {}, children: [], disabled: false,
+        classList: { add() {}, remove() {} }, addEventListener() {}, setAttribute() {},
+        replaceChildren() { this.children = []; }, append(...children) { this.children.push(...children); },
+        querySelector(selector) { return this.children.find(c => c.className?.includes(selector.slice(1))); }
+    }; }
+    const context = { URLSearchParams, location: { search: '' }, console, alert: message => { throw new Error(message); },
+        window: { addEventListener: (_, listener) => listeners.push(listener) },
+        document: { getElementById: id => elements[id] ||= element(), createElement: element, createTextNode: value => ({ value }) },
+        toggleModeUI() {}, submitBookingForm() {}, loadBookingForEdit: async () => {},
+        fetch: async () => ({ ok: true, json: async () => ({ success: true, data: [[7, null, 'Company', 'ABC']] }) })
+    };
+    vm.createContext(context); vm.runInContext(read('public/js/booking-phase1.js'), context);
+    await listeners[0]();
+    assert.equal(elements.pMode.value, 'EXPORT'); assert.equal(elements.pJobType.value, 'CONTAINER');
+    assert.equal(elements.containerRows.children[0].querySelector('.container-size').value, '40HC');
+    const legacy = { id: 9, booking_no: 'OLD', mode: 'IMPORT', container_count: 2, container_size: '20', customer_id: 7, trip_fee: 0, demurrage: '2026-11-18 10:00' };
+    context.fetch = async () => ({ ok: true, json: async () => ({ success: true, data: [legacy] }) });
+    await context.loadBookingForEdit('OLD');
+    assert.equal(elements.editingOrderId.value, 9); assert.equal(elements.pTripFee.value, 0);
+    assert.equal(elements.pCustomerId.value, 7);
+    assert.equal(elements.containerRows.children[0].querySelector('.container-size').value, '20');
+    assert.equal(elements.containerRows.children[0].children[0].disabled, true);
+    const payload = context.phaseBookingPayload({ mode: 'EXPORT', container_count: 99, container_size: '40HC', demurrage: '' });
+    assert.equal(payload.customer_id, 7); assert.equal(payload.booking_no, 'OLD');
+    assert.equal(Object.hasOwn(payload, 'demurrage'), false);
+    assert.equal(Object.hasOwn(payload, 'container_count'), false);
+    assert.equal(Object.hasOwn(payload, 'container_size'), false);
+});
+
+test('dispatch, billing and cover queries select the per-Order size with a legacy fallback', async () => {
+    const queries = [];
+    const pool = { query: async sql => { queries.push(sql); return { rows: [] }; } };
+    await request(routesFor('routes/bookings.js', pool)['get /shipments'], {}, {}, { month: 11, year: 2026 });
+    assert.match(queries[0], /COALESCE\(s.order_container_size, b.container_size\) AS container_size/);
+    const billing = read('routes/billing.js');
+    assert.equal((billing.match(/COALESCE\(s.order_container_size, b.container_size\) AS container_size/g) || []).length, 4);
+    assert.match(read('public/print-invoice.html'), /row.container_size/);
 });

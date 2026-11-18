@@ -67,6 +67,7 @@
                 </div>
                 
                 <input type="hidden" id="editingOrderId" value="">
+                <input type="hidden" id="pCustomerId" value="">
 
                 <!-- STEP 1: ข้อมูลตั้งต้น -->
                 <div class="bg-blue-50/50 p-5 rounded-xl border border-blue-100 mb-5">
@@ -84,7 +85,7 @@
                             <label class="block text-sm font-semibold text-slate-700 mb-1">📅 วันที่วิ่งงาน</label>
                             <input type="date" id="runDate" class="w-40 px-3 py-2 border border-slate-300 rounded-lg text-sm shadow-sm">
                         </div>
-                        <div id="box-row-count">
+                        <div id="box-row-count" hidden>
                             <label class="block text-sm font-bold text-primary mb-1">จำนวนตู้</label>
                             <input type="number" id="rowCount" value="1" min="1" class="w-24 px-3 py-2 border border-blue-400 rounded-lg text-sm font-bold text-center bg-blue-50 text-primary">
                         </div>
@@ -92,12 +93,17 @@
                         <!-- ช่อง ขนาดตู้ -->
                         <div class="flex flex-col gap-1.5">
                             <label class="text-xs font-bold text-slate-700">ขนาดตู้ <span class="text-red-500">*</span></label>
-                            <input type="text" id="containerSize" list="dl-container-sizes" onchange="checkNewContainerSize(this)" placeholder="เลือกหรือพิมพ์ขนาดตู้..." class="w-40 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:bg-white focus:border-primary outline-none transition-colors shadow-sm uppercase">
+                            <input type="hidden" id="containerSize">
+                            <div id="containerRows"></div>
+                            <button type="button" id="addContainerRow" onclick="addContainerRow()" class="text-primary font-bold">+ เพิ่มขนาดตู้</button>
+                            <small>Booking เดิม: คงชุดตู้ไว้เพื่อไม่เปลี่ยน Order ที่จัดรถแล้ว</small>
                             <datalist id="dl-container-sizes"></datalist>
                         </div>
 
                         <div class="flex-1 min-w-[250px]">
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">🔍 ค้นหาชื่องาน (ดึงราคา/ต้นทาง/ปลายทางอัตโนมัติ)</label>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">เจ้าของงาน (พิมพ์อิสระ)</label>
+                            <input id="jobOwner" class="w-full px-3 py-2 border rounded-lg mb-3" placeholder="เจ้าของงาน">
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">เลือกเรทเดิม (ถ้ามี)</label>
                             <input type="text" id="jobNameInput" list="jobList" oninput="previewJobData()" onchange="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูล..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white shadow-sm">
                             <datalist id="jobList"></datalist>
                         </div>
@@ -113,8 +119,8 @@
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                 <div><label class="block text-slate-600 mb-1">BOOKING NO.</label><input type="text" id="pBookingExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
                                 <div><label class="block text-slate-600 mb-1">AGENT</label><input type="text" id="pAgentExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
-                                <div><label class="block text-slate-600 mb-1 font-semibold text-amber-800">DEPOT (ต้นทาง)</label><input type="text" id="pDepotExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-amber-50/50"></div>
-                                <div><label class="block text-slate-600 mb-1 font-semibold text-amber-800">RETURN PORT (ปลายทาง)</label><input type="text" id="pReturnExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-amber-50/50"></div>
+                                <div hidden><label class="block text-slate-600 mb-1 font-semibold text-amber-800">DEPOT (ต้นทาง)</label><input type="text" id="pDepotExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-amber-50/50"></div>
+                                <div hidden><label class="block text-slate-600 mb-1 font-semibold text-amber-800">RETURN PORT (ปลายทาง)</label><input type="text" id="pReturnExp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-amber-50/50"></div>
                                 
                                 <div class="col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                                     <div class="bg-amber-50/40 p-3 rounded-lg border border-amber-100">
@@ -123,7 +129,7 @@
                                             <div><label class="block text-slate-600 mb-1 text-xs">CY DATE & TIME</label><input type="datetime-local" id="pCyExp" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></div>
                                             <div><label class="block text-red-600 font-bold mb-1 text-xs">VGM CUTOFF</label><input type="datetime-local" id="pVgmExp" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
                                             <div><label class="block text-red-600 font-bold mb-1 text-xs">CUTOFF TIME</label><input type="datetime-local" id="pCutoffExp" onchange="syncCutoff()" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
-                                            <div><label class="block text-red-600 font-bold mb-1 text-xs" for="pDemExp">DEMURRAGE (Time)</label><input type="datetime-local" id="pDemExp" class="w-full px-2 py-1 border border-red-300 rounded text-xs"></div>
+                                            <div hidden><label for="pDemExp">DEMURRAGE (Time)</label><input type="datetime-local" id="pDemExp"></div>
                                         </div>
                                     </div>
                                     <div class="bg-amber-50/40 p-3 rounded-lg border border-amber-100">
@@ -147,8 +153,8 @@
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                 <div><label class="block text-slate-600 mb-1">BL NO.</label><input type="text" id="pBookingImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
                                 <div><label class="block text-slate-600 mb-1">AGENT</label><input type="text" id="pAgentImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg"></div>
-                                <div><label class="block text-slate-600 mb-1 font-semibold text-blue-800">PORT รับตู้ (ต้นทาง)</label><input type="text" id="pPortImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-blue-50/50"></div>
-                                <div><label class="block text-slate-600 mb-1 font-semibold text-blue-800">DEPOT คืนตู้ (ปลายทาง)</label><input type="text" id="pDepotImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-blue-50/50"></div>
+                                <div hidden><label class="block text-slate-600 mb-1 font-semibold text-blue-800">PORT รับตู้ (ต้นทาง)</label><input type="text" id="pPortImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-blue-50/50"></div>
+                                <div hidden><label class="block text-slate-600 mb-1 font-semibold text-blue-800">DEPOT คืนตู้ (ปลายทาง)</label><input type="text" id="pDepotImp" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-blue-50/50"></div>
                                 
                                 <div class="col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                                     <div class="bg-blue-50/40 p-3 rounded-lg border border-blue-100">
@@ -184,9 +190,11 @@
 
                         <!-- โซนราคา และประเภทรถ -->
                         <div class="grid grid-cols-2 md:grid-cols-7 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-200 mt-4">
-                            <div><label class="block text-slate-600 mb-1">ลูกค้า (ระบบดึงให้)</label><input type="text" id="pCustomer" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-bold" readonly></div>
+                        <div><label for="pCustomer" class="block text-slate-600 mb-1">ค้นลูกค้าด้วยตัวย่อ</label><input type="text" id="pCustomer" list="bookingCustomerList" autocomplete="off" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white font-bold"><datalist id="bookingCustomerList"></datalist></div>
                             <div><label class="block text-slate-600 mb-1">ต้นทาง (Origin)</label><input type="text" id="pOrigin" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
+                            <div><label class="block text-slate-600 mb-1">โรงงานเข้าบรรจุ</label><input id="pFactory" class="w-full px-3 py-1.5 border rounded-lg"></div>
                             <div><label class="block text-slate-600 mb-1">ปลายทาง (Dest)</label><input type="text" id="pDest" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white"></div>
+                            <button type="button" onclick="openQuickCustomer()" class="text-primary font-bold">+ เพิ่มลูกค้า</button>
                             
                             <div>
                                 <label class="block text-slate-600 mb-1">ประเภทงาน</label>
@@ -206,8 +214,8 @@
                                     <option value="เงินสด">เงินสด</option>
                                 </select>
                             </div>
-                            <div><label class="block text-slate-600 mb-1">ค่าเที่ยว (คนขับ)</label><input type="text" id="pTripFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-green-700 bg-green-50"></div>
-                            <div><label class="block text-slate-600 mb-1">ค่าขนส่ง (ลูกค้า)</label><input type="text" id="pTransFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-blue-700 bg-blue-50"></div>
+                            <div><label class="block text-slate-600 mb-1">ค่าเที่ยวตั้งต้น / ตู้</label><input type="text" id="pTripFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-green-700 bg-green-50"></div>
+                            <div><label class="block text-slate-600 mb-1">ค่าขนส่งตั้งต้น / ตู้</label><input type="text" id="pTransFee" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-bold text-blue-700 bg-blue-50"></div>
                         </div>
                     </div>
 
@@ -234,6 +242,7 @@
         window.addEventListener('DOMContentLoaded', async () => {
             // โหลดข้อมูลขนาดตู้และเรทราคา
             loadContainerSizes(); 
+            // Customer IDs and short names are loaded by booking-phase1.js.
             try {
                 const res = await fetch('/api/rates');
                 const d = await res.json();
@@ -312,13 +321,12 @@
             }
         }
 
-        async function loadBookingForEdit(bookingNo) {
+        async function loadBookingForEdit(bookingNo, suppliedItem) {
             try {
-                const res = await fetch(`/api/bookings/search?search=${encodeURIComponent(bookingNo)}`);
-                const result = await res.json();
+                const result = { success: true, data: [suppliedItem] };
                 
                 if (result.success && result.data && result.data.length > 0) {
-                    const item = result.data.find(i => i.booking_no === bookingNo) || result.data[0];
+                    const item = suppliedItem;
                     
                     document.getElementById('form-title').innerText = `แก้ไขรายการรับงาน (Booking: ${bookingNo})`;
                     document.getElementById('editing-badge').classList.remove('hidden');
@@ -375,7 +383,7 @@
                         }
                     }
                 }
-            } catch (err) {}
+            } catch (err) { throw err; }
         }
 
         function cancelEdit() { window.location.href = '/booking-list.html'; }
@@ -444,7 +452,7 @@
         async function submitBookingForm(btn) {
             const mode = document.getElementById('pMode').value;
             const runDate = document.getElementById('runDate').value;
-            const customer = document.getElementById('pCustomer').value;
+            const customer = document.getElementById('pCustomer').value.trim();
             const containerCount = document.getElementById('rowCount').value || 1;
             const containerSizeVal = document.getElementById('containerSize') ? document.getElementById('containerSize').value.toUpperCase() : '';
             
@@ -475,47 +483,6 @@
             const tripFeeVal = document.getElementById('pTripFee') ? formatNum(document.getElementById('pTripFee').value) : 0;
             const transFeeVal = document.getElementById('pTransFee') ? formatNum(document.getElementById('pTransFee').value) : 0;
 
-            let masterRateSaved = false;
-            if (jobName) {
-                let isNewRate = !rateDataMap[jobName];
-                let priceChanged = false;
-                
-                if (!isNewRate && priceTypeVal) {
-                    const rate = rateDataMap[jobName];
-                    if (priceTypeVal === '6W' && (Number(rate.trp6||0) !== tripFeeVal || Number(rate.trn6||0) !== transFeeVal)) priceChanged = true;
-                    else if (priceTypeVal === '10W' && (Number(rate.trp10||0) !== tripFeeVal || Number(rate.trn10||0) !== transFeeVal)) priceChanged = true;
-                    else if (priceTypeVal === '12W*2' && (Number(rate.trp12||0) !== tripFeeVal || Number(rate.trn12||0) !== transFeeVal)) priceChanged = true;
-                    else if (priceTypeVal === 'เงินสด' && (Number(rate.trpCash||0) !== tripFeeVal || Number(rate.trnCash||0) !== transFeeVal)) priceChanged = true;
-                }
-
-                if (isNewRate || priceChanged) {
-                    const msg = isNewRate 
-                        ? `🚨 ระบบตรวจพบชื่องานใหม่: "${jobName}" ต้องการบันทึกข้อมูลและราคาชุดนี้ลงใน Master Rates ด้วยหรือไม่?`
-                        : `🔄 คุณมีการแก้ไขราคาของงาน "${jobName}" ต้องการอัปเดตราคาใหม่ลงตาราง Master Rates ด้วยหรือไม่?`;
-                        
-                    if (confirm(msg)) {
-                        const singleRateData = {
-                            job_name: jobName, customer_name: customer,
-                            origin: document.getElementById('pOrigin').value, destination: document.getElementById('pDest').value,
-                            job_type: jobTypeVal,
-                            trip_fee_6w: priceTypeVal === '6W' ? tripFeeVal : null,
-                            trip_fee_10w: priceTypeVal === '10W' ? tripFeeVal : null,
-                            trip_fee_12w: priceTypeVal === '12W*2' ? tripFeeVal : null,
-                            trip_fee_cash: priceTypeVal === 'เงินสด' ? tripFeeVal : null,
-                            trans_fee_6w: priceTypeVal === '6W' ? transFeeVal : null,
-                            trans_fee_10w: priceTypeVal === '10W' ? transFeeVal : null,
-                            trans_fee_12w: priceTypeVal === '12W*2' ? transFeeVal : null,
-                            trans_fee_cash: priceTypeVal === 'เงินสด' ? transFeeVal : null,
-                        };
-                        try {
-                            const rateResponse = await fetch('/api/rates/single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(singleRateData) });
-                            const rateResult = await rateResponse.json();
-                            if (!rateResponse.ok || !rateResult.success) throw new Error('บันทึก Master Rates ไม่สำเร็จ ยังไม่ได้บันทึก Booking');
-                            masterRateSaved = true;
-                        } catch(e) { alert('❌ ' + e.message); return; }
-                    }
-                }
-            }
 
             let b_no = "";
             if (mode === 'EXPORT') b_no = document.getElementById('pBookingExp').value;
@@ -536,6 +503,7 @@
                 rent_cutoff: rentCutoff, demurrage: demurrage, unload_date: unloadDate, return_date: returnDate
             };
 
+            phaseBookingPayload(dataToSave);
             const orgText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึก...';
             btn.disabled = true;
@@ -561,12 +529,24 @@
                         window.location.reload(); 
                     }
                 } else {
-                    alert((masterRateSaved ? '⚠️ บันทึก Master Rates แล้ว แต่ Booking ไม่สำเร็จ: ' : '❌ เกิดข้อผิดพลาด: ') + result.message);
+                    alert('❌ เกิดข้อผิดพลาด: ' + result.message);
                 }
-            } catch (err) { alert(masterRateSaved ? '⚠️ บันทึก Master Rates แล้ว แต่ยังยืนยันผลการบันทึก Booking ไม่ได้ กรุณาตรวจสอบก่อนลองใหม่' : '❌ ยังยืนยันผลการบันทึก Booking ไม่ได้ กรุณาตรวจสอบก่อนลองใหม่'); }
+            } catch (err) { alert('❌ ยังยืนยันผลการบันทึก Booking ไม่ได้ กรุณาตรวจสอบก่อนลองใหม่'); }
             finally { btn.innerHTML = orgText; btn.disabled = false; }
         }
     </script>
+    <dialog id="quickCustomer" class="rounded-xl p-6 shadow-xl w-full max-w-lg">
+        <h2 class="font-bold text-xl mb-4">เพิ่มลูกค้า</h2>
+        <p class="text-sm mb-3">ลูกค้าที่เพิ่มจะเก็บในทะเบียนลูกค้าทันที แม้ยังไม่ได้บันทึก Booking</p>
+        <label class="block">ตัวย่อ *<input id="quick_short_name" class="block w-full border rounded p-2 mb-2"></label>
+        <label class="block">ชื่อเต็ม *<input id="quick_customer_name" class="block w-full border rounded p-2 mb-2"></label>
+        <label class="block">ชื่อสำหรับออกบิล<input id="quick_billing_name" class="block w-full border rounded p-2 mb-2"></label>
+        <label class="block">เลขภาษี<input id="quick_tax_id" class="block w-full border rounded p-2 mb-2"></label>
+        <label class="block">ที่อยู่<textarea id="quick_address" class="block w-full border rounded p-2 mb-4"></textarea></label>
+        <button type="button" onclick="saveQuickCustomer(this)" class="bg-primary text-white rounded px-4 py-2">บันทึกและเลือกลูกค้า</button>
+        <button type="button" onclick="document.getElementById('quickCustomer').close()" class="px-4 py-2">ยกเลิก</button>
+    </dialog>
+    <script src="/js/booking-phase1.js"></script>
     <!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
     <script src="/js/auth.js"></script>
     

@@ -22,7 +22,7 @@ router.get('/shipments', async (req, res) => {
             SELECT 
                 b.id AS booking_id, b.booking_no, b.run_date, b.mode, b.job_type, b.job_name, b.price_type, b.agent,
                 c.id AS customer_id, COALESCE(c.short_name, '-') AS customer_name, COALESCE(c.customer_name, '-') AS full_customer_name,
-                c.address, c.tax_id, b.origin, b.destination, b.container_size, 
+                c.address, c.tax_id, b.origin, b.destination, COALESCE(s.order_container_size, b.container_size) AS container_size,
                 COALESCE(b.container_count, 1) AS container_count,
                 COALESCE(b.container_count, 1) AS booking_container_count,
                 COALESCE(b.trip_fee, 0) AS booking_trip_fee,
@@ -154,7 +154,7 @@ router.get('/unbilled-containers', async (req, res) => {
     try {
         let query = `
             SELECT 
-                s.order_id, b.booking_no, b.customer_id, s.container_1_no, s.container_2_no, b.container_size,
+                s.order_id, b.booking_no, b.customer_id, s.container_1_no, s.container_2_no, COALESCE(s.order_container_size, b.container_size) AS container_size,
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS leg1_plate, 
                 b.run_date, b.origin, b.destination, c.short_name AS customer_name,
                 COALESCE(f.trip_fee, b.trip_fee, 0) AS trip_fee, 
@@ -293,7 +293,7 @@ router.get('/iv-detail', async (req, res) => {
             SELECT 
                 s.order_id, b.booking_no, b.run_date, b.origin, b.destination,
                 b.job_name, b.mode, b.price_type,
-                s.container_1_no, s.container_2_no, b.container_size,
+                s.container_1_no, s.container_2_no, COALESCE(s.order_container_size, b.container_size) AS container_size,
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS leg1_plate,
                 s.leg1_driver,
                 c.id AS customer_id, COALESCE(c.short_name, '-') AS customer_name,
@@ -373,7 +373,7 @@ router.get('/print-data', async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 s.order_id, b.booking_no, b.mode, b.price_type,
-                s.container_1_no, s.container_2_no, b.container_size, 
+                s.container_1_no, s.container_2_no, COALESCE(s.order_container_size, b.container_size) AS container_size,
                 COALESCE(s.leg1_plate, s.leg2_plate, s.leg3_plate, '-') AS plate,
                 s.leg1_plate, s.leg2_plate, s.leg3_plate, s.leg1_driver,
                 b.run_date, b.origin, b.destination, b.job_name, 

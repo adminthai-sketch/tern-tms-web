@@ -12,7 +12,6 @@
         tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
     </script>
 
-    <!-- Handsontable & Datepicker -->
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/pikaday.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/css/pikaday.css" rel="stylesheet">
@@ -29,6 +28,9 @@
         .btn-dispatch { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
         .btn-dispatch:hover { background: #bfdbfe; }
         .cell-time-hover:hover { background-color: #f0f9ff; }
+        
+        /* สไตล์สำหรับแถวลูก (ตู้ย่อย) */
+        .child-row { background-color: #f8fafc !important; color: #475569 !important; border-top: 1px dashed #cbd5e1 !important; }
     </style>
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col relative">
@@ -38,14 +40,10 @@
             <span class="font-bold text-lg text-primary tracking-wide hidden sm:flex items-center gap-2">
                 <i class="fa-solid fa-truck-fast"></i> TERN TMS
             </span>
-            
             <div class="h-5 w-px bg-slate-300 mx-1 hidden sm:block"></div>
-            
-            <!-- 🌟 ปุ่มหน้าแรก (Home Button) -->
             <a href="/index.html" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs transition-colors flex items-center gap-1.5 shadow-sm">
                 <i class="fa-solid fa-house text-blue-900"></i> หน้าแรก
             </a>
-            
             <div class="flex gap-1 ml-0 sm:ml-2 sm:border-l sm:border-slate-200 sm:pl-3">
                 <a href="/booking.html" class="text-slate-500 hover:text-primary hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors">
                     <i class="fa-solid fa-pen-to-square mr-1"></i> 1. สร้างรับงาน
@@ -66,7 +64,6 @@
 
     <main class="flex-1 p-3 overflow-hidden flex flex-col gap-2 relative">
         <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2 shrink-0 z-10">
-            <!-- แถวบน: ตัวกรองหลักแบบ Cross-Filtering -->
             <div class="flex flex-wrap justify-between items-center gap-2">
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded border border-blue-200 h-8">
@@ -86,7 +83,6 @@
 
                     <div class="w-px h-5 bg-slate-200 hidden md:block mx-1"></div>
                     
-                    <!-- Global Fuzzy Search -->
                     <div class="relative">
                         <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
                         <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="global-search" oninput="applyFilters()" placeholder="ค้นหาครอบจักรวาล..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-white h-8 w-48 focus:border-primary shadow-sm">
@@ -97,8 +93,8 @@
 
                 <div class="flex items-center gap-2">
                     <a href="/booking.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded shadow-sm text-xs transition-all flex items-center gap-1.5 border border-transparent">
-    <i class="fa-solid fa-plus"></i> เพิ่ม Booking
-</a>
+                        <i class="fa-solid fa-plus"></i> เพิ่ม Booking
+                    </a>
                     <button onclick="saveGridSettings()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-amber-300 h-8 shadow-sm">
                         <i class="fa-solid fa-table-columns"></i> จำมุมมองตาราง
                     </button>
@@ -111,13 +107,38 @@
                 </div>
             </div>
             
-            <!-- แถวล่าง: Quick Filters -->
-            <div class="flex items-center gap-2 text-xs border-t border-slate-100 pt-2">
-                <span class="font-bold text-slate-500"><i class="fa-solid fa-bolt text-amber-500"></i> ตัวกรองด่วน:</span>
-                <button id="qf-today" onclick="setQuickFilter('today')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">งานวันนี้</button>
-                <button id="qf-tomorrow" onclick="setQuickFilter('tomorrow')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">งานพรุ่งนี้</button>
-                
-                <span id="save-status-badge" class="ml-auto font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1"><i class="fa-solid fa-check text-emerald-500"></i> บันทึกแล้ว</span>
+            <div class="flex items-center justify-between text-xs border-t border-slate-100 pt-2.5 mt-2">
+                <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200" id="quick-filter-tabs">
+                    <button id="qf-all" onclick="setQuickFilter('all')" class="qf-btn px-4 py-1.5 rounded-md font-bold transition-colors bg-white text-primary shadow-sm ring-1 ring-slate-200/50">
+                        ทั้งหมด <span id="count-all" class="ml-1 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px]">0</span>
+                    </button>
+                    <button id="qf-today" onclick="setQuickFilter('today')" class="qf-btn px-4 py-1.5 rounded-md font-bold text-slate-500 hover:text-slate-700 transition-colors">
+                        งานวันนี้ <span id="count-today" class="ml-1 bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[10px]">0</span>
+                    </button>
+                    <button id="qf-tomorrow" onclick="setQuickFilter('tomorrow')" class="qf-btn px-4 py-1.5 rounded-md font-bold text-slate-500 hover:text-slate-700 transition-colors">
+                        งานพรุ่งนี้ <span id="count-tomorrow" class="ml-1 bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[10px]">0</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <div class="relative group">
+                        <button class="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-bold py-1.5 px-3 rounded text-xs flex items-center gap-1.5 shadow-sm transition-colors">
+                            <i class="fa-solid fa-table-columns text-primary"></i> เลือกคอลัมน์ <i class="fa-solid fa-chevron-down text-[10px] ml-0.5 text-slate-400"></i>
+                        </button>
+                        <div class="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2">
+                            <div class="text-[10px] font-bold text-slate-400 mb-1 px-2 uppercase">เปิด/ปิด คอลัมน์</div>
+                            <div class="max-h-48 overflow-y-auto flex flex-col gap-0.5" id="column-toggle-list"></div>
+                            <div class="border-t border-slate-100 mt-1 pt-1.5 px-1">
+                                <button onclick="resetColumns()" class="w-full text-center text-xs font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 py-1.5 rounded transition-colors">
+                                    <i class="fa-solid fa-rotate-left mr-1"></i> คืนค่าเริ่มต้น
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <span id="save-status-badge" class="font-bold text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-md border border-slate-200 flex items-center gap-1.5 shadow-inner">
+                        <i class="fa-solid fa-check text-emerald-500"></i> บันทึกแล้ว
+                    </span>
+                </div>
             </div>
         </div>
 
@@ -129,7 +150,6 @@
             <div id="booking-grid-container" class="absolute inset-0 z-0"></div>
         </div>
         
-        <!-- แถบสรุปยอดด้านล่างสุด (Summary Footer) -->
         <div class="bg-slate-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center justify-between shrink-0 text-xs font-bold">
             <div><i class="fa-solid fa-chart-pie mr-1 text-emerald-400"></i> สรุปข้อมูลที่กำลังแสดงผลบนตาราง:</div>
             <div class="flex gap-6">
@@ -141,7 +161,7 @@
         </div>
     </main>
 
-    <!-- 🪟 Pop-up Modal สำหรับแก้เวลาด่วนในตาราง -->
+    <!-- Modal เวลา -->
     <div id="datetime-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden items-center justify-center opacity-0 transition-opacity duration-200">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-95 transition-transform duration-200" id="datetime-modal-content">
             <div class="bg-blue-50 px-5 py-3 border-b border-blue-100 flex justify-between items-center">
@@ -156,12 +176,14 @@
         </div>
     </div>
 
+    <!-- 🌟 Spinner โหลดข้อมูลตู้ลูก 🌟 -->
+    <div id="child-loading-toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transform translate-y-20 opacity-0 transition-all z-50">
+        <i class="fa-solid fa-spinner fa-spin text-blue-400 text-lg"></i>
+        <span class="text-sm font-semibold">กำลังดึงข้อมูลตู้ลูก...</span>
+    </div>
+
     <script src="js/modules/booking/list.js"></script>
-    
-    <!-- 1. ใส่สคริปต์ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
     <script src="/js/auth.js"></script>
-    
-    <!-- 2. ใส่สคริปต์เปลี่ยนรหัสผ่าน (เพิ่มกุญแจมุมขวาบน) -->
     <script src="/js/password.js"></script>
 </body>
 </html>

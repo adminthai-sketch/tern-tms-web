@@ -556,4 +556,36 @@ router.post('/container-sizes', async (req, res) => {
     } catch(err) { res.status(500).json({ success: false }); }
 });
 
+// อัปเดตข้อมูลลูกค้าเดิม (กรณีข้อมูลเลขภาษีหรือที่อยู่ยังไม่ครบ)
+router.put('/customers/:id', async (req, res) => {
+    const { id } = req.params;
+    let client;
+    try {
+        const customer_name = cleanVal(req.body.customer_name);
+        const billing_name = cleanVal(req.body.billing_name);
+        const tax_id = cleanVal(req.body.tax_id);
+        const address = cleanVal(req.body.address);
+
+        if (!customer_name) throw requestError('กรุณากรอกชื่อบริษัทเต็ม');
+
+        client = await pool.connect();
+        const result = await client.query(`
+            UPDATE customers 
+            SET customer_name = $1, 
+                billing_name = COALESCE($2, billing_name), 
+                tax_id = $3, 
+                address = $4
+            WHERE id = $5 
+            RETURNING id, short_name, customer_name, billing_name, tax_id, address
+        `, [customer_name, billing_name, tax_id, address, id]);
+
+        if (!result.rows.length) throw requestError('ไม่พบข้อมูลลูกค้าในระบบ', 404);
+        res.json({ success: true, customer_id: result.rows[0].id, data: result.rows[0] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, message: error.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 module.exports = router;

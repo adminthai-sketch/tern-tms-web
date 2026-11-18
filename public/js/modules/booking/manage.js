@@ -184,8 +184,19 @@ function formatDateOnly(dt) {
     return dateStr;
 }
 
+let loadedDispatchMonth = '';
+window.changeDispatchMonth = function(input) {
+    if (editedRowIndices.size) {
+        input.value = loadedDispatchMonth;
+        alert('กรุณาบันทึกตารางก่อนเปลี่ยนเดือน');
+        return;
+    }
+    loadContainerGridData();
+};
+
 async function loadContainerGridData() {
     const monthVal = document.getElementById('filter-month').value;
+    loadedDispatchMonth = monthVal;
     if (!monthVal) return;
     const [year, month] = monthVal.split('-');
     
@@ -198,9 +209,9 @@ async function loadContainerGridData() {
         if (result.success && result.data) {
             rawShipmentList = result.data.map(item => {
                 item._disp_run_date = formatDateOnly(item.run_date);
-                item._disp_cy_date = formatShortDate(item.cy_date); 
-                item._disp_load_date = formatShortDate(item.mode === 'IMPORT' ? item.unload_date : item.load_date);
-                item._disp_return_date = formatShortDate(item.mode === 'IMPORT' ? item.return_date : item.open_gate);
+                item._disp_cy_date = formatShortDate(item.leg1_appointment || item.cy_date);
+                item._disp_load_date = formatShortDate(item.leg2_appointment || (item.mode === 'IMPORT' ? item.unload_date : item.load_date));
+                item._disp_return_date = formatShortDate(item.leg3_appointment || item.return_date);
                 
                 if (item.leg1_plate && !item.leg1_driver) item.leg1_driver = fleetAssignments[item.leg1_plate] || '';
                 if (item.drop1_plate && !item.drop1_driver) item.drop1_driver = fleetAssignments[item.drop1_plate] || '';
@@ -278,13 +289,62 @@ window.handleCrossFilter = function() {
     applyFilters(); 
 };
 
+let dispatchStage = 'all';
+let dispatchBooking = '';
+let containerQuickFilter = '';
+
+function getDispatchStage(row) {
+    if (['รอวางบิล', 'ปิดงาน', 'คืนตู้แล้ว'].includes(row.overall_status)) return 'done';
+    if (row.is_drop_only && row.actual_drop_date) return 'done';
+    if (!row.is_drop_only && row.actual_return_date) return 'done';
+    if (!row.leg1_completed && !row.actual_load_date && !row.leg2_completed && !row.leg3_completed) return 'pickup';
+    const domestic = String(row.job_type || '').toUpperCase() === 'DOMESTIC';
+    if (!domestic && !String(row.container_1_no || '').trim()) return 'container';
+    if (row.is_drop_only || (!row.leg2_completed && !row.actual_load_date)) return 'factory';
+    return row.mode === 'TRANSFER' || domestic ? 'done' : 'return';
+}
+
+function renderDispatchStages(booking, rows) {
+    const tabs = document.getElementById('dispatch-stage-tabs');
+    const summary = document.getElementById('dispatch-booking-summary');
+    tabs.replaceChildren();
+    const first = rows[0];
+    summary.textContent = first && booking
+        ? [booking, first.customer_name, first.mode, String(first.run_date || '').slice(0, 10)].filter(Boolean).join(' · ')
+        : 'เลือกเลข Booking เพื่อจัดเที่ยวตามขั้นตอน';
+    if (!booking) return;
+    const imports = first?.mode === 'IMPORT';
+    const labels = {
+        all: 'ทุกเที่ยว', pickup: imports ? 'รับตู้จากท่าเรือ' : 'รับตู้จากลาน',
+        container: 'ลงเบอร์ตู้', factory: imports ? 'เข้าโรงงานลงของ' : 'เข้าโรงงานบรรจุ',
+        return: imports ? 'คืนตู้ที่ลาน' : 'ส่งตู้เข้าท่าเรือ', done: 'จบงาน'
+    };
+    for (const [key, label] of Object.entries(labels)) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'rounded-lg border px-3 py-1.5 text-xs font-bold ' +
+            (dispatchStage === key ? 'bg-blue-800 text-white' : 'bg-slate-50 text-slate-700 hover:bg-blue-50');
+        button.setAttribute('aria-pressed', String(dispatchStage === key));
+        button.textContent = label + ' ' + (key === 'all' ? rows.length : rows.filter(row => getDispatchStage(row) === key).length);
+        button.onclick = () => {
+            if (editedRowIndices.size) return alert('กรุณาบันทึกตารางก่อนเปลี่ยนขั้นตอน');
+            dispatchStage = key;
+            containerQuickFilter = '';
+            applyFilters();
+        };
+        tabs.append(button);
+    }
+}
+
 window.applyFilters = function() {
+    if (editedRowIndices.size) return;
     const d = document.getElementById('filter-run-date').value;
     const c = document.getElementById('filter-customer').value;
     const b = document.getElementById('filter-booking-no').value;
     const searchTxt = document.getElementById('global-search').value.toLowerCase().trim();
 
-    filteredList = rawShipmentList.filter(item => {
+    if (dispatchBooking !== b) { dispatchBooking = b; dispatchStage = 'all'; containerQuickFilter = ''; }
+    const bookingRows = rawShipmentList.filter(item => {
         const iD = item.run_date ? String(item.run_date).split('T')[0] : '';
         const iC = item.customer_name ? String(item.customer_name).trim() : ''; 
         const iB = item.booking_no ? String(item.booking_no).trim() : ''; 
@@ -294,7 +354,12 @@ window.applyFilters = function() {
         const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
         return matchD && matchC && matchB && matchGlobal;
     });
+    renderDispatchStages(b, bookingRows);
+    filteredList = bookingRows.filter(row =>
+        (dispatchStage === 'all' || getDispatchStage(row) === dispatchStage) &&
+        (!containerQuickFilter || Boolean(String(row.container_1_no || '').trim()) === (containerQuickFilter === 'filled')));
     initContainerHandsontable(filteredList);
+    focusDispatchColumns();
 };
 
 window.clearAllFilters = function() { 
@@ -306,20 +371,38 @@ window.clearAllFilters = function() {
 };
 
 window.setQuickFilter = function(type) {
-    const btnPending = document.getElementById('qf-pending');
-    const btnFilled = document.getElementById('qf-filled');
-    btnPending.classList.remove('bg-blue-50', 'text-blue-600');
-    btnFilled.classList.remove('bg-blue-50', 'text-blue-600');
-
-    if (type === 'pending') {
-        btnPending.classList.add('bg-blue-50', 'text-blue-600');
-        filteredList = rawShipmentList.filter(item => !item.container_1_no || item.container_1_no.trim() === '');
-    } else {
-        btnFilled.classList.add('bg-blue-50', 'text-blue-600');
-        filteredList = rawShipmentList.filter(item => item.container_1_no && item.container_1_no.trim() !== '');
-    }
-    initContainerHandsontable(filteredList);
+    if (editedRowIndices.size) return alert('กรุณาบันทึกตารางก่อนเปลี่ยนตัวกรอง');
+    dispatchStage = 'all';
+    containerQuickFilter = containerQuickFilter === type ? '' : type;
+    applyFilters();
 };
+
+function focusDispatchColumns() {
+    for (const [id, key] of [['qf-pending', 'pending'], ['qf-filled', 'filled']]) {
+        const button = document.getElementById(id);
+        button.classList.toggle('bg-blue-50', containerQuickFilter === key);
+        button.setAttribute('aria-pressed', String(containerQuickFilter === key));
+    }
+    if (!hotGridInstance || dispatchStage === 'all') return;
+    const common = ['_checkbox', 'order_id', 'booking_no', 'container_1_no', 'container_2_no'];
+    const props = {
+        pickup: ['origin', '_disp_cy_date'],
+        container: ['container_size', 'seal_1_no', 'tare_1', 'max_gross_1', 'seal_2_no', 'tare_2', 'max_gross_2'],
+        factory: ['_disp_load_date'],
+        return: ['destination', '_disp_return_date'],
+        done: ['destination', '_disp_return_date', 'remark']
+    }[dispatchStage];
+    const prefixes = { pickup: ['leg1_'], factory: ['leg2_', 'drop1_'], return: ['leg3_', 'drop2_'] }[dispatchStage] || [];
+    const hidden = [];
+    for (let col = 0; col < hotGridInstance.countCols(); col++) {
+        const prop = hotGridInstance.colToProp(col);
+        if (![...common, ...props].includes(prop) && !prefixes.some(prefix => String(prop).startsWith(prefix))) hidden.push(col);
+    }
+    const plugin = hotGridInstance.getPlugin('hiddenColumns');
+    plugin.showColumns(plugin.getHiddenColumns());
+    plugin.hideColumns(hidden);
+    hotGridInstance.render();
+}
 
 function initContainerHandsontable(data) {
     const container = document.getElementById('container-grid-container');
@@ -585,11 +668,21 @@ function initContainerHandsontable(data) {
 
 window.copyLegToAllRows = function(fromPrefix, toPrefix) {
     if (!hotGridInstance) return;
+    const selectedOnly = Boolean(dispatchBooking);
+    if (selectedOnly && !hotGridInstance.getSourceData().some(row => row._checkbox === true)) {
+        alert('ติ๊กเลือกเที่ยวที่ต้องการใช้รถและคนขับจากขาก่อน');
+        return;
+    }
     const count = hotGridInstance.countRows();
     let copied = false;
     for (let r = 0; r < count; r++) {
-        const p = hotGridInstance.getDataAtRowProp(r, `${fromPrefix}_plate`);
-        const d = hotGridInstance.getDataAtRowProp(r, `${fromPrefix}_driver`);
+        if (selectedOnly && !hotGridInstance.getDataAtRowProp(r, '_checkbox')) continue;
+        const drop = toPrefix === 'leg2' ? 'drop1' : 'drop2';
+        const useDrop = hotGridInstance.getDataAtRowProp(r, drop + '_completed') === true &&
+            (hotGridInstance.getDataAtRowProp(r, drop + '_plate') || hotGridInstance.getDataAtRowProp(r, drop + '_driver'));
+        const source = useDrop ? drop : fromPrefix;
+        const p = hotGridInstance.getDataAtRowProp(r, `${source}_plate`);
+        const d = hotGridInstance.getDataAtRowProp(r, `${source}_driver`);
         if (p || d) {
             hotGridInstance.setDataAtRowProp(r, `${toPrefix}_plate`, p || '', 'auto');
             hotGridInstance.setDataAtRowProp(r, `${toPrefix}_driver`, d || '', 'auto');
@@ -730,6 +823,7 @@ window.saveGridSettings = async function() {
 };
 
 window.addNewContainerRow = function() {
+    if (editedRowIndices.size) return alert('กรุณาบันทึกตารางก่อนเพิ่มเที่ยว');
     const filterBooking = document.getElementById('filter-booking-no').value;
     if (!filterBooking) { alert("⚠️ กรุณากรองเลือกเลข Booking ที่ต้องการเพิ่มตู้ในช่องค้นหาด้านบนก่อนครับ!"); return; }
 
@@ -781,6 +875,9 @@ window.addNewContainerRow = function() {
     };
 
     rawShipmentList.unshift(newRow); 
+    dispatchStage = 'all';
+    containerQuickFilter = '';
+    document.getElementById('global-search').value = '';
     applyFilters(); 
     editedRowIndices.add(0);
     updateSaveStatusBadge();

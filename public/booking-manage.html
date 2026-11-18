@@ -55,7 +55,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 h-8">
                     <label class="text-xs font-bold text-emerald-700 flex items-center gap-1"><i class="fa-regular fa-calendar-check"></i> เดือน:</label>
-                    <input type="month" id="filter-month" onchange="loadContainerGridData()" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-emerald-700 outline-none cursor-pointer">
+                    <input type="month" id="filter-month" onchange="changeDispatchMonth(this)" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-emerald-700 outline-none cursor-pointer">
                 </div>
                 
                 <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-run-date" list="dl-run-date" onchange="handleCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
@@ -103,6 +103,10 @@
             
             <span id="save-status-badge" class="ml-auto font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1"><i class="fa-solid fa-check text-emerald-500"></i> อัปเดตล่าสุดแล้ว</span>
         </div>
+        <section class="mt-2 border-t border-slate-100 pt-2">
+            <p id="dispatch-booking-summary" class="mb-2 text-xs font-medium text-slate-600" aria-live="polite">เลือกเลข Booking เพื่อจัดเที่ยวตามขั้นตอน</p>
+            <div id="dispatch-stage-tabs" role="group" aria-label="ขั้นตอนจัดรถ" class="flex flex-wrap gap-1"></div>
+        </section>
     </div>
 
     <div class="bg-white rounded-lg shadow-sm border border-slate-200 flex-1 relative overflow-hidden">

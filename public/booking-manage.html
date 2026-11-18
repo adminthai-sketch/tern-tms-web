@@ -12,7 +12,6 @@
         tailwind.config = { theme: { extend: { fontFamily: { sans: ['Prompt', 'sans-serif'] }, colors: { primary: '#0f4c81', bglight: '#f8fafc' } } } }
     </script>
 
-    <!-- Handsontable, Datepicker & Excel SheetJS -->
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/pikaday.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/css/pikaday.css" rel="stylesheet">
@@ -22,240 +21,287 @@
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col relative">
 
-    <!-- Header Navigation Bar -->
 <header class="bg-white border-b border-slate-200 h-14 flex items-center justify-between px-6 shrink-0 shadow-sm z-50">
     <div class="flex items-center gap-3">
-        <!-- Logo -->
         <div class="flex items-center gap-2">
             <div class="w-8 h-8 bg-blue-900 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-sm">
                 <i class="fa-solid fa-truck-fast"></i>
             </div>
             <span class="font-bold text-lg text-slate-800">TERN TMS</span>
         </div>
-
         <div class="h-5 w-px bg-slate-300 mx-1 hidden sm:block"></div>
-
-        <!-- 🌟 ปุ่มหน้าแรก ( Home Button ) -->
         <a href="/index.html" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-300 text-xs transition-colors flex items-center gap-1.5 shadow-sm">
             <i class="fa-solid fa-house text-blue-900"></i> หน้าแรก
         </a>
-
         <div class="h-5 w-px bg-slate-300 mx-1 hidden sm:block"></div>
-
-        <!-- 🌟 เมนูต่างๆ 🌟 -->
         <div class="flex gap-1 text-xs ml-0 sm:border-l sm:border-slate-200 sm:pl-3">
-            <a href="/booking.html" class="text-slate-500 hover:text-blue-900 hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1">
-                <i class="fa-solid fa-pen-to-square"></i> 1. สร้างรับงาน
-            </a>
-            <a href="/booking-bulk.html" class="text-slate-500 hover:text-blue-900 hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1">
-                <i class="fa-solid fa-file-excel"></i> 2. อัปโหลด Job
-            </a>
-            <a href="/booking-list.html" class="bg-blue-900 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm flex items-center gap-1">
-                <i class="fa-solid fa-list-check"></i> 3. รายการบุคกิ้ง
-            </a>
+            <a href="/booking.html" class="text-slate-500 hover:text-blue-900 hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1"><i class="fa-solid fa-pen-to-square"></i> 1. สร้างรับงาน</a>
+            <a href="/booking-bulk.html" class="text-slate-500 hover:text-blue-900 hover:bg-blue-50 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1"><i class="fa-solid fa-file-excel"></i> 2. อัปโหลด Job</a>
+            <a href="/booking-list.html" class="bg-blue-900 text-white px-3 py-1.5 rounded-lg font-bold shadow-sm flex items-center gap-1"><i class="fa-solid fa-list-check"></i> 3. รายการบุคกิ้ง</a>
         </div>
     </div>
-
-    <!-- ส่วนขวา (User Profile & Logout) -->
     <div class="flex items-center gap-4 text-xs">
         <div class="text-right">
             <div id="user-fullname" class="font-bold text-slate-800">กำลังโหลด...</div>
             <div id="user-role-badge" class="text-[10px] text-slate-500 font-semibold">ADMIN</div>
         </div>
-        <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ">
-            <i class="fa-solid fa-power-off"></i>
-        </button>
+        <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors p-2" title="ออกจากระบบ"><i class="fa-solid fa-power-off"></i></button>
     </div>
 </header>
 
-    <main class="flex-1 p-3 overflow-hidden flex flex-col gap-2 relative">
-        <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2 shrink-0 z-10">
-            <!-- แถวบน: ตัวกรอง และ กลุ่มปุ่มเครื่องมือ -->
-            <div class="flex flex-wrap justify-between items-center gap-2">
-                
-                <!-- เครื่องมือกรองข้อมูล -->
-                <div class="flex flex-wrap items-center gap-2">
-                    <div class="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 h-8">
-                        <label class="text-xs font-bold text-emerald-700 flex items-center gap-1"><i class="fa-regular fa-calendar-check"></i> เดือน:</label>
-                        <input type="month" id="filter-month" onchange="loadContainerGridData()" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-emerald-700 outline-none cursor-pointer">
-                    </div>
-                    
-                    <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-run-date" list="dl-run-date" onchange="handleCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
-                    <datalist id="dl-run-date"></datalist>
-
-                    <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-customer" list="dl-customer" onchange="handleCrossFilter()" placeholder="🏢 ชื่องาน/ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-emerald-500">
-                    <datalist id="dl-customer"></datalist>
-
-                    <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-booking-no" list="dl-booking-no" onchange="handleCrossFilter()" placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
-                    <datalist id="dl-booking-no"></datalist>
-
-                    <div class="relative">
-                        <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
-                        <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="global-search" oninput="applyFilters()" placeholder="ค้นหาเบอร์ตู้..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-white h-8 w-48 focus:border-emerald-500 shadow-sm">
-                    </div>
-                    <button onclick="clearAllFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser text-sm"></i></button>
+<main class="flex-1 p-3 overflow-hidden flex flex-col gap-2 relative">
+    <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2 shrink-0 z-10">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 h-8">
+                    <label class="text-xs font-bold text-emerald-700 flex items-center gap-1"><i class="fa-regular fa-calendar-check"></i> เดือน:</label>
+                    <input type="month" id="filter-month" onchange="loadContainerGridData()" class="px-1 py-0 border-none bg-transparent text-xs font-bold text-emerald-700 outline-none cursor-pointer">
                 </div>
+                
+                <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-run-date" list="dl-run-date" onchange="handleCrossFilter()" placeholder="📅 วันที่วิ่งงาน..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
+                <datalist id="dl-run-date"></datalist>
 
-                <!-- 🌟 กลุ่มปุ่มเครื่องมือด้านขวา 🌟 -->
-                <div class="flex items-center gap-2">
-                    <button id="btn-toggle-drops" onclick="toggleDropYards()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-purple-200 h-8 shadow-sm transition-colors">
-                        <i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้
-                    </button>
-                    
-                    <button onclick="saveGridSettings()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-amber-300 h-8 shadow-sm">
-                        <i class="fa-solid fa-table-columns"></i> จำมุมมอง
-                    </button>
-                    <button onclick="deleteContainerRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-red-200 h-8 shadow-sm">
-                        <i class="fa-solid fa-trash-can"></i> ลบตู้
-                    </button>
-                    <button onclick="addNewContainerRow()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-blue-200 h-8 shadow-sm">
-                        <i class="fa-solid fa-plus"></i> เพิ่มตู้เข้า Booking
-                    </button>
-                    
-                    <!-- 🌟 ปุ่มดาวน์โหลด Excel 🌟 -->
-                    <button onclick="exportToExcel()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-emerald-300 h-8 shadow-sm">
-                        <i class="fa-solid fa-file-excel text-emerald-600"></i> ดาวน์โหลด Excel
-                    </button>
+                <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-customer" list="dl-customer" onchange="handleCrossFilter()" placeholder="🏢 ชื่องาน/ลูกค้า..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-44 focus:bg-white focus:border-emerald-500">
+                <datalist id="dl-customer"></datalist>
 
-                    <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm">
-                        <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูล
-                    </button>
+                <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="filter-booking-no" list="dl-booking-no" onchange="handleCrossFilter()" placeholder="📝 เลข Booking..." class="px-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-slate-50 h-8 w-32 focus:bg-white focus:border-emerald-500">
+                <datalist id="dl-booking-no"></datalist>
+
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="search" readonly onfocus="this.readOnly = false" onblur="this.readOnly = true" autocomplete="off" id="global-search" oninput="applyFilters()" placeholder="ค้นหาเบอร์ตู้..." class="pl-7 pr-2 py-1 border border-slate-300 rounded text-xs font-medium outline-none bg-white h-8 w-48 focus:border-emerald-500 shadow-sm">
+                </div>
+                <button onclick="clearAllFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser text-sm"></i></button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="btn-toggle-drops" onclick="toggleDropYards()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-purple-200 h-8 shadow-sm transition-colors">
+                    <i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้
+                </button>
+                <button onclick="saveGridSettings()" class="bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-amber-300 h-8 shadow-sm">
+                    <i class="fa-solid fa-table-columns"></i> จำมุมมอง
+                </button>
+                <button onclick="deleteContainerRows()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-red-200 h-8 shadow-sm">
+                    <i class="fa-solid fa-trash-can"></i> ลบตู้
+                </button>
+                <button onclick="addNewContainerRow()" class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-blue-200 h-8 shadow-sm">
+                    <i class="fa-solid fa-plus"></i> เพิ่มตู้เข้า Booking
+                </button>
+                <button onclick="exportToExcel()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-emerald-300 h-8 shadow-sm">
+                    <i class="fa-solid fa-file-excel text-emerald-600"></i> ดาวน์โหลด Excel
+                </button>
+                <button onclick="saveGridChanges()" id="btn-save-grid" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 px-4 rounded flex items-center gap-1 text-xs h-8 shadow-sm">
+                    <i class="fa-solid fa-floppy-disk"></i> บันทึกข้อมูลตาราง
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 text-xs border-t border-slate-100 pt-2">
+            <span class="font-bold text-slate-500"><i class="fa-solid fa-bolt text-amber-500"></i> ตัวกรองด่วน:</span>
+            <button id="qf-pending" onclick="setQuickFilter('pending')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">รอลงเบอร์ตู้</button>
+            <button id="qf-filled" onclick="setQuickFilter('filled')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">ลงเบอร์ตู้แล้ว</button>
+            
+            <span id="save-status-badge" class="ml-auto font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1"><i class="fa-solid fa-check text-emerald-500"></i> อัปเดตล่าสุดแล้ว</span>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-slate-200 flex-1 relative overflow-hidden">
+        <div id="loading-overlay" class="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center hidden">
+            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-emerald-600 mb-3"></i>
+            <p class="font-bold text-slate-600">กำลังโหลดข้อมูลตู้...</p>
+        </div>
+        <div id="container-grid-container" class="absolute inset-0 z-0"></div>
+    </div>
+</main>
+
+<!-- 🌟 SMART DISPATCH MODAL (ฉลาดขึ้นตามโหมดงาน) 🌟 -->
+<div id="dispatch-modal" class="hidden absolute inset-0 z-[100] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm transition-opacity">
+    <div class="bg-white w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.3s_ease-out] m-4">
+        
+        <!-- Header -->
+        <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-emerald-700 to-emerald-600 text-white shadow-sm relative overflow-hidden">
+            <div class="absolute right-0 top-0 bottom-0 opacity-10 transform translate-x-4"><i class="fa-solid fa-truck-fast text-8xl"></i></div>
+            <div class="flex items-center gap-4 relative z-10">
+                <div class="bg-white/20 p-2.5 rounded-xl shadow-inner border border-white/30"><i class="fa-solid fa-clipboard-list text-2xl"></i></div>
+                <div>
+                    <h3 class="font-bold text-xl leading-tight tracking-wide flex items-center gap-2">
+                        จัดคิวรถและบันทึกเวลาจริง (Dispatch & Actual Time)
+                    </h3>
+                    <p class="text-sm text-emerald-50 mt-0.5 font-medium">Order: <span id="modal-row-display" class="font-bold text-white bg-emerald-800/80 px-2 py-0.5 rounded shadow-inner ml-1"></span></p>
                 </div>
             </div>
+            <!-- 🌟 ป้ายบอกจุดจบของงาน (อัปเดตตาม Mode) 🌟 -->
+            <div class="hidden md:flex flex-col items-end relative z-10 mr-12">
+                <span class="text-[10px] font-bold text-emerald-200 uppercase tracking-widest mb-0.5">End Point / จุดปิดจ๊อบเที่ยวนี้</span>
+                <div id="endpoint-badge" class="bg-yellow-400 text-yellow-900 font-bold px-3 py-1 rounded-lg text-sm shadow-md flex items-center gap-2 border border-yellow-300">
+                    <i class="fa-solid fa-flag-checkered"></i> <span>รอตรวจสอบ...</span>
+                </div>
+            </div>
+            <button onclick="document.getElementById('dispatch-modal').classList.add('hidden')" class="text-white/80 hover:text-white hover:bg-red-500/80 hover:rotate-90 p-2 rounded-lg transition-all duration-300 absolute right-4"><i class="fa-solid fa-xmark text-2xl"></i></button>
+        </div>
+
+        <!-- Body : Grid 3 ขา -->
+        <div class="p-6 bg-slate-50 overflow-y-auto max-h-[75vh]">
             
-            <!-- แถวล่าง: Quick Filters -->
-            <div class="flex items-center gap-2 text-xs border-t border-slate-100 pt-2">
-                <span class="font-bold text-slate-500"><i class="fa-solid fa-bolt text-amber-500"></i> ตัวกรองด่วน:</span>
-                <button id="qf-pending" onclick="setQuickFilter('pending')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">รอลงเบอร์ตู้</button>
-                <button id="qf-filled" onclick="setQuickFilter('filled')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">ลงเบอร์ตู้แล้ว</button>
+            <div class="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-wrap gap-4 items-center justify-between shadow-sm">
+                <div class="flex items-center gap-2 text-amber-800 font-bold text-sm">
+                    <i class="fa-solid fa-bell text-amber-500 animate-pulse text-lg"></i>
+                    <span>เวลาจาก Booking (ใช้อ้างอิง):</span>
+                </div>
+                <div class="flex gap-4 text-xs font-semibold">
+                    <div class="bg-white px-3 py-1.5 rounded-lg border border-amber-100 text-slate-600">VGM CUTOFF: <span id="ref-vgm-time" class="text-red-600 font-bold ml-1">-</span></div>
+                    <div class="bg-white px-3 py-1.5 rounded-lg border border-amber-100 text-slate-600">CUTOFF TIME: <span id="ref-cutoff-time" class="text-red-600 font-bold ml-1">-</span></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                <span id="save-status-badge" class="ml-auto font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1"><i class="fa-solid fa-check text-emerald-500"></i> อัปเดตล่าสุดแล้ว</span>
+                <!-- 📦 ขา 1: PICK UP -->
+                <div id="card-leg1" class="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden flex flex-col relative transition-all">
+                    <div class="bg-gradient-to-r from-blue-100 to-white border-b border-blue-200 px-4 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-inner">1</div>
+                            <span class="font-bold text-blue-900">PICK UP (รับตู้)</span>
+                        </div>
+                    </div>
+                    <div class="p-5 flex flex-col gap-4 flex-1">
+                        <div class="space-y-3">
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-truck text-blue-400"></i> ทะเบียนรถ</label><select id="modal-leg1-plate" onchange="handleModalTruckChange(1)" class="w-full text-sm font-bold text-blue-900 border border-blue-200 rounded-lg px-3 py-2 bg-blue-50 focus:bg-white outline-none"></select></div>
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-blue-400"></i> คนขับรถ</label><select id="modal-leg1-driver" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
+                        </div>
+                        <hr class="border-dashed border-slate-200">
+                        <div class="space-y-3">
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-regular fa-clock text-blue-400"></i> เวลานัดหมายรับตู้ (Plan)</label><input type="datetime-local" id="modal-leg1-time" class="w-full text-xs font-bold border border-slate-300 rounded-lg px-2 py-2 outline-none"></div>
+                            
+                            <!-- 🌟 ปุ่มแสตมป์เวลาจริงปิดจ๊อบ (ถ้าจบที่ Drop Only) 🌟 -->
+                            <div id="endpoint-leg1" class="hidden mt-4 bg-emerald-50 border border-emerald-200 p-3 rounded-lg flex flex-col gap-2">
+                                <label class="text-[11px] font-bold text-emerald-700 flex items-center justify-between">
+                                    <span><i class="fa-solid fa-flag-checkered text-emerald-500"></i> <b>เวลาฝากตู้จริง (Actual)</b></span>
+                                    <button onclick="stampCurrentTime('modal-leg1-actual')" class="bg-emerald-600 text-white px-2 py-1 rounded shadow text-[9px] hover:bg-emerald-700">แสตมป์เวลา ณ ตอนนี้</button>
+                                </label>
+                                <input type="datetime-local" id="modal-leg1-actual" class="w-full text-xs font-bold text-emerald-800 bg-white border border-emerald-300 rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-emerald-400">
+                            </div>
+
+                            <div>
+                                <label class="text-[11px] font-bold text-red-500 mb-1 flex items-center gap-1">
+                                    <i class="fa-solid fa-triangle-exclamation"></i> VGM CUTOFF (ปรับแก้รายเที่ยว)
+                                    <span id="vgm-alert-msg" class="hidden ml-auto text-[9px] bg-white px-1.5 py-0.5 rounded shadow-sm border"></span>
+                                </label>
+                                <input type="datetime-local" id="modal-leg1-vgm" oninput="checkVGMAlert()" class="w-full text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 py-2 outline-none transition-all">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 🏭 ขา 2: DELIVERY -->
+                <div id="card-leg2" class="bg-white rounded-xl border border-orange-200 shadow-sm overflow-hidden flex flex-col relative transition-all">
+                    <div class="bg-gradient-to-r from-orange-100 to-white border-b border-orange-200 px-4 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-orange-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-inner">2</div>
+                            <span class="font-bold text-orange-900">DELIVERY (เข้าบรรจุ/ลงของ)</span>
+                        </div>
+                    </div>
+                    <div class="p-5 flex flex-col gap-4 flex-1">
+                        <div class="space-y-3">
+                            <div>
+                                <label class="text-[11px] font-bold text-slate-500 mb-1 flex items-center justify-between">
+                                    <span><i class="fa-solid fa-truck text-orange-400"></i> ทะเบียนรถบรรจุ</span>
+                                    <button onclick="copyTruck('leg1', 2)" class="text-[9px] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200">ใช้รถขารับตู้</button>
+                                </label>
+                                <select id="modal-leg2-plate" onchange="handleModalTruckChange(2)" class="w-full text-sm font-bold text-orange-900 border border-orange-200 rounded-lg px-3 py-2 bg-orange-50 focus:bg-white outline-none"></select>
+                            </div>
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-orange-400"></i> คนขับรถ</label><select id="modal-leg2-driver" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
+                        </div>
+                        <hr class="border-dashed border-slate-200">
+                        <div class="space-y-3">
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-regular fa-clock text-orange-400"></i> เวลานัดบรรจุ (Plan)</label><input type="datetime-local" id="modal-leg2-time" class="w-full text-xs font-bold border border-slate-300 rounded-lg px-2 py-2 outline-none"></div>
+                            
+                            <!-- 🌟 ปุ่มแสตมป์เวลาจริงปิดจ๊อบ (ถ้าจบที่ DELIVERY) 🌟 -->
+                            <div id="endpoint-leg2" class="hidden mt-4 bg-emerald-50 border border-emerald-200 p-3 rounded-lg flex flex-col gap-2">
+                                <label class="text-[11px] font-bold text-emerald-700 flex items-center justify-between">
+                                    <span><i class="fa-solid fa-flag-checkered text-emerald-500"></i> <b>เวลาส่งมอบจริง (Actual)</b></span>
+                                    <button onclick="stampCurrentTime('modal-leg2-actual')" class="bg-emerald-600 text-white px-2 py-1 rounded shadow text-[9px] hover:bg-emerald-700">แสตมป์เวลา ณ ตอนนี้</button>
+                                </label>
+                                <input type="datetime-local" id="modal-leg2-actual" class="w-full text-xs font-bold text-emerald-800 bg-white border border-emerald-300 rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-emerald-400">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 🚢 ขา 3: RETURN -->
+                <div id="card-leg3" class="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden flex flex-col relative transition-all">
+                    <!-- แผ่นบัง (Overlay) สำหรับงานที่ไม่ใช้ขา 3 -->
+                    <div id="overlay-leg3" class="hidden absolute inset-0 bg-slate-100/80 backdrop-blur-[1px] z-10 flex flex-col items-center justify-center">
+                        <i class="fa-solid fa-ban text-4xl text-slate-300 mb-2"></i>
+                        <span class="font-bold text-slate-500 text-sm">ไม่ใช้สำหรับงานประเภทนี้</span>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-purple-100 to-white border-b border-purple-200 px-4 py-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="bg-purple-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-inner">3</div>
+                            <span class="font-bold text-purple-900">RETURN (คืนตู้)</span>
+                        </div>
+                    </div>
+                    <div class="p-5 flex flex-col gap-4 flex-1">
+                        <div class="space-y-3">
+                            <div>
+                                <label class="text-[11px] font-bold text-slate-500 mb-1 flex items-center justify-between">
+                                    <span><i class="fa-solid fa-truck text-purple-400"></i> ทะเบียนรถคืนตู้</span>
+                                    <button onclick="copyTruck('leg2', 3)" class="text-[9px] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200">ใช้รถขาเข้าบรรจุ</button>
+                                </label>
+                                <select id="modal-leg3-plate" onchange="handleModalTruckChange(3)" class="w-full text-sm font-bold text-purple-900 border border-purple-200 rounded-lg px-3 py-2 bg-purple-50 focus:bg-white outline-none"></select>
+                            </div>
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-purple-400"></i> คนขับรถ</label><select id="modal-leg3-driver" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
+                        </div>
+                        <hr class="border-dashed border-slate-200">
+                        <div class="space-y-3">
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-regular fa-clock text-purple-400"></i> เวลานัดคืนตู้ (Plan)</label><input type="datetime-local" id="modal-leg3-time" class="w-full text-xs font-bold border border-slate-300 rounded-lg px-2 py-2 outline-none"></div>
+                            
+                            <!-- 🌟 ปุ่มแสตมป์เวลาจริงปิดจ๊อบ (สำหรับงาน EX/IM) 🌟 -->
+                            <div id="endpoint-leg3" class="hidden mt-4 bg-emerald-50 border border-emerald-200 p-3 rounded-lg flex flex-col gap-2">
+                                <label class="text-[11px] font-bold text-emerald-700 flex items-center justify-between">
+                                    <span><i class="fa-solid fa-flag-checkered text-emerald-500"></i> <b>เวลาคืนตู้จริง (Actual)</b></span>
+                                    <button onclick="stampCurrentTime('modal-leg3-actual')" class="bg-emerald-600 text-white px-2 py-1 rounded shadow text-[9px] hover:bg-emerald-700">แสตมป์เวลา ณ ตอนนี้</button>
+                                </label>
+                                <input type="datetime-local" id="modal-leg3-actual" class="w-full text-xs font-bold text-emerald-800 bg-white border border-emerald-300 rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-emerald-400">
+                            </div>
+
+                            <div><label class="text-[11px] font-bold text-red-500 mb-1"><i class="fa-solid fa-triangle-exclamation"></i> CUTOFF TIME</label><input type="datetime-local" id="modal-leg3-cutoff" class="w-full text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 py-2 outline-none"></div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow-sm border border-slate-200 flex-1 relative overflow-hidden">
-            <div id="loading-overlay" class="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center hidden">
-                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-emerald-600 mb-3"></i>
-                <p class="font-bold text-slate-600">กำลังโหลดข้อมูลตู้...</p>
-            </div>
-            <div id="container-grid-container" class="absolute inset-0 z-0"></div>
-        </div>
-    </main>
-
-    <!-- 🌟 SMART DISPATCH MODAL (หน้าต่างจัดรถแบบใหม่) 🌟 -->
-    <div id="dispatch-modal" class="hidden absolute inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity">
-        <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+        <!-- Footer -->
+        <div class="p-5 border-t border-slate-200 bg-slate-50 flex justify-between items-center rounded-b-2xl">
+            <p id="dispatch-copy-source" aria-live="polite" class="text-sm text-slate-600"></p>
+            <section class="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                <h3 class="font-bold text-slate-800">ข้อมูลตู้หลังรับตู้</h3>
+                <div id="dispatch-containers" class="space-y-3"></div>
+                <button id="dispatch-add-container" type="button" onclick="addDispatchSecondContainer()" class="text-sm font-bold text-blue-700">+ เพิ่มตู้ 2</button>
+            </section>
+            <!-- Drop Only Checkbox -->
+            <label id="drop-only-toggle" class="hidden items-center gap-2 cursor-pointer bg-white px-3 py-2 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-100 transition-colors">
+                <input type="checkbox" id="is-drop-only" class="w-4 h-4 accent-amber-500 rounded" onchange="toggleDropOnlyMode()">
+                <span class="text-sm font-bold text-slate-700"><i class="fa-solid fa-anchor text-amber-500 mr-1"></i> จบงานที่ฝากลาน (Drop Only)</span>
+            </label>
             
-            <!-- Header -->
-            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-emerald-600 text-white shadow-sm">
-                <div class="flex items-center gap-4">
-                    <div class="bg-white/20 p-2.5 rounded-xl shadow-inner"><i class="fa-solid fa-truck-fast text-2xl"></i></div>
-                    <div>
-                        <h3 class="font-bold text-xl leading-tight tracking-wide">จัดการคิวรถและคนขับ (Dispatch)</h3>
-                        <p class="text-sm text-emerald-100 mt-0.5">กำลังจัดการข้อมูลตู้ของแถวที่: <span id="modal-row-display" class="font-bold text-white bg-emerald-800 px-2 py-0.5 rounded text-xs ml-1"></span></p>
-                    </div>
-                </div>
-                <button onclick="document.getElementById('dispatch-modal').classList.add('hidden')" class="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-colors"><i class="fa-solid fa-xmark text-2xl"></i></button>
-            </div>
-
-            <!-- Body : Grid 3 ขา -->
-            <div class="p-6 bg-slate-50 overflow-y-auto max-h-[75vh]">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    
-                    <!-- 🚚 LEG 1 -->
-                    <div class="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                        <div class="bg-gradient-to-r from-blue-50 to-white border-b border-blue-100 px-4 py-3 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="bg-blue-100 text-blue-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-1"></i></div>
-                                <span class="font-bold text-blue-800">PICK UP (รับตู้)</span>
-                            </div>
-                            <input type="checkbox" id="modal-leg1-check" class="w-4 h-4 accent-blue-600 rounded cursor-pointer" title="วิ่งงานเสร็จแล้ว">
-                        </div>
-                        <div class="p-5 flex flex-col gap-4">
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-truck"></i> ทะเบียนรถ</label>
-                                <select id="modal-leg1-plate" onchange="handleModalTruckChange(1)" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"></select>
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-id-badge"></i> พนักงานขับรถ</label>
-                                <select id="modal-leg1-driver" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"></select>
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-regular fa-clock"></i> วัน-เวลานัดหมาย</label>
-                                <input type="datetime-local" id="modal-leg1-time" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 🚛 LEG 2 -->
-                    <div class="bg-white rounded-xl border border-orange-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                        <div class="bg-gradient-to-r from-orange-50 to-white border-b border-orange-100 px-4 py-3 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="bg-orange-100 text-orange-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-2"></i></div>
-                                <span class="font-bold text-orange-800">DELIVERY (เข้าบรรจุ)</span>
-                            </div>
-                            <input type="checkbox" id="modal-leg2-check" class="w-4 h-4 accent-orange-600 rounded cursor-pointer" title="วิ่งงานเสร็จแล้ว">
-                        </div>
-                        <div class="p-5 flex flex-col gap-4">
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-truck"></i> ทะเบียนรถ</label>
-                                <select id="modal-leg2-plate" onchange="handleModalTruckChange(2)" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"></select>
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-id-badge"></i> พนักงานขับรถ</label>
-                                <select id="modal-leg2-driver" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-orange-500 outline-none"></select>
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-regular fa-clock"></i> วัน-เวลานัดหมาย</label>
-                                <input type="datetime-local" id="modal-leg2-time" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 outline-none">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ⚓ LEG 3 -->
-                    <div class="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                        <div class="bg-gradient-to-r from-purple-50 to-white border-b border-purple-100 px-4 py-3 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="bg-purple-100 text-purple-600 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-3"></i></div>
-                                <span class="font-bold text-purple-800">RETURN (คืนตู้)</span>
-                            </div>
-                            <input type="checkbox" id="modal-leg3-check" class="w-4 h-4 accent-purple-600 rounded cursor-pointer" title="วิ่งงานเสร็จแล้ว">
-                        </div>
-                        <div class="p-5 flex flex-col gap-4">
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-truck"></i> ทะเบียนรถ</label>
-                                <select id="modal-leg3-plate" onchange="handleModalTruckChange(3)" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none"></select>
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-solid fa-id-badge"></i> พนักงานขับรถ</label>
-                                <select id="modal-leg3-driver" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none"></select>
-                            </div>
-                            <div>
-                                <label class="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i class="fa-regular fa-clock"></i> วัน-เวลานัดหมาย</label>
-                                <input type="datetime-local" id="modal-leg3-time" class="w-full text-sm font-medium text-slate-700 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none">
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="p-5 border-t border-slate-200 bg-white flex justify-end gap-3 rounded-b-2xl">
-                <button onclick="document.getElementById('dispatch-modal').classList.add('hidden')" class="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors">ยกเลิก</button>
-                <button onclick="saveDispatchModal()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-200 transition-colors flex items-center gap-2">
-                    <i class="fa-solid fa-check"></i> ยืนยันการจัดรถ
+            <div class="text-xs font-bold text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-circle-info text-blue-500"></i> บันทึกเวลาที่งานเสร็จจริงเพื่อเปลี่ยนสถานะเป็นรอวางบิล</div>
+            
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('dispatch-modal').classList.add('hidden')" class="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors shadow-sm">ปิดไปก่อน (ยังไม่เสร็จ)</button>
+                <button onclick="saveDispatchModal(this)" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-200 transition-all hover:-translate-y-0.5 flex items-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> บันทึกเข้า Database
                 </button>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- เรียกใช้สคริปต์หลักของหน้า Manage -->
-    <script src="js/modules/booking/manage.js"></script>
-    
-    <!-- ควบคุมสิทธิ์และเมนูตัวกลาง (Auth & Sidebar) -->
-    <script src="/js/auth.js"></script>
-    <!-- สคริปต์เปลี่ยนรหัสผ่าน -->
-    <script src="/js/password.js"></script>
+<script src="js/modules/booking/manage.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/password.js"></script>
 </body>
 </html>

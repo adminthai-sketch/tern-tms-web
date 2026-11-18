@@ -125,3 +125,57 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     try { await loadPhaseCustomers(); } catch (error) { alert(error.message); }
 });
+
+// ฟังก์ชันตรวจจับตัวย่อลูกค้า (ทำงานเมื่อพิมพ์เสร็จหรือกด Enter)
+window.checkAndPromptCustomer = function() {
+    const inputField = document.getElementById('pCustomer');
+    const fullNameField = document.getElementById('pCustomerFullName');
+    const val = inputField.value.trim().toUpperCase();
+    inputField.value = val; // Force uppercase
+    
+    if(!val) {
+        fullNameField.value = "";
+        delete inputField.dataset.customerId;
+        document.getElementById('pCustomerId').value = "";
+        return;
+    }
+
+    // ค้นหาใน Array ลูกค้าที่โหลดมาจาก DB (ดูจาก short_name เป็นหลัก)
+    const matchedCustomer = phaseCustomers.find(c => (c.short_name || "").toUpperCase() === val || (c.customer_name || "").toUpperCase() === val);
+    
+    if (matchedCustomer) {
+        // กรณี: เจอในฐานข้อมูล -> แสดงชื่อเต็มทันที
+        fullNameField.value = matchedCustomer.customer_name;
+        inputField.dataset.customerId = matchedCustomer.id;
+        document.getElementById('pCustomerId').value = matchedCustomer.id;
+    } else {
+        // กรณี: ไม่เจอตัวย่อนี้ในฐานข้อมูล -> เด้งถามและเปิด Modal
+        fullNameField.value = "";
+        delete inputField.dataset.customerId;
+        document.getElementById('pCustomerId').value = "";
+        
+        if(confirm(`🚨 ไม่พบตัวย่อลูกค้า "${val}" ในระบบ\n\nต้องการเพิ่มลูกค้าใหม่ตอนนี้เลยหรือไม่?`)) {
+            // เปิด Modal ขึ้นมา และเอาตัวย่อที่พิมพ์ไปใส่รอไว้ให้เลย
+            document.getElementById('quick_short_name').value = val;
+            document.getElementById('quick_customer_name').value = ""; // ให้กรอกชื่อเต็มเอง
+            openQuickCustomer();
+        } else {
+            // ถ้ายกเลิก ให้เคลียร์ช่อง
+            inputField.value = "";
+        }
+    }
+}
+
+// ⚠️ (เพิ่มเติม) ในส่วนของ updateFeeDropdowns ให้แก้เพื่อให้มันโยนราคาลงช่องใหม่เลย โดยไม่ต้องสนเรื่องประเภทรถ
+window.updateFeeDropdowns = function() {
+    const val = document.getElementById('jobNameInput') ? document.getElementById('jobNameInput').value.trim() : ''; 
+    const trpInp = document.getElementById('pTripFee'); 
+    const trnInp = document.getElementById('pTransFee');
+    
+    if(!val || !rateDataMap[val]) return;
+    const rate = rateDataMap[val];
+    
+    // ดึงเรทรถ 10W (หรือเรทมาตรฐานที่มี) มาแสดงให้ก่อนเลย แอดมินสามารถลบแก้ตัวเลขได้อิสระ
+    if(trpInp && !trpInp.value) trpInp.value = rate.trp10 || rate.trp6 || rate.trp12 || rate.trpCash || '';
+    if(trnInp && !trnInp.value) trnInp.value = rate.trn10 || rate.trn6 || rate.trn12 || rate.trnCash || '';
+}

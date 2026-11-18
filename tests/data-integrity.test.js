@@ -123,6 +123,29 @@ function database(containerCount = 3) {
     };
 }
 
+test('dispatch patch preserves omitted fields and computes status from the actual endpoint', async () => {
+    for (const [order, input, expected] of [
+        [{ mode: 'EXPORT', leg2_completed: true }, { actual_load_date: '2026-11-18 10:00' }, 'กำลังเดินทาง'],
+        [{ mode: 'EXPORT' }, { actual_return_date: '2026-11-18 10:00' }, 'รอวางบิล'],
+        [{ mode: 'TRANSFER' }, { actual_load_date: '2026-11-18 10:00' }, 'รอวางบิล'],
+        [{ mode: 'IMPORT', job_type: 'Domestic' }, { actual_load_date: '2026-11-18 10:00' }, 'รอวางบิล'],
+        [{ mode: 'EXPORT', is_drop_only: true }, { actual_drop_date: '2026-11-18 10:00' }, 'รอวางบิล']
+    ]) {
+        const calls = [];
+        const client = { release() {}, async query(sql, params) {
+            calls.push({ sql, params });
+            return { rows: sql.includes('FOR UPDATE OF s') ? [{ ...order, leg1_plate: 'ABC', drop1_location: 'Yard' }] : [] };
+        } };
+        const handler = routesFor('routes/bookings.js', { connect: async () => client })['post /shipments'];
+        const result = await request(handler, { dispatch_patch: true, data: [{ order_id: 'ORD-001', leg1_driver: 'New driver', ...input, overall_status: 'ignored' }] });
+        assert.equal(result.data.overall_status, expected);
+        const update = calls.find(call => call.sql.startsWith('UPDATE shipment_operations'));
+        assert.doesNotMatch(update.sql, /leg1_plate|drop1_location|pop_no/);
+        assert.equal(update.params.at(-1), 'ORD-001');
+        assert.equal(calls.at(-1).sql, 'COMMIT');
+    }
+});
+
 test('dispatch and Monitor GET is read-only even when counts do not match', async () => {
     const db = database(8);
     const routes = routesFor('routes/bookings.js', db);

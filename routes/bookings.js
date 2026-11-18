@@ -330,6 +330,9 @@ router.get('/shipments', async (req, res) => {
                 b.cy_date, b.vgm_cutoff, b.cutoff_time, b.demurrage, b.load_date, b.unload_date, b.return_date, b.open_gate,
                 f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense,
                 container1.container_no AS container_1_no, container1.seal_no AS seal_1_no,
+                CASE WHEN to_jsonb(container1) ? 'pop_no' THEN to_jsonb(container1)->>'pop_no'
+                     WHEN container2.container_no IS NULL THEN s.pop_no END AS pop_1_no,
+                to_jsonb(container2)->>'pop_no' AS pop_2_no,
                 container1.tare AS tare_1, container1.max_gross AS max_gross_1,
                 container2.container_no AS container_2_no, container2.seal_no AS seal_2_no,
                 container2.tare AS tare_2, container2.max_gross AS max_gross_2,
@@ -352,6 +355,44 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
+async function saveDispatchPatch(client, row) {
+    const result = await client.query(`
+        SELECT s.*, b.mode, b.job_type FROM shipment_operations s
+        JOIN bookings b ON b.booking_no = s.booking_no
+        WHERE s.order_id = $1 FOR UPDATE OF s
+    `, [row.order_id]);
+    if (!result.rows.length) throw requestError('ไม่พบ Order ที่ต้องการบันทึก', 404);
+    const allowed = ['leg1_plate', 'leg1_driver', 'leg1_appointment',
+        'leg2_plate', 'leg2_driver', 'leg2_appointment', 'leg3_plate', 'leg3_driver', 'leg3_appointment',
+        'is_drop_only', 'actual_drop_date', 'actual_load_date', 'actual_return_date',
+        'order_vgm_cutoff', 'order_return_cutoff'];
+    const patch = {};
+    for (const field of allowed) {
+        if (hasField(row, field)) patch[field] = field === 'is_drop_only' ? row[field] === true : cleanVal(row[field]);
+    }
+    const order = { ...result.rows[0], ...patch };
+    const deliveryEndsJob = order.mode === 'TRANSFER' || String(order.job_type).trim().toUpperCase() === 'DOMESTIC';
+    const actual = order.is_drop_only ? order.actual_drop_date : deliveryEndsJob ? order.actual_load_date : order.actual_return_date;
+    patch.overall_status = actual ? 'รอวางบิล' :
+        DISPATCH_COMPLETION_FIELDS.some(field => order[field]) ? 'กำลังเดินทาง' :
+        ['leg1', 'leg2', 'leg3'].some(leg => order[leg + '_plate'] || order[leg + '_driver']) ? 'จัดรถแล้ว' : 'รอจัดรถ';
+    const entries = Object.entries(patch);
+    await client.query('UPDATE shipment_operations SET ' + entries.map(([field], i) => field + ' = $' + (i + 1)).join(', ') +
+        ', updated_at = CURRENT_TIMESTAMP WHERE order_id = $' + (entries.length + 1), [...entries.map(([, value]) => value), row.order_id]);
+    for (const position of [1, 2]) {
+        const popField = 'pop_' + position + '_no';
+        if (!hasField(row, popField)) continue;
+        await client.query(`
+            INSERT INTO shipment_containers (order_id, container_position, pop_no) VALUES ($1, $2, $3)
+            ON CONFLICT (order_id, container_position) DO UPDATE SET pop_no = EXCLUDED.pop_no
+        `, [row.order_id, position, cleanVal(row[popField])]);
+    }
+    await saveShipmentContainers(client, row.order_id, row);
+    return patch.overall_status;
+}
+
+const DISPATCH_COMPLETION_FIELDS = ['leg1_completed', 'drop1_completed', 'leg2_completed', 'drop2_completed', 'leg3_completed'];
+
 // 4. บันทึกข้อมูลตู้แบบ Batch
 router.post('/shipments', async (req, res) => {
     const { data } = req.body;
@@ -360,6 +401,12 @@ router.post('/shipments', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        if (req.body.dispatch_patch === true) {
+            if (data.length !== 1) throw requestError('กรุณาระบุ Order เดียว');
+            const status = await saveDispatchPatch(client, data[0]);
+            await client.query('COMMIT');
+            return res.json({ success: true, overall_status: status });
+        }
         for (const row of data) {
             let final_order_id = row.order_id;
             if (final_order_id && final_order_id.includes('ORD-ADD-')) {

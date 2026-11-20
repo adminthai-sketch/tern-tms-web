@@ -329,6 +329,7 @@ router.get('/shipments', async (req, res) => {
                 b.origin, b.destination, COALESCE(s.order_container_size, b.container_size) AS container_size, b.job_type, b.agent, b.job_name, b.job_owner, b.factory,
                 b.cy_date, b.vgm_cutoff, b.cutoff_time, b.demurrage, b.load_date, b.unload_date, b.return_date, b.open_gate,
                 f.trip_fee, f.trans_fee, f.port_pass_fee, f.shore_fee, f.lift_fee, f.deposit_fee, f.advance_fee, f.other_expense,
+                f.iv_no, f.ar_no, to_jsonb(f)->'additional_revenue' AS additional_revenue,
                 container1.container_no AS container_1_no, container1.seal_no AS seal_1_no,
                 CASE WHEN to_jsonb(container1) ? 'pop_no' THEN to_jsonb(container1)->>'pop_no'
                      WHEN container2.container_no IS NULL THEN s.pop_no END AS pop_1_no,
@@ -365,10 +366,23 @@ async function saveDispatchPatch(client, row) {
     const allowed = ['leg1_plate', 'leg1_driver', 'leg1_appointment',
         'leg2_plate', 'leg2_driver', 'leg2_appointment', 'leg3_plate', 'leg3_driver', 'leg3_appointment',
         'is_drop_only', 'actual_drop_date', 'actual_load_date', 'actual_return_date',
-        'order_vgm_cutoff', 'order_return_cutoff'];
+        'order_vgm_cutoff', 'order_return_cutoff', 'leg1_completed', 'leg2_completed', 'leg3_completed',
+        'leg1_is_drop', 'leg2_is_drop', 'drop1_plate', 'drop1_driver', 'drop1_location', 'drop1_completed',
+        'drop2_plate', 'drop2_driver', 'drop2_location', 'drop2_completed', 'remark'];
     const patch = {};
     for (const field of allowed) {
-        if (hasField(row, field)) patch[field] = field === 'is_drop_only' ? row[field] === true : cleanVal(row[field]);
+        if (!hasField(row, field)) continue;
+        if (field === 'is_drop_only' || field.endsWith('_completed') || field.endsWith('_is_drop')) {
+            if (typeof row[field] !== 'boolean') throw requestError('สถานะต้องเป็น true หรือ false');
+            patch[field] = row[field];
+        } else {
+            const value = cleanVal(row[field]);
+            if (value && (field.endsWith('_date') || field.endsWith('_appointment') || field.endsWith('_cutoff')) &&
+                (!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/.test(value) || !Number.isFinite(Date.parse(value + '+07:00')))) {
+                throw requestError('รูปแบบวันเวลาไม่ถูกต้อง');
+            }
+            patch[field] = value;
+        }
     }
     const order = { ...result.rows[0], ...patch };
     const deliveryEndsJob = order.mode === 'TRANSFER' || String(order.job_type).trim().toUpperCase() === 'DOMESTIC';
@@ -402,8 +416,9 @@ router.post('/shipments', async (req, res) => {
     try {
         await client.query('BEGIN');
         if (req.body.dispatch_patch === true) {
-            if (data.length !== 1) throw requestError('กรุณาระบุ Order เดียว');
-            const status = await saveDispatchPatch(client, data[0]);
+            if (!Array.isArray(data) || data.length > 500 || new Set(data.map(row => row.order_id)).size !== data.length) throw requestError('รายการเที่ยวไม่ถูกต้อง');
+            let status;
+            for (const row of [...data].sort((a,b) => String(a.order_id).localeCompare(String(b.order_id)))) status = await saveDispatchPatch(client, row);
             await client.query('COMMIT');
             return res.json({ success: true, overall_status: status });
         }

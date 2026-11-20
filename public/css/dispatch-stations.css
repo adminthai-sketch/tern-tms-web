@@ -56,3 +56,15 @@ body {background:#f5f7fb;}
 #dispatch-modal>div {max-height:94vh;}
 #dispatch-modal>div>div:last-child {flex-shrink:0;flex-wrap:wrap;gap:12px;}
 @media(prefers-reduced-motion:reduce) {.workspace-group {transition:none;transform:none!important;}}
+.workspace-column-options {background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:4px 12px;margin:12px 0;}
+.workspace-column-options summary {color:#334155;font-weight:700;}
+.workspace-fold-guide {font-weight:400;color:#64748b;margin-left:12px;font-size:11px;}
+.workspace-group {display:inline-flex;align-items:center;gap:8px;min-height:40px;}
+.workspace-fold-icon {font-size:20px;line-height:1;}
+.workspace-fold-state {font-size:11px;font-weight:600;padding-left:10px;margin-left:4px;border-left:1px solid #94a3b84d;}
+.workspace-group.is-collapsed {background:#fff!important;color:#64748b!important;opacity:1;}
+.workspace-group.is-expanded {border-color:currentColor!important;}
+.workspace-group:focus-visible,.workspace-view-tabs>button:focus-visible {outline:2px solid #2563eb;outline-offset:3px;}
+.handsontable thead tr:first-child th {font-size:12px;letter-spacing:.2px;}
+.handsontable thead tr:nth-child(2) th {font-size:11px;}
+.handsontable td.workspace-station-start,.handsontable th.workspace-station-start {border-left-color:#b6c5d8!important;}

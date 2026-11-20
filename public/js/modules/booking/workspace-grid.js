@@ -12,7 +12,7 @@ let workspaceSecondSignature = '';
 // 🎨 1. ตั้งค่าหมวดหมู่ตารางและสี (แยกรายได้-ค่าใช้จ่าย)
 const workspaceGroups = {
     job: { label: 'ข้อมูลงาน', fields: [['mode','MODE'],['customer_name','ลูกค้า'],['job_owner','เจ้าของงาน'],['origin','ต้นทาง'],['factory','โรงงาน'],['destination','ปลายทาง'],['container_size','ขนาดตู้']] },
-    pickup: { label: 'PICK UP', fields: [['leg1_plate','ทะเบียนรถ'],['leg1_driver','คนขับ'],['leg1_appointment','เวลานัด'],['leg1_completed','สถานะรับตู้'],['order_vgm_cutoff','VGM Cutoff']] },
+    pickup: { label: 'PICK UP', fields: [['leg1_plate','ทะเบียนรถ'],['leg1_driver','คนขับ'],['leg1_appointment','CY DATE'],['leg1_completed','สถานะรับตู้'],['order_vgm_cutoff','VGM Cutoff']] },
     container: { label: 'ข้อมูลตู้', fields: [1,2].flatMap(n => [['container_'+n+'_no','เบอร์ตู้ '+n],['tare_'+n,'TARE '+n],['max_gross_'+n,'MAX GROSS '+n],['seal_'+n+'_no','SEAL '+n],['pop_'+n+'_no','POP '+n]]) },
     delivery: { label: 'DELIVERY', fields: [['_copy_delivery','ใช้รถ / คนขับเดิม'],['leg2_plate','ทะเบียนรถ'],['leg2_driver','คนขับ'],['leg2_appointment','เวลาเข้าโรงงาน'],['leg2_completed','สถานะส่งมอบ']] },
     returns: { label: 'RETURN', fields: [['_copy_returns','ใช้รถ / คนขับเดิม'],['leg3_plate','ทะเบียนรถ'],['leg3_driver','คนขับ'],['leg3_appointment','เวลาเปิดประตู'],['order_return_cutoff','Cutoff Time'],['leg3_completed','สถานะคืนตู้']] },
@@ -205,7 +205,15 @@ renderDispatchStages = function(booking, rows) {
     for(const [key, group] of Object.entries(workspaceGroups)) {
         const isCollapsed = workspaceView[key] === false;
         const btn = document.createElement('button');
-        btn.textContent = `${workspaceGroupLabel(key)} · ${isCollapsed ? '＋ กาง' : '− พับ'}`;
+        const icon = document.createElement('span');
+        icon.className = 'workspace-fold-icon';
+        icon.textContent = isCollapsed ? '▸' : '▾';
+        icon.setAttribute('aria-hidden','true');
+        const label = document.createElement('span'); label.textContent = group.label;
+        const state = document.createElement('span'); state.className = 'workspace-fold-state';
+        state.textContent = isCollapsed ? 'กาง' : 'พับ';
+        btn.append(icon,label,state);
+        btn.setAttribute('aria-label',group.label+' · '+(isCollapsed ? 'กางหมวด' : 'พับหมวด'));
         btn.setAttribute('aria-expanded', String(!isCollapsed));
         btn.title = workspaceGroupLabel(key) + (isCollapsed ? ' (แสดงรายละเอียด)' : ' (ย่อหมวด)');
         btn.className = `workspace-group workspace-zone-${workspaceColors[key]} shadow-sm ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`;
@@ -274,7 +282,7 @@ handleCrossFilter = function(event) {
     
     updateDropdownOptions(); applyFilters();
     if(cleared.length) document.getElementById('dispatch-stage-help').innerHTML = `<span class="text-rose-600 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> ล้างค่าตัวกรองที่ไม่สัมพันธ์กัน: ${cleared.join(', ')}</span>`;
-    else document.getElementById('dispatch-stage-help').textContent = 'เลือกมุมมองด้านล่าง · ปุ่ม 🔽 เปิดหมวดเพิ่มเติม · เวลาระบุเป็น YYYY-MM-DD HH:mm';
+    else document.getElementById('dispatch-stage-help').textContent = 'เลือกมุมมองด้านล่าง · ปุ่ม ▸ กาง / ▾ พับแต่ละหมวด · เวลาระบุเป็น YYYY-MM-DD HH:mm';
 };
 
 // เครื่องมือมุมมอง
@@ -284,10 +292,10 @@ window.addEventListener('DOMContentLoaded', () => {
     
     const presets = [
         ['ภาพรวม (ย่อ)', () => workspaceView = workspaceDefaultView()],
-        ['รับตู้', () => workspacePreset('pickup')],
-        ['ลงข้อมูลตู้', () => workspacePreset('container')],
-        ['ไปโรงงาน', () => workspacePreset('delivery')],
-        ['ส่ง/คืนตู้', () => workspacePreset('returns')],
+        ['PICK UP · รับตู้', () => workspacePreset('pickup')],
+        ['ข้อมูลตู้', () => workspacePreset('container')],
+        ['DELIVERY · โรงงาน', () => workspacePreset('delivery')],
+        ['RETURN · ส่ง/คืนตู้', () => workspacePreset('returns')],
         ['การเงิน', () => workspacePreset('finance')], // เปิดทั้งรายได้และคชจ.
         ['เปิดทั้งหมด', () => { Object.keys(workspaceGroups).forEach(k => workspaceView[k] = true); workspaceView.second = true; }]
     ];

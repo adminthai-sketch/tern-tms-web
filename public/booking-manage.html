@@ -19,20 +19,29 @@
     <script src="https://cdn.jsdelivr.net/npm/handsontable@12.1.2/dist/handsontable.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
-        .workspace-group { padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; font-weight:700; }
-        .workspace-zone-slate { background:#f1f5f9!important; color:#334155; }
-        .workspace-zone-sky { background:#e0f2fe!important; color:#075985; }
-        .workspace-zone-blue { background:#eff6ff!important; color:#1e40af; }
-        .workspace-zone-orange { background:#fff7ed!important; color:#9a3412; }
-        .workspace-zone-purple { background:#faf5ff!important; color:#6b21a8; }
-        .workspace-zone-amber { background:#fffbeb!important; color:#92400e; }
-        .workspace-zone-emerald { background:#ecfdf5!important; color:#065f46; }
-        .handsontable td[class*="workspace-zone"] { vertical-align:middle; padding:6px 8px; }
+        /* สไตล์ปุ่มเปิด/ปิดหมวดหมู่ */
+        .workspace-group { padding:6px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:11px; font-weight:700; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .workspace-group:hover { filter: brightness(0.95); transform: translateY(-1px); }
+        
+        /* 🎨 สีพื้นหลังแยกโซน (7 หมวดหมู่ตาม Requirement) */
+        .workspace-zone-slate { background:#f8fafc!important; color:#334155; } /* ข้อมูลงาน */
+        .workspace-zone-sky { background:#e0f2fe!important; color:#0369a1; } /* PICK UP */
+        .workspace-zone-blue { background:#eff6ff!important; color:#1d4ed8; } /* ข้อมูลตู้ */
+        .workspace-zone-orange { background:#fff7ed!important; color:#c2410c; } /* DELIVERY */
+        .workspace-zone-purple { background:#faf5ff!important; color:#7e22ce; } /* RETURN */
+        .workspace-zone-emerald { background:#ecfdf5!important; color:#047857; } /* รายได้ (ลูกค้า) */
+        .workspace-zone-rose { background:#fff1f2!important; color:#be123c; } /* ค่าใช้จ่าย (ต้นทุน) */
+        
+        /* จัดระเบียบเซลล์และ Hover บรรทัด */
+        .handsontable td[class*="workspace-zone"] { vertical-align:middle; padding:6px 8px; border-right: 1px solid #e2e8f0 !important; border-bottom: 1px solid #e2e8f0 !important; }
+        .handsontable th { background-color: #f1f5f9 !important; color: #475569 !important; font-weight: 700 !important; font-size: 11px !important; border-color: #cbd5e1 !important; }
+        .handsontable tbody tr:hover td { filter: brightness(0.92); cursor: default; transition: background-color 0.1s; border-top: 1px solid #94a3b8 !important; border-bottom: 1px solid #94a3b8 !important; }
+        
+        /* 🚨 สไตล์แจ้งเตือนเวลา (VGM / Cutoff) */
         .handsontable td.deadline-yellow { background:#fef08a!important; color:#713f12; font-weight:700; }
-        .handsontable td.deadline-red { background:#fee2e2!important; color:#991b1b; font-weight:700; animation:deadline-pulse 1.5s infinite; }
-        .handsontable td.deadline-overdue { background:#991b1b!important; color:white; font-weight:800; animation:deadline-pulse .8s infinite; }
-        @keyframes deadline-pulse { 50% { box-shadow:inset 0 0 0 3px #ef4444; } }
-        @media (prefers-reduced-motion:reduce) { .handsontable td.deadline-red,.handsontable td.deadline-overdue { animation:none; } }
+        .handsontable td.deadline-red { background:#fee2e2!important; color:#991b1b; font-weight:700; }
+        .handsontable td.deadline-overdue { background:#991b1b!important; color:white; font-weight:800; animation:deadline-pulse 0.8s infinite; }
+        @keyframes deadline-pulse { 50% { box-shadow:inset 0 0 0 3px #ef4444; color:#fca5a5; } }
     </style>
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col relative">

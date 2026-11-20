@@ -1,0 +1,15 @@
+ public/billing-detail.html                      |   1 [32m+[m
+ public/booking-manage.html                      |   5 [32m+[m
+ public/js/modules/billing/document-round.js     |  19 [32m+[m
+ public/js/modules/booking/manage-grid-legacy.js | 262 [32m+++++++++++[m
+ public/js/modules/booking/manage-modal.js       | 307 [32m+++++++++++++[m
+ public/js/modules/booking/manage.js             | 571 [31m------------------------[m
+ public/js/modules/booking/workspace-export.js   |  43 [32m++[m
+ public/js/modules/booking/workspace-finance.js  |  48 [32m++[m
+ public/js/modules/booking/workspace-grid.js     | 142 [32m++++++[m
+ routes/bookings.js                              |  23 [32m+[m[31m-[m
+ routes/dispatch-workspace.js                    | 107 [32m+++++[m
+ server.js                                       |   1 [32m+[m
+ sql/007-dispatch-workspace.sql                  |  19 [32m+[m
+ tests/dispatch-workspace.test.js                |  66 [32m+++[m
+ 14 files changed, 1039 insertions(+), 575 deletions(-)

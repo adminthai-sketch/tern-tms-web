@@ -33,7 +33,16 @@ async function transaction(req, res, work) {
         res.json({ success: true, ...result });
     } catch (error) {
         if (client) await client.query('ROLLBACK');
-        res.status(error.status || 500).json({ success: false, message: error.status ? error.message : 'บันทึกไม่สำเร็จ กรุณาตรวจ migration และการเชื่อมต่อ' });
+        const databaseMessages = {
+            '42P01': 'ยังไม่มีตารางที่ระบบต้องใช้ กรุณารัน sql/007-dispatch-workspace.sql บนฐาน TMS แล้วลองใหม่',
+            '42703': 'คอลัมน์ฐานข้อมูลยังไม่ครบ กรุณาตรวจ migration 005 ถึง 007',
+            '42501': 'บัญชีฐานข้อมูลไม่มีสิทธิ์บันทึกตารางที่ต้องใช้',
+            '23503': 'ไม่พบผู้ใช้หรือลูกค้าที่อ้างอิง กรุณาโหลดหน้าใหม่',
+            'ECONNREFUSED': 'เชื่อมต่อฐานข้อมูลไม่ได้ กรุณาตรวจ DATABASE_URL และสถานะ Neon'
+        };
+        console.error('Dispatch transaction failed', { code: error.code || 'unknown' });
+        res.status(error.status || 500).json({ success: false, message: error.status ? error.message :
+            (databaseMessages[error.code] || 'บันทึกไม่สำเร็จ กรุณาตรวจ Runtime Logs ของ Vercel'), code: error.code || 'unknown' });
     } finally { if (client) client.release(); }
 }
 
@@ -44,7 +53,6 @@ router.post('/dispatch/finance', (req, res) => transaction(req, res, async (clie
         const result = await client.query('SELECT * FROM financials WHERE order_id = $1 FOR UPDATE', [patch.order_id]);
         const previous = result.rows[0];
         if (!previous) throw fail('ไม่พบข้อมูลการเงินของเที่ยว', 404);
-        if ((previous.iv_no || previous.ar_no) && !String(reopen_reason || '').trim()) throw fail('กรุณาระบุเหตุผลเปิดแก้เอกสาร', 409);
         const updates = [];
         const values = [];
         for (const field of moneyFields) {

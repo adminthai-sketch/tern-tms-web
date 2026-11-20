@@ -145,12 +145,20 @@ initContainerHandsontable = function(data) {
                     btn.className = 'w-full bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-300 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-all';
                     btn.onclick = () => openDispatchModal(r);
                     td.append(btn);
+                    const row = instance.getSourceDataAtRow(instance.toPhysicalRow(r));
+                    const containers = document.createElement('button');
+                    const hasSecond = dispatchContainerFields.some(([key]) => row[dispatchContainerKey(key,2)] != null && row[dispatchContainerKey(key,2)] !== '');
+                    containers.textContent = hasSecond ? 'ดูตู้ 1 / ตู้ 2' : '＋ เพิ่มตู้ 2';
+                    containers.className = 'workspace-container-button';
+                    containers.title = 'จัดการข้อมูลตู้ใน Order '+row.order_id+' (ไม่เพิ่มเที่ยวใหม่)';
+                    containers.onclick = () => workspaceOpenContainers(r, !hasSecond);
+                    td.append(containers);
                 };
             }
             return column;
         }), 
         nestedHeaders: [groups, fields.map(([,label])=>label)], rowHeaders: true, fixedColumnsLeft: 2, width: '100%', height: '100%',
-        colWidths: fields.map(([field]) => field==='_checkbox'?45 : field==='_action'?75 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
+        colWidths: fields.map(([field]) => field==='_checkbox'?45 : field==='_action'?125 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
         rowHeights: 64, columnHeaderHeight: [42, 34], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
         afterGetColHeader: workspaceStationHeader,
         afterOnCellMouseDown(event, coords) {
@@ -196,7 +204,12 @@ renderDispatchStages = function(booking, rows) {
     }
 };
 
-function workspaceRefresh() { localStorage.setItem(workspaceViewKey, JSON.stringify(workspaceView)); applyFilters(); }
+function workspaceRefresh() {
+    const scroll = workspaceCaptureScroll();
+    localStorage.setItem(workspaceViewKey, JSON.stringify(workspaceView));
+    applyFilters();
+    workspaceRestoreScroll(scroll);
+}
 const workspaceOldApply = applyFilters;
 
 applyFilters = function() {
@@ -256,8 +269,8 @@ handleCrossFilter = function(event) {
 
 // เครื่องมือมุมมอง
 window.addEventListener('DOMContentLoaded', () => {
-    const host = document.getElementById('dispatch-stage-tabs').parentElement;
-    const tools = document.createElement('div'); tools.className = 'flex flex-wrap gap-2 my-2 border-t border-slate-200 pt-2';
+    const host = document.getElementById('dispatch-primary-views');
+    const tools = document.createElement('div'); tools.className = 'workspace-view-tabs';
     
     const presets = [
         ['ภาพรวม (ย่อ)', () => workspaceView = workspaceDefaultView()],
@@ -272,7 +285,7 @@ window.addEventListener('DOMContentLoaded', () => {
     for(const [label, action] of presets) {
         const btn = document.createElement('button'); btn.textContent = label;
         btn.className = 'border border-slate-300 rounded-lg px-2.5 py-1 text-[11px] font-bold bg-white text-slate-600 hover:bg-slate-100 hover:text-primary transition-colors shadow-sm';
-        btn.onclick = () => { if(workspaceReady()){ action(); workspaceRefresh(); } };
+        btn.onclick = () => { if(workspaceReady()){ action(); workspaceRefresh(); tools.querySelectorAll('button').forEach(button=>button.classList.toggle('is-active',button===btn)); } };
         tools.append(btn);
     }
     

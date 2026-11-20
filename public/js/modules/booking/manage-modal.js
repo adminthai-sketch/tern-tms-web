@@ -45,9 +45,12 @@ function addDispatchContainer(position) {
 
 window.addDispatchSecondContainer = function() {
     const existing = document.querySelector('#dispatch-containers [data-position="2"]');
-    if (existing) { existing.hidden = false; document.getElementById('dispatch-add-container').hidden = true; return; }
-    addDispatchContainer(2);
+    if (existing) existing.hidden = false;
+    else addDispatchContainer(2);
     document.getElementById('dispatch-add-container').hidden = true;
+    const second = document.querySelector('#dispatch-containers [data-position="2"]');
+    second.scrollIntoView({block:'nearest'});
+    second.querySelector('input')?.focus({preventScroll:true});
 };
 
 window.openDispatchModal = function(rowVisualIndex) {

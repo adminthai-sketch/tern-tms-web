@@ -49,5 +49,5 @@ window.openWorkspaceStops = async function(order) {
 window.addEventListener('DOMContentLoaded',()=>{
     const button=document.createElement('button');button.className='border border-amber-400 bg-amber-50 text-amber-900 rounded px-3 py-2';button.textContent='จัดเส้นทาง / เพิ่มจุดฝาก';
     button.onclick=()=>{const selected=rawShipmentList.filter(row=>workspaceSelected.has(row.order_id));if(selected.length!==1)return alert('เลือกหนึ่งเที่ยวเพื่อจัดจุดฝาก');openWorkspaceStops(selected[0]);};
-    document.getElementById('dispatch-stage-tabs').parentElement.append(button);
+    document.getElementById('dispatch-primary-views').parentElement.append(button);
 });

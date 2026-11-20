@@ -65,7 +65,7 @@ window.openWorkspaceBilling = function() {
 };
 
 window.addEventListener('DOMContentLoaded', () => {
-    const host = document.getElementById('dispatch-stage-tabs').parentElement;
+    const host = document.getElementById('dispatch-primary-views').parentElement;
     const btnGroup = document.createElement('div'); btnGroup.className = 'flex gap-2 mt-2';
     
     const revBtn = document.createElement('button'); revBtn.innerHTML = '<i class="fa-solid fa-hand-holding-dollar"></i> ลงรายได้เพิ่ม (เที่ยวที่เลือก)';

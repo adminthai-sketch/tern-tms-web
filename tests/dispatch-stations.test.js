@@ -30,3 +30,33 @@ test('Delivery appointment stays visible in the default view; Return uses Open G
     assert.match(grid,/\['leg3_appointment','เวลาเปิดประตู'\]/);
     assert.match(grid,/\['leg3_appointment','open_gate'\]/);
 });
+
+test('folding preserves the visible column anchor and vertical position after columns shrink',()=>{
+    const holder={scrollLeft:210,scrollTop:180};
+    const context=vm.createContext({document:{querySelector:()=>holder},requestAnimationFrame:callback=>callback(),
+        workspaceColumns:[['a'],['b'],['c'],['d']],hotGridInstance:{getColWidth:()=>100}});
+    vm.runInContext(source,context);
+    const saved=context.workspaceCaptureScroll();
+    context.workspaceColumns=[['a'],['d']]; holder.scrollLeft=0;holder.scrollTop=0;
+    context.workspaceRestoreScroll(saved);
+    assert.equal(holder.scrollLeft,10);assert.equal(holder.scrollTop,180);
+});
+
+test('add second container targets the clicked visual row and focuses its container fields',()=>{
+    const calls=[];
+    const context=vm.createContext({workspaceReady:()=>true,openDispatchModal:row=>calls.push(row),
+        addDispatchSecondContainer:()=>calls.push('second'),document:{
+            getElementById:()=>({scrollIntoView:()=>calls.push('scroll')}),
+            querySelector:selector=>({focus:()=>calls.push(selector)})}});
+    vm.runInContext(source,context);
+    context.workspaceOpenContainers(4,true);
+    assert.equal(calls[0],4);assert.equal(calls[1],'second');
+    assert.match(calls[3],/data-position="2"/);
+});
+
+test('container management is in the scrollable content, not the modal footer',()=>{
+    const html=fs.readFileSync('public/booking-manage.html','utf8');
+    assert.ok(html.indexOf('id="dispatch-container-section"')<html.indexOf('<!-- Footer -->'));
+    assert.equal((html.match(/id="dispatch-add-container"/g)||[]).length,1);
+    assert.match(html,/เพิ่มตู้ 2 ในเที่ยวนี้/);
+});

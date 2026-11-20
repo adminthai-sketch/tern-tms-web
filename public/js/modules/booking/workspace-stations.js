@@ -1,12 +1,53 @@
 // Station presentation and copy actions use visual-to-physical row mapping after sorting.
+function workspaceOpenContainers(visual, addSecond) {
+    if (!workspaceReady()) return;
+    openDispatchModal(visual);
+    if (addSecond) addDispatchSecondContainer();
+    document.getElementById('dispatch-container-section').scrollIntoView({block:'start'});
+    const position = addSecond ? '2' : '1';
+    document.querySelector('#dispatch-containers [data-position="'+position+'"] input')?.focus({preventScroll:true});
+}
+
+function workspaceCaptureScroll() {
+    const holder = document.querySelector('#container-grid-container .ht_master .wtHolder');
+    if (!holder || !hotGridInstance) return null;
+    const widths = workspaceColumns.map((_,index)=>hotGridInstance.getColWidth(index));
+    let start = 0;
+    const anchors = workspaceColumns.map(([field], index)=>{
+        const item = {field, offset:start-holder.scrollLeft};
+        start += widths[index]; return item;
+    }).filter(item=>item.offset>=0);
+    return {left:holder.scrollLeft,top:holder.scrollTop,anchors};
+}
+
+function workspaceRestoreScroll(saved) {
+    if (!saved) return;
+    const grid = hotGridInstance;
+    requestAnimationFrame(()=>{
+        if (hotGridInstance !== grid) return;
+        const holder = document.querySelector('#container-grid-container .ht_master .wtHolder');
+        if (!holder) return;
+        const anchor = saved.anchors.find(item=>workspaceColumns.some(([field])=>field===item.field));
+        let left = saved.left;
+        if (anchor) {
+            const index = workspaceColumns.findIndex(([field])=>field===anchor.field);
+            left = workspaceColumns.slice(0,index).reduce((sum,_,col)=>sum+grid.getColWidth(col),0)-anchor.offset;
+        }
+        holder.scrollLeft = Math.max(0,left);
+        holder.scrollTop = saved.top;
+    });
+}
+
 function workspaceTimeRenderer(instance, td, r, c, prop, value, properties) {
     Handsontable.renderers.TextRenderer(instance, td, r, c, prop, value, properties);
     td.replaceChildren();
     const label = document.createElement('strong');
-    label.textContent = value ? String(value).replace('T', ' ').slice(0, 16) : '＋ ระบุวันเวลา';
+    const stamp = value ? String(value).replace('T', ' ') : '';
+    label.textContent = stamp ? stamp.slice(11,16) : '＋ ระบุวันเวลา';
     const hint = document.createElement('small');
-    hint.textContent = 'ดับเบิลคลิกเพื่อเลือกวันเวลา';
-    td.append(label, document.createElement('br'), hint);
+    hint.textContent = stamp ? stamp.slice(0,10) : 'ดับเบิลคลิกเพื่อเลือก';
+    td.title = 'ดับเบิลคลิกเพื่อเลือกวันเวลา';
+    td.append(hint, document.createElement('br'), label);
 }
 
 function workspaceStationHeader(col, th) {

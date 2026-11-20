@@ -68,3 +68,15 @@ body {background:#f5f7fb;}
 .handsontable thead tr:first-child th {font-size:12px;letter-spacing:.2px;}
 .handsontable thead tr:nth-child(2) th {font-size:11px;}
 .handsontable td.workspace-station-start,.handsontable th.workspace-station-start {border-left-color:#b6c5d8!important;}
+#dispatch-toolbar {gap:4px;padding:8px 12px;}
+#dispatch-toolbar>section {margin-top:2px;padding-top:4px;}
+#dispatch-booking-summary {display:inline-block;margin:0 0 4px;font-size:11px;}
+#dispatch-toolbar-actions {flex-wrap:wrap;}
+#dispatch-toolbar-actions #save-status-badge {font-size:10px;padding:3px 6px;}
+.dispatch-toggle-tools {height:32px;padding:0 10px;border:1px solid #cbd5e1;border-radius:7px;background:#f8fafc;color:#334155;font-size:12px;font-weight:700;white-space:nowrap;}
+.dispatch-extra-tools {border-top:1px solid #e2e8f0;padding-top:8px;max-height:32vh;overflow-y:auto;}
+.dispatch-extra-tools[hidden] {display:none!important;}
+.dispatch-secondary-actions {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+#dispatch-primary-views .workspace-view-tabs {padding:3px;gap:3px;}
+#dispatch-primary-views .workspace-view-tabs>button {padding:5px 10px!important;font-size:11px!important;}
+main>div:has(>#container-grid-container) {min-height:200px;}

@@ -75,7 +75,7 @@
 </header>
 
 <main class="flex-1 p-3 overflow-hidden flex flex-col gap-2 relative">
-    <div class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2 shrink-0 z-10">
+    <div id="dispatch-toolbar" class="bg-white px-3 py-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2 shrink-0 z-10">
         <div class="flex flex-wrap justify-between items-center gap-2">
             <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center gap-1.5 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 h-8">
@@ -99,7 +99,7 @@
                 <button onclick="clearAllFilters()" class="text-slate-400 hover:text-red-500 px-2 h-8 transition-colors"><i class="fa-solid fa-eraser text-sm"></i></button>
             </div>
 
-            <div class="flex items-center gap-2">
+            <div id="dispatch-toolbar-actions" class="flex items-center gap-2">
                 <button id="btn-toggle-drops" onclick="toggleDropYards()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-1 px-3 rounded text-xs flex items-center gap-1 border border-purple-200 h-8 shadow-sm transition-colors">
                     <i class="fa-solid fa-eye-slash"></i> แสดงลานฝากตู้
                 </button>
@@ -121,7 +121,7 @@
             </div>
         </div>
         
-        <div class="flex items-center gap-2 text-xs border-t border-slate-100 pt-2">
+        <div id="dispatch-quick-tools" class="flex items-center gap-2 text-xs border-t border-slate-100 pt-2">
             <span class="font-bold text-slate-500"><i class="fa-solid fa-bolt text-amber-500"></i> ตัวกรองด่วน:</span>
             <button id="qf-pending" onclick="setQuickFilter('pending')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">รอลงเบอร์ตู้</button>
             <button id="qf-filled" onclick="setQuickFilter('filled')" class="px-3 py-1 rounded-full border border-slate-300 bg-white hover:bg-blue-50 hover:text-blue-600 font-medium text-slate-600 transition-colors shadow-sm">ลงเบอร์ตู้แล้ว</button>
@@ -340,13 +340,14 @@
 <script src="js/modules/booking/manage.js"></script>
 <script src="js/modules/booking/manage-grid-legacy.js"></script>
 <script src="js/modules/booking/manage-modal.js?v=20261120b"></script>
-<link rel="stylesheet" href="css/dispatch-stations.css?v=20261120e">
+<link rel="stylesheet" href="css/dispatch-stations.css?v=20261120f">
 <script src="js/modules/booking/workspace-stations.js?v=20261120e"></script>
 <script src="js/modules/booking/workspace-grid.js?v=20261120e"></script>
 <script src="js/modules/booking/workspace-finance.js?v=20261120b"></script>
 <script src="js/modules/booking/workspace-export.js"></script>
 <script src="js/modules/booking/workspace-stops.js?v=20261120b"></script>
 <script src="js/modules/booking/workspace-time.js"></script>
+<script src="js/modules/booking/workspace-toolbar.js?v=20261120f"></script>
 <script src="/js/auth.js"></script>
 <script src="/js/password.js"></script>
 </body>

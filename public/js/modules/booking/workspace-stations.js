@@ -71,7 +71,7 @@ function workspaceCopyRenderer(instance, td, visual, col, prop, value, propertie
     const button = document.createElement('button');
     button.type = 'button'; button.textContent = '↳ ดึงรถ + คนขับ';
     button.className = 'workspace-copy-button';
-    button.onmousedown = event => event.stopPropagation();
+    button.onmousedown = event => { event.preventDefault(); event.stopPropagation(); };
     button.onclick = async event => {
         event.stopPropagation(); button.disabled = true;
         const row = instance.getSourceDataAtRow(instance.toPhysicalRow(visual));

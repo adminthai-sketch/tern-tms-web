@@ -417,66 +417,7 @@ function initBookingHandsontable(data) {
     buildColumnToggleList();
 }
 
-window.toggleRowExpansion = async function(bookingNo, visualRow) {
-    if (!hotGridInstance) return;
-
-    if (!expandedBookings[bookingNo]) {
-        showLoadingToast(true);
-        try {
-            const monthVal = document.getElementById('filter-month').value;
-            const [year, month] = monthVal.split('-');
-            
-            const res = await fetch(`/api/shipments?year=${year}&month=${month}`);
-            const result = await res.json();
-            
-            if (result.success && result.data && result.data.length > 0) {
-                // รองรับข้อมูลที่ส่งมาจาก API ทั้งแบบ Object และ Array
-                const childOrders = result.data.filter(r => (r.booking_no || r[7]) === bookingNo);
-                
-                if (childOrders.length === 0) {
-                    alert('ยังไม่มีการสร้างตู้ลูกสำหรับบุคกิ้งนี้');
-                    showLoadingToast(false); return;
-                }
-
-                const physicalRow = hotGridInstance.toPhysicalRow(visualRow);
-                
-                const childRowsData = childOrders.map((child) => {
-                    const parentData = [...hotGridInstance.getSourceDataAtRow(physicalRow)];
-                    parentData[0] = false; 
-                    parentData[1] = ''; 
-                    parentData[2] = ''; 
-                    parentData[3] = bookingNo; 
-                    parentData[4] = ''; 
-                    
-                    [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].forEach(idx => parentData[idx] = '');
-                    
-                    const cSize = child.container_size || child[12] || 'ไม่ระบุขนาด';
-                    const cStatus = child.overall_status || child[29] || 'รอจัดรถ';
-                    const cNo = child.container_1_no || child[8] || '';
-                    
-                    // แสดงรายละเอียดตู้ลูกในช่องชื่องาน (Index 9)
-                    parentData[9] = `ขนาด: ${cSize}` + (cNo ? ` | เบอร์ตู้: ${cNo}` : '') + ` (${cStatus})`;
-                    
-                    parentData._isChild = true;
-                    parentData._orderId = child.order_id || child[1]; 
-                    return parentData;
-                });
-
-                hotGridInstance.alter('insert_row_below', visualRow, childRowsData.length);
-                hotGridInstance.populateFromArray(visualRow + 1, 0, childRowsData);
-                expandedBookings[bookingNo] = childRowsData.length; 
-            }
-        } catch (e) {
-            console.error(e); alert('ดึงข้อมูลตู้ย่อยล้มเหลว');
-        } finally {
-            showLoadingToast(false);
-        }
-    } else {
-        const countToRemove = expandedBookings[bookingNo];
-        hotGridInstance.alter('remove_row', visualRow + 1, countToRemove);
-        delete expandedBookings[bookingNo];
-    }
-};
+// Child Order expansion is handled in list-children.js.
 
 function showLoadingToast(show) {
     const toast = document.getElementById('child-loading-toast');

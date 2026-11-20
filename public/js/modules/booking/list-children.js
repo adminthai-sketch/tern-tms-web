@@ -42,5 +42,8 @@ function bookingChildRow(parent, order) {
 
 // Stop Handsontable's mousedown selection from replacing the button before click fires.
 document.addEventListener('mousedown', event=>{
-    if (event.target.closest('#booking-grid-container button, #hot-container button')) event.stopPropagation();
+    if (event.target.closest('#booking-grid-container button')) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
 },true);

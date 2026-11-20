@@ -152,7 +152,7 @@ initContainerHandsontable = function(data) {
                     btn.innerHTML = '<i class="fa-solid fa-truck-fast"></i> จัดรถ';
                     btn.className = 'w-full bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-300 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-all';
                     btn.onclick = () => openDispatchModal(r);
-                    btn.onmousedown = event => event.stopPropagation();
+                    btn.onmousedown = event => { event.preventDefault(); event.stopPropagation(); };
                     td.append(btn);
                     const row = instance.getSourceDataAtRow(instance.toPhysicalRow(r));
                     const containers = document.createElement('button');
@@ -161,7 +161,7 @@ initContainerHandsontable = function(data) {
                     containers.className = 'workspace-container-button';
                     containers.title = 'จัดการข้อมูลตู้ใน Order '+row.order_id+' (ไม่เพิ่มเที่ยวใหม่)';
                     containers.onclick = () => workspaceOpenContainers(r, !hasSecond);
-                    containers.onmousedown = event => event.stopPropagation();
+                    containers.onmousedown = event => { event.preventDefault(); event.stopPropagation(); };
                     td.append(containers);
                 };
             }

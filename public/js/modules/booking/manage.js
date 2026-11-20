@@ -234,7 +234,10 @@ async function loadContainerGridData() {
             const selectBooking = urlParams.get('select');
             if (selectBooking) {
                 document.getElementById('filter-booking-no').value = selectBooking;
-                window.history.replaceState({}, document.title, window.location.pathname);
+                document.getElementById('filter-customer').value = '';
+                document.getElementById('filter-run-date').value = '';
+                containerQuickFilter = ''; 
+                // Keep Booking and month in the URL when refreshing.
             }
             
             if (selectBooking) {

@@ -14,6 +14,17 @@ function addDispatchContainer(position) {
     const legend = document.createElement('legend');
     legend.textContent = 'ตู้ ' + position;
     card.append(legend);
+    if (position === 2) {
+        const remove = document.createElement('button');
+        remove.type = 'button'; remove.textContent = 'นำตู้ 2 ออก';
+        remove.onclick = () => {
+            if (!confirm('ล้างข้อมูลตู้ 2 ของเที่ยวนี้เมื่อบันทึก?')) return;
+            for (const element of card.querySelectorAll('input')) element.value = '';
+            card.hidden = true;
+            document.getElementById('dispatch-add-container').hidden = false;
+        };
+        card.append(remove);
+    }
     for (const [field, caption] of dispatchContainerFields) {
         const label = document.createElement('label');
         label.className = 'text-xs font-semibold';
@@ -33,7 +44,8 @@ function addDispatchContainer(position) {
 }
 
 window.addDispatchSecondContainer = function() {
-    if (document.querySelector('#dispatch-containers [data-position="2"]')) return;
+    const existing = document.querySelector('#dispatch-containers [data-position="2"]');
+    if (existing) { existing.hidden = false; document.getElementById('dispatch-add-container').hidden = true; return; }
     addDispatchContainer(2);
     document.getElementById('dispatch-add-container').hidden = true;
 };
@@ -80,7 +92,7 @@ window.openDispatchModal = function(rowVisualIndex) {
     // 🌟 โหลดเวลาจาก Order ตัวเองก่อน ถ้าไม่มีค่อยไปดึงจากหัว Booking (Plan Time) 🌟
     const planCy = rData.leg1_appointment || rData.cy_date;
     const planVgm = rData.order_vgm_cutoff || rData.vgm_cutoff;
-    const planLoad = rData.leg2_appointment || rData.load_date;
+    const planLoad = rData.leg2_appointment || (rData.mode === 'IMPORT' ? rData.unload_date : rData.load_date);
     const planReturn = rData.leg3_appointment || rData.return_date;
     const planCutoff = rData.order_return_cutoff || rData.cutoff_time;
 
@@ -187,7 +199,20 @@ function checkVGMAlert() {
 }
 
 // 🌟 ก๊อปปี้รถ (ระบุให้ชัดเจนว่าดึงจากขารับตู้ หรือ ฝากลาน) 🌟
-window.copyTruck = function(fromLegStr, toLegNum) {
+window.copyTruck = async function(fromLegStr, toLegNum) {
+    try {
+        const response = await fetch('/api/dispatch/stops/' + encodeURIComponent(currentDispatchOrder.order_id));
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'โหลดจุดฝากไม่สำเร็จ');
+        const segment = toLegNum === 2 ? 'after_pickup' : 'after_delivery';
+        const previous = result.data.filter(stop => stop.segment === segment).sort((a,b)=>a.position-b.position).at(-1);
+        if (previous) {
+            document.getElementById(`modal-leg${toLegNum}-plate`).value = previous.plate || '';
+            document.getElementById(`modal-leg${toLegNum}-driver`).value = previous.driver || '';
+            document.getElementById('dispatch-copy-source').textContent = 'ใช้ข้อมูลจากจุดฝาก ' + (previous.location || previous.stop_id);
+            return;
+        }
+    } catch (error) { alert(error.message); return; }
     // fromLegStr สามารถรับเป็น 'leg1' (รับตู้) หรือ 'drop1' (ฝากลาน) ได้
     // แต่เพื่อความง่ายในเวอร์ชันนี้ สมมติว่าดึงจาก leg ตรงๆ ไปก่อน เดี๋ยวค่อยไปปรับหน้า HTML ใส่ปุ่มดึง Drop
     const drop = 'drop' + (toLegNum - 1);

@@ -325,6 +325,7 @@ router.get('/shipments', async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 s.*,
+                (SELECT count(*)::integer FROM shipment_stops st WHERE st.order_id=s.order_id) AS stop_count,
                 b.id AS booking_id, b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
                 b.origin, b.destination, COALESCE(s.order_container_size, b.container_size) AS container_size, b.job_type, b.agent, b.job_name, b.job_owner, b.factory,
                 b.cy_date, b.vgm_cutoff, b.cutoff_time, b.demurrage, b.load_date, b.unload_date, b.return_date, b.open_gate,

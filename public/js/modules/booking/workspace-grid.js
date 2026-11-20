@@ -62,8 +62,8 @@ async function workspaceRequest(url, body) {
 }
 
 function workspaceBuildColumns() {
-    const fields = [['_checkbox','เลือก'],['_action','จัดรถ'],['order_id','Order ID'],['booking_no','Booking']];
-    const groups = [{label:'จัดการ',colspan:2},{label:'เลขอ้างอิง',colspan:2}];
+    const fields = [['_checkbox','เลือก'],['_action','จัดรถ'],['order_id','Order ID'],['booking_no','Booking'],['_stop_action','จุดฝาก']];
+    const groups = [{label:'จัดการ',colspan:2},{label:'เลขอ้างอิง',colspan:2},'เส้นทาง'];
     for (const [key, group] of Object.entries(workspaceGroups)) {
         if (workspaceView[key] === false) {
             fields.push(['_summary_'+key,'แสดงรายละเอียด 🔽']);
@@ -126,6 +126,7 @@ initContainerHandsontable = function(data) {
             if (field === '_checkbox' || field.endsWith('_completed') || field.endsWith('_is_drop') || field === 'is_drop_only') column.type = 'checkbox';
             if (workspaceMoney.includes(field) || /^(tare|max_gross)_/.test(field)) { column.type = 'numeric'; column.numericFormat = {pattern:'0,0.00'}; }
             if (field.endsWith('_plate') || field.endsWith('_driver')) { column.type = 'autocomplete'; column.source = field.endsWith('_plate') ? globalTruckList : globalDriverList; column.strict = false; }
+            if(field==='_stop_action') { column.readOnly=true; column.renderer=(instance,td,r)=>{const row=instance.getSourceDataAtRow(instance.toPhysicalRow(r));td.textContent='ฝาก '+(row.stop_count||0)+' จุด ＋';td.className='workspace-zone-amber';}; }
             if (field === '_action') {
                 column.renderer = (instance, td, r) => {
                     td.replaceChildren(); 
@@ -140,10 +141,13 @@ initContainerHandsontable = function(data) {
         }), 
         nestedHeaders: [groups, fields.map(([,label])=>label)], rowHeaders: true, fixedColumnsLeft: 2, width: '100%', height: '100%',
         colWidths: fields.map(([field]) => field==='_checkbox'?45 : field==='_action'?75 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
-        rowHeights: 48, columnHeaderHeight: [36, 30], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
+        rowHeights: 58, columnHeaderHeight: [36, 30], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
         afterOnCellMouseDown(event, coords) {
             if(coords.row < 0) return;
             const field = hotGridInstance.colToProp(coords.col);
+            const item=hotGridInstance.getSourceDataAtRow(hotGridInstance.toPhysicalRow(coords.row));
+            if(field==='_stop_action'){openWorkspaceStops(item);return;}
+            if(event.detail===2 && /(_appointment|_cutoff|actual_.*_date)$/.test(field)){workspaceEditTime(coords.row,field);return;}
             if(String(field).startsWith('_summary_') && workspaceReady()){ workspaceView[field.slice(9)] = true; workspaceRefresh(); }
         },
         licenseKey: 'non-commercial-and-evaluation',

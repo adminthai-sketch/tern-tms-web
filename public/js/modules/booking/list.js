@@ -309,7 +309,7 @@ function initBookingHandsontable(data) {
                     if (rData._isChild) {
                         td.innerHTML = `
                             <div class="flex items-center justify-center p-0.5 h-full">
-                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(rData[3])}'" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold px-2 py-1 rounded shadow-sm text-[10px] flex items-center">
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(rData[3])}&month=${encodeURIComponent(String(rData[5] || '').slice(0,7))}'" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 font-bold px-2 py-1 rounded shadow-sm text-[10px] flex items-center">
                                     <i class="fa-solid fa-truck-fast mr-1"></i> เลือกรถ
                                 </button>
                             </div>`;
@@ -317,7 +317,7 @@ function initBookingHandsontable(data) {
                         td.innerHTML = `
                             <div class="flex flex-row items-center justify-center gap-1 w-full p-0.5">
                                 <button onclick="window.goToFormEdit('${rData[3]}')" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 font-bold px-1.5 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap"><i class="fa-solid fa-pen mr-1"></i> แก้</button>
-                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(rData[3])}'" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1.5 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap"><i class="fa-solid fa-truck-fast mr-1"></i> รถ</button>
+                                <button onclick="window.location.href='/booking-manage.html?select=${encodeURIComponent(rData[3])}&month=${encodeURIComponent(String(rData[5] || '').slice(0,7))}'" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-1.5 py-1 rounded text-[10px] shadow-sm flex items-center justify-center whitespace-nowrap"><i class="fa-solid fa-truck-fast mr-1"></i> รถ</button>
                             </div>`;
                     }
                     td.style.verticalAlign = 'middle';

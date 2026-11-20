@@ -390,15 +390,24 @@ router.get('/print-data', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const bookingNo = req.query.booking_no || req.query.booking;
     const ivNo = req.query.iv_no || req.query.iv;
+    let orderIds = null;
+    if (req.query.orders !== undefined) {
+        try { orderIds = JSON.parse(req.query.orders); } catch { return res.status(400).json({success:false,message:'รายการเที่ยวไม่ถูกต้อง'}); }
+        if (!Array.isArray(orderIds) || !orderIds.length || orderIds.length > 500 || orderIds.some(id=>typeof id !== 'string' || !id.trim()))
+            return res.status(400).json({success:false,message:'รายการเที่ยวไม่ถูกต้อง'});
+    }
 
-    if (!bookingNo && !ivNo) {
+    if (!bookingNo && !ivNo && !orderIds) {
         return res.status(400).json({ success: false, message: 'กรุณาระบุ booking_no หรือ iv_no' });
     }
 
     try {
         let condition = ''; 
         let param = '';
-        if (ivNo) { 
+        if (orderIds) {
+            condition = 's.order_id = ANY($1::text[])';
+            param = orderIds;
+        } else if (ivNo) {
             condition = 'LOWER(TRIM(f.iv_no)) = LOWER(TRIM($1))'; 
             param = String(ivNo).trim(); 
         } else { 

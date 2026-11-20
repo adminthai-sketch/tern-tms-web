@@ -189,15 +189,18 @@
             const urlParams = new URLSearchParams(window.location.search);
             const bookingNo = urlParams.get('booking') || urlParams.get('booking_no');
             const ivNo = urlParams.get('iv') || urlParams.get('iv_no');
+            const orders = urlParams.get('orders');
             
-            if(!bookingNo && !ivNo) { 
+            if(!bookingNo && !ivNo && !orders) {
                 alert("ข้อมูลไม่ครบถ้วน ไม่พบเลข Booking หรือ เลข IV"); 
                 return; 
             }
 
             try {
                 // 🌟 โหลดข้อมูลจาก API
-                const res = await fetch(`/api/billing/print-data?iv=${encodeURIComponent(ivNo || '')}&booking=${encodeURIComponent(bookingNo || '')}`);
+                const query = new URLSearchParams({iv:ivNo || '',booking:bookingNo || ''});
+                if (orders) query.set('orders', orders);
+                const res = await fetch('/api/billing/print-data?' + query);
                 const result = await res.json();
                 
                 if(result.success && result.data && result.data.length > 0) {

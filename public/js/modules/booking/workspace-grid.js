@@ -3,7 +3,7 @@ const workspaceSelected = new Set();
 const workspaceUser = JSON.parse(localStorage.getItem('tms_user') || '{}');
 const workspaceViewKey = 'dispatch-view-v3-' + (workspaceUser.id || 'local');
 let workspaceView;
-const workspaceDefaultView = () => ({job:false, pickup:true, container:true, delivery:false, returns:false, revenue:false, expense:false});
+const workspaceDefaultView = () => ({job:false, pickup:true, container:true, delivery:true, returns:true, revenue:false, expense:false});
 try { workspaceView = JSON.parse(localStorage.getItem(workspaceViewKey)) || workspaceDefaultView(); } catch { workspaceView = workspaceDefaultView(); }
 let workspacePendingOnly = false;
 let workspaceMode = ''; // เก็บโหมดงานของ Booking ที่เลือก
@@ -13,8 +13,8 @@ const workspaceGroups = {
     job: { label: 'ข้อมูลงาน', fields: [['mode','MODE'],['customer_name','ลูกค้า'],['job_owner','เจ้าของงาน'],['origin','ต้นทาง'],['factory','โรงงาน'],['destination','ปลายทาง'],['container_size','ขนาดตู้']] },
     pickup: { label: 'PICK UP', fields: [['leg1_plate','ทะเบียนรถ'],['leg1_driver','คนขับ'],['leg1_appointment','เวลานัด'],['leg1_completed','สถานะรับตู้'],['order_vgm_cutoff','VGM Cutoff']] },
     container: { label: 'ข้อมูลตู้', fields: [1,2].flatMap(n => [['container_'+n+'_no','เบอร์ตู้ '+n],['tare_'+n,'TARE '+n],['max_gross_'+n,'MAX GROSS '+n],['seal_'+n+'_no','SEAL '+n],['pop_'+n+'_no','POP '+n]]) },
-    delivery: { label: 'DELIVERY', fields: [['leg2_plate','ทะเบียนรถ'],['leg2_driver','คนขับ'],['leg2_appointment','เวลานัด'],['leg2_completed','สถานะส่งมอบ']] },
-    returns: { label: 'RETURN', fields: [['leg3_plate','ทะเบียนรถ'],['leg3_driver','คนขับ'],['leg3_appointment','เวลานัด'],['order_return_cutoff','Cutoff Time'],['leg3_completed','สถานะคืนตู้']] },
+    delivery: { label: 'DELIVERY', fields: [['_copy_delivery','ใช้รถ / คนขับเดิม'],['leg2_plate','ทะเบียนรถ'],['leg2_driver','คนขับ'],['leg2_appointment','เวลาเข้าโรงงาน'],['leg2_completed','สถานะส่งมอบ']] },
+    returns: { label: 'RETURN', fields: [['_copy_returns','ใช้รถ / คนขับเดิม'],['leg3_plate','ทะเบียนรถ'],['leg3_driver','คนขับ'],['leg3_appointment','เวลาเปิดประตู'],['order_return_cutoff','Cutoff Time'],['leg3_completed','สถานะคืนตู้']] },
     revenue: { label: 'รายได้ (ลูกค้า)', fields: [['trans_fee','ค่าขนส่ง'],['additional_total','รายได้อื่นรวม'],['iv_no','IV']] },
     expense: { label: 'ค่าใช้จ่าย (ต้นทุน)', fields: [['trip_fee','ค่าเที่ยว'],['port_pass_fee','ค่าผ่านท่า'],['shore_fee','ชอร์'],['lift_fee','ยกตู้'],['deposit_fee','ฝากตู้'],['other_expense','ค่าใช้จ่ายอื่น'],['ar_no','AR']] }
 };
@@ -66,7 +66,7 @@ function workspaceBuildColumns() {
     const groups = [{label:'จัดการ',colspan:2},{label:'เลขอ้างอิง',colspan:2},'เส้นทาง'];
     for (const [key, group] of Object.entries(workspaceGroups)) {
         if (workspaceView[key] === false) {
-            fields.push(['_summary_'+key,'แสดงรายละเอียด 🔽']);
+            fields.push(['_summary_'+key,'สรุปสถานี · กดเพื่อกาง']);
             groups.push(workspaceGroupLabel(key));
         } else {
             const selected = group.fields.filter(([prop]) => key !== 'container' || workspaceView.second || !/(_2_no|_2)$/.test(prop));
@@ -96,7 +96,7 @@ initContainerHandsontable = function(data) {
     for (const row of data) {
         row._checkbox = workspaceSelected.has(row.order_id);
         row.additional_total = (row.additional_revenue || []).reduce((sum,item)=>sum+Math.round(Number(item.amount||0)*100),0)/100;
-        for (const [field, fallback] of [['leg1_appointment','cy_date'],['leg2_appointment',row.mode==='IMPORT'?'unload_date':'load_date'],['leg3_appointment','return_date'],['order_vgm_cutoff','vgm_cutoff'],['order_return_cutoff','cutoff_time']]) {
+        for (const [field, fallback] of [['leg1_appointment','cy_date'],['leg2_appointment',row.mode==='IMPORT'?'unload_date':'load_date'],['leg3_appointment','open_gate'],['order_vgm_cutoff','vgm_cutoff'],['order_return_cutoff','cutoff_time']]) {
             if (row[field] == null) row[field] = row[fallback] || null;
         }
         for (const key of Object.keys(workspaceGroups)) row['_summary_'+key] = workspaceSummary(row,key);
@@ -108,6 +108,16 @@ initContainerHandsontable = function(data) {
             const column = { data: field, readOnly: workspaceReadOnly.has(field) || field.startsWith('_summary') || ['_action','order_id','booking_no'].includes(field) };
             const groupKey = field.startsWith('_summary_') ? field.slice(9) : Object.keys(workspaceGroups).find(key => workspaceGroups[key].fields.some(([prop])=>prop===field));
             column.className = 'workspace-zone-' + (workspaceColors[groupKey] || 'slate');
+            const groupFields = fields.filter(([prop]) => prop === '_summary_'+groupKey || workspaceGroups[groupKey]?.fields.some(([key])=>key===prop));
+            if (groupFields[0]?.[0] === field) column.className += ' workspace-station-start';
+            if (field.includes('appointment')) {
+                column.className += ' workspace-time-cell';
+                column.renderer = workspaceTimeRenderer;
+            }
+            if (field.startsWith('_copy_')) {
+                column.readOnly = true;
+                column.renderer = workspaceCopyRenderer;
+            }
             
             // Render Time Warnings
             if(field === 'order_vgm_cutoff' || field === 'order_return_cutoff') {
@@ -141,7 +151,8 @@ initContainerHandsontable = function(data) {
         }), 
         nestedHeaders: [groups, fields.map(([,label])=>label)], rowHeaders: true, fixedColumnsLeft: 2, width: '100%', height: '100%',
         colWidths: fields.map(([field]) => field==='_checkbox'?45 : field==='_action'?75 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
-        rowHeights: 58, columnHeaderHeight: [36, 30], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
+        rowHeights: 64, columnHeaderHeight: [42, 34], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
+        afterGetColHeader: workspaceStationHeader,
         afterOnCellMouseDown(event, coords) {
             if(coords.row < 0) return;
             const field = hotGridInstance.colToProp(coords.col);
@@ -176,9 +187,10 @@ renderDispatchStages = function(booking, rows) {
     for(const [key, group] of Object.entries(workspaceGroups)) {
         const isCollapsed = workspaceView[key] === false;
         const btn = document.createElement('button');
-        btn.innerHTML = `${group.label} ${isCollapsed ? '🔽' : '🔼'}`;
+        btn.textContent = `${workspaceGroupLabel(key)} · ${isCollapsed ? '＋ กาง' : '− พับ'}`;
+        btn.setAttribute('aria-expanded', String(!isCollapsed));
         btn.title = workspaceGroupLabel(key) + (isCollapsed ? ' (แสดงรายละเอียด)' : ' (ย่อหมวด)');
-        btn.className = `workspace-group workspace-zone-${workspaceColors[key]} shadow-sm`;
+        btn.className = `workspace-group workspace-zone-${workspaceColors[key]} shadow-sm ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`;
         btn.onclick = () => { if(workspaceReady()){ workspaceView[key] = isCollapsed; workspaceRefresh(); } };
         host.append(btn);
     }

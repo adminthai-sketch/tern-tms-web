@@ -93,7 +93,7 @@ window.openDispatchModal = function(rowVisualIndex) {
     const planCy = rData.leg1_appointment || rData.cy_date;
     const planVgm = rData.order_vgm_cutoff || rData.vgm_cutoff;
     const planLoad = rData.leg2_appointment || (rData.mode === 'IMPORT' ? rData.unload_date : rData.load_date);
-    const planReturn = rData.leg3_appointment || rData.return_date;
+    const planReturn = rData.leg3_appointment || rData.open_gate;
     const planCutoff = rData.order_return_cutoff || rData.cutoff_time;
 
     // แสดงแจ้งเตือนเวลาอ้างอิงบนหัว Modal

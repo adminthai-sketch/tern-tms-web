@@ -3,7 +3,23 @@ const workspaceSelected = new Set();
 const workspaceUser = JSON.parse(localStorage.getItem('tms_user') || '{}');
 const workspaceViewKey = 'dispatch-view-' + (workspaceUser.id || 'local');
 let workspaceView;
-try { workspaceView = JSON.parse(localStorage.getItem(workspaceViewKey)) || {}; } catch { workspaceView = {}; }
+const workspaceDefaultView = () => ({job:true,pickup:false,container:false,delivery:false,returns:false,drops:false,finance:false});
+try { workspaceView = JSON.parse(localStorage.getItem(workspaceViewKey)) || workspaceDefaultView(); } catch { workspaceView = workspaceDefaultView(); }
+let workspacePendingOnly = false;
+let workspaceMode = '';
+const workspaceColors = {job:'slate',pickup:'sky',container:'blue',delivery:'orange',returns:'purple',drops:'amber',finance:'emerald'};
+function workspaceGroupLabel(key) {
+    const imported = workspaceMode === 'IMPORT';
+    return ({pickup:imported?'PICK UP · รับตู้จากท่าเรือ':'PICK UP · รับตู้เปล่า',delivery:imported?'DELIVERY · โรงงานลงของ':'DELIVERY · โรงงานรับและบรรจุสินค้า',returns:imported?'RETURN · คืนตู้เปล่าที่ลาน':'RETURN · ส่งตู้หนักเข้าท่าเรือ'})[key] || workspaceGroups[key].label;
+}
+function workspaceDeadline(value, now = Date.now()) {
+    if (!value) return null;
+    const text=String(value).replace(' ','T');
+    const deadline=Date.parse(/[zZ]$|[+-]\d{2}:\d{2}$/.test(text)?text:text+'+07:00');
+    if(!Number.isFinite(deadline))return null;
+    const minutes=Math.ceil((deadline-now)/60000);
+    return {level:minutes<=0?'overdue':minutes<=120?'red':minutes<=180?'yellow':'normal',text:minutes<=0?'เลยเวลา '+Math.abs(minutes)+' นาที':'เหลือ '+Math.floor(minutes/60)+' ชม. '+minutes%60+' นาที'};
+}
 let workspaceColumns = [];
 const workspaceGroups = {
     job: { label: 'ข้อมูลงาน', fields: [['mode','MODE'],['customer_name','ลูกค้า'],['job_owner','เจ้าของงาน'],['origin','ต้นทาง'],['factory','โรงงาน'],['destination','ปลายทาง'],['container_size','ขนาดตู้']] },
@@ -32,12 +48,12 @@ function workspaceBuildColumns() {
     const groups = [{label:'เที่ยว',colspan:4}];
     for (const [key, group] of Object.entries(workspaceGroups)) {
         if (workspaceView[key] === false) {
-            fields.push(['_summary_'+key,group.label+' · สรุป']);
-            groups.push(group.label);
+            fields.push(['_summary_'+key,workspaceGroupLabel(key)+' · กดแสดงรายละเอียด']);
+            groups.push(workspaceGroupLabel(key));
         } else {
             const selected = group.fields.filter(([prop]) => key !== 'container' || workspaceView.second || !/(_2_no|_2)$/.test(prop));
             fields.push(...selected);
-            groups.push({label:group.label,colspan:selected.length});
+            groups.push({label:workspaceGroupLabel(key),colspan:selected.length});
         }
     }
     workspaceColumns = fields;
@@ -51,6 +67,7 @@ function workspaceSummary(row, key) {
         workspaceGroups[key].fields.map(([field])=>row[field]).filter(Boolean).slice(0,3).join(' · ');
 }
 initContainerHandsontable = function(data) {
+    const modes=[...new Set(data.map(row=>row.mode))];workspaceMode=modes.length===1?modes[0]:'';
     if (hotGridInstance) hotGridInstance.destroy();
     const { fields, groups } = workspaceBuildColumns();
     for (const row of data) {
@@ -64,6 +81,15 @@ initContainerHandsontable = function(data) {
     hotGridInstance = new Handsontable(document.getElementById('container-grid-container'), {
         data, columns:fields.map(([field])=> {
             const column = {data:field,readOnly:workspaceReadOnly.has(field)||field.startsWith('_summary')||['_action','order_id','booking_no'].includes(field)};
+            const groupKey=field.startsWith('_summary_')?field.slice(9):Object.keys(workspaceGroups).find(key=>workspaceGroups[key].fields.some(([prop])=>prop===field));
+            column.className='workspace-zone-'+(workspaceColors[groupKey]||'slate');
+            if(field==='order_vgm_cutoff'||field==='order_return_cutoff')column.renderer=(instance,td,r,c,p,value,properties)=>{
+                Handsontable.renderers.TextRenderer(instance,td,r,c,p,value,properties);
+                const row=instance.getSourceDataAtRow(instance.toPhysicalRow(r));
+                const finished=field==='order_vgm_cutoff'?row.leg1_completed:row.actual_return_date;
+                const warning=finished?null:workspaceDeadline(value);
+                if(warning){td.classList.add('deadline-'+warning.level);td.append(document.createElement('br'),document.createTextNode(warning.text));td.title=field==='order_vgm_cutoff'?'VGM Cutoff เวลาไทย':'Cutoff เวลาไทย';}
+            };
             if (field==='_checkbox'||field.endsWith('_completed')||field.endsWith('_is_drop')||field==='is_drop_only') column.type='checkbox';
             if (workspaceMoney.includes(field)||/^(tare|max_gross)_/.test(field)) {column.type='numeric';column.numericFormat={pattern:'0,0.00'};}
             if (field.endsWith('_plate')||field.endsWith('_driver')) {column.type='autocomplete';column.source=field.endsWith('_plate')?globalTruckList:globalDriverList;column.strict=false;}
@@ -74,6 +100,11 @@ initContainerHandsontable = function(data) {
         }), nestedHeaders:[groups,fields.map(([,label])=>label)], rowHeaders:true,
         fixedColumnsLeft:4, width:'100%',height:'100%',colWidths:130,stretchH:'none',
         manualColumnResize:true,columnSorting:true,filters:true,dropdownMenu:true,
+        afterOnCellMouseDown(event,coords) {
+            if(coords.row<0)return;
+            const field=hotGridInstance.colToProp(coords.col);
+            if(String(field).startsWith('_summary_')&&workspaceReady()){workspaceView[field.slice(9)]=true;workspaceRefresh();}
+        },
         licenseKey:'non-commercial-and-evaluation',
         afterChange(changes,source) {
             if (!changes||source==='loadData') return;
@@ -94,15 +125,16 @@ renderDispatchStages = function(booking,rows) {
     const host=document.getElementById('dispatch-stage-tabs');host.replaceChildren();
     document.getElementById('dispatch-booking-summary').textContent=booking ? booking+' · '+rows.length+' เที่ยว · '+(rows[0]?.customer_name||'') : 'เลือก Booking เพื่อทำงานหลายเที่ยว';
     for(const [key,group] of Object.entries(workspaceGroups)) {
-        const button=document.createElement('button');button.textContent=(workspaceView[key]===false?'▸ ':'▾ ')+group.label;
-        button.className='border rounded px-3 py-1 bg-blue-50 text-blue-900';
+        const button=document.createElement('button');button.textContent=workspaceGroupLabel(key)+(workspaceView[key]===false?' ▸ แสดงรายละเอียด':' ▾ ย่อ');
+        button.className='workspace-group workspace-zone-'+workspaceColors[key];
+        button.setAttribute('aria-expanded',String(workspaceView[key]!==false));
         button.onclick=()=>{if(!workspaceReady())return;workspaceView[key]=workspaceView[key]===false;workspaceRefresh();};host.append(button);
     }
     document.getElementById('dispatch-stage-help').textContent='วันที่กรอก YYYY-MM-DD HH:mm · ติ๊กเที่ยวแล้วออกเอกสารหรือดาวน์โหลด Excel';
 };
 function workspaceRefresh() {localStorage.setItem(workspaceViewKey,JSON.stringify(workspaceView));applyFilters();}
 const workspaceOldApply=applyFilters;
-applyFilters=function(){if(workspaceDirty.size)return;dispatchStage='all';workspaceOldApply();};
+applyFilters=function(){if(workspaceDirty.size)return;dispatchStage='all';workspaceOldApply();if(workspacePendingOnly){filteredList=filteredList.filter(row=>getDispatchStage(row)!=='done');initContainerHandsontable(filteredList);}};
 saveGridChanges=async function(){
     if(!workspaceDirty.size)return true;
     const button=document.getElementById('btn-save-grid');button.disabled=true;
@@ -129,14 +161,28 @@ window.addEventListener('DOMContentLoaded',()=>{
     const host=document.getElementById('dispatch-stage-tabs').parentElement;
     const tools=document.createElement('div');tools.className='flex flex-wrap gap-2 my-2';
     for(const [label,action] of [
-        ['ภาพรวม',()=>{workspaceView={drops:false,finance:false};}],['รับตู้',()=>workspacePreset('pickup')],
+        ['ภาพรวม',()=>{workspaceView=workspaceDefaultView();}],['รับตู้',()=>workspacePreset('pickup')],
         ['ลงข้อมูลตู้',()=>workspacePreset('container')],['ไปโรงงาน',()=>workspacePreset('delivery')],
         ['ส่ง/คืนตู้',()=>workspacePreset('returns')],['การเงิน',()=>workspacePreset('finance')],
-        ['เปิดทั้งหมด',()=>{workspaceView={second:true};}],['คืนค่าเริ่มต้น',()=>{workspaceView={drops:false,finance:false};}],
+        ['เปิดทั้งหมด',()=>{workspaceView={second:true};}],['คืนค่าเริ่มต้น',()=>{workspaceView=workspaceDefaultView();}],
         ['ตู้ 2',()=>{workspaceView.second=!workspaceView.second;}]
     ]) {const button=document.createElement('button');button.textContent=label;button.className='border rounded px-2 py-1 text-xs bg-white';button.onclick=()=>{if(workspaceReady()){action();workspaceRefresh();}};tools.append(button);}
     const label=document.createElement('label');const pending=document.createElement('input');pending.type='checkbox';
-    pending.onchange=()=>{if(!workspaceReady()){pending.checked=!pending.checked;return;}containerQuickFilter='';dispatchStage='all';workspaceOldApply();if(pending.checked)initContainerHandsontable(filteredList.filter(row=>getDispatchStage(row)!=='done'));};
+    pending.onchange=()=>{if(!workspaceReady()){pending.checked=!pending.checked;return;}workspacePendingOnly=pending.checked;containerQuickFilter='';applyFilters();};
     label.append(pending,document.createTextNode(' เฉพาะงานค้าง'));tools.append(label);host.append(tools);
 });
+setInterval(()=>{if(hotGridInstance&&!document.hidden&&!hotGridInstance.getActiveEditor()?.isOpened())hotGridInstance.render();},30000);
+handleCrossFilter=function(event){
+    if(!workspaceReady())return;
+    const ids=['filter-run-date','filter-customer','filter-booking-no'];
+    const props=['run_date','customer_name','booking_no'];
+    const changed=event?.target?.id||document.activeElement?.id;
+    const value=(row,index)=>index===0?String(row[props[index]]||'').slice(0,10):String(row[props[index]]||'').trim();
+    const priority=[ids.indexOf(changed),...ids.map((_,i)=>i)].filter((item,index,array)=>item>=0&&array.indexOf(item)===index);
+    let available=rawShipmentList;
+    const cleared=[];
+    for(const index of priority){const input=document.getElementById(ids[index]);if(!input.value)continue;const matching=available.filter(row=>value(row,index)===input.value.trim());if(matching.length)available=matching;else{input.value='';cleared.push(['วันที่','ลูกค้า','Booking'][index]);}}
+    updateDropdownOptions();applyFilters();
+    if(cleared.length)document.getElementById('dispatch-stage-help').textContent='ล้างค่าที่ไม่สัมพันธ์กันแล้ว '+cleared.join(' · ');
+};
 function workspacePreset(active){for(const key of Object.keys(workspaceGroups))workspaceView[key]=key==='job'||key===active;}

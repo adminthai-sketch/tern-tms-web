@@ -1,4 +1,7 @@
 // Station presentation and copy actions use visual-to-physical row mapping after sorting.
+function workspaceHasSecondContainer(row) {
+    return ['container_2_no','tare_2','max_gross_2','seal_2_no','pop_2_no'].some(key=>row[key] != null && row[key] !== '');
+}
 function workspaceOpenContainers(visual, addSecond) {
     if (!workspaceReady()) return;
     openDispatchModal(visual);

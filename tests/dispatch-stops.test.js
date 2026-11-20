@@ -13,6 +13,6 @@ test('stop persistence rolls back on failure and releases the checked-out client
 });
 test('Booking links preserve Booking and month and dispatch preserves the URL',()=>{
     const list=fs.readFileSync('public/js/modules/booking/list.js','utf8');
-    assert.equal((list.match(/month=\$\{encodeURIComponent\(String\(rData\[5\]/g)||[]).length,2);
+    assert.equal((list.match(/month=\$\{encodeURIComponent\(String\(rData\[6\]/g)||[]).length,2);
     assert.ok(!fs.readFileSync('public/js/modules/booking/manage.js','utf8').includes('replaceState({}, document.title, window.location.pathname)'));
 });

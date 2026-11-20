@@ -60,3 +60,11 @@ test('container management is in the scrollable content, not the modal footer',(
     assert.equal((html.match(/id="dispatch-add-container"/g)||[]).length,1);
     assert.match(html,/เพิ่มตู้ 2 ในเที่ยวนี้/);
 });
+
+test('second container detection includes seal and weight without requiring its number',()=>{
+    const context=vm.createContext({});vm.runInContext(source,context);
+    assert.equal(context.workspaceHasSecondContainer({container_1_no:'A'}),false);
+    assert.equal(context.workspaceHasSecondContainer({pop_2_no:'POP-2'}),true);
+    assert.equal(context.workspaceHasSecondContainer({tare_2:0}),true);
+    assert.equal(context.workspaceHasSecondContainer({container_2_no:'B'}),true);
+});

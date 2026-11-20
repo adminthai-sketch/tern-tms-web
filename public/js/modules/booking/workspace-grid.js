@@ -7,6 +7,7 @@ const workspaceDefaultView = () => ({job:false, pickup:true, container:true, del
 try { workspaceView = JSON.parse(localStorage.getItem(workspaceViewKey)) || workspaceDefaultView(); } catch { workspaceView = workspaceDefaultView(); }
 let workspacePendingOnly = false;
 let workspaceMode = ''; // เก็บโหมดงานของ Booking ที่เลือก
+let workspaceSecondSignature = '';
 
 // 🎨 1. ตั้งค่าหมวดหมู่ตารางและสี (แยกรายได้-ค่าใช้จ่าย)
 const workspaceGroups = {
@@ -92,6 +93,13 @@ initContainerHandsontable = function(data) {
     workspaceMode = modes.length === 1 ? modes[0] : 'EXPORT'; // Default EXPORT if mixed/empty
     if (hotGridInstance) hotGridInstance.destroy();
     
+    // Saved second-container data must remain visible, regardless of a user's old view.
+    const secondSignature = data.filter(workspaceHasSecondContainer).map(row=>row.order_id).sort().join('|');
+    if (secondSignature) {
+        if (workspaceSecondSignature !== secondSignature) workspaceView.container = true;
+        workspaceView.second = true;
+    }
+    workspaceSecondSignature = secondSignature;
     const { fields, groups } = workspaceBuildColumns();
     for (const row of data) {
         row._checkbox = workspaceSelected.has(row.order_id);
@@ -284,8 +292,10 @@ window.addEventListener('DOMContentLoaded', () => {
         ['เปิดทั้งหมด', () => { Object.keys(workspaceGroups).forEach(k => workspaceView[k] = true); workspaceView.second = true; }]
     ];
     
-    for(const [label, action] of presets) {
+    const tones = ['slate','sky','blue','orange','purple','emerald','slate'];
+    for(const [index, [label, action]] of presets.entries()) {
         const btn = document.createElement('button'); btn.textContent = label;
+        btn.dataset.tone = tones[index];
         btn.className = 'border border-slate-300 rounded-lg px-2.5 py-1 text-[11px] font-bold bg-white text-slate-600 hover:bg-slate-100 hover:text-primary transition-colors shadow-sm';
         btn.onclick = () => { if(workspaceReady()){ action(); workspaceRefresh(); tools.querySelectorAll('button').forEach(button=>button.classList.toggle('is-active',button===btn)); } };
         tools.append(btn);

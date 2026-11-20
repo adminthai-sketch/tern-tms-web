@@ -97,8 +97,8 @@ function setupGridControlButtons() {
     const freezeSelect = document.createElement('select');
     freezeSelect.className = "bg-blue-50 text-blue-700 font-bold px-2 py-1.5 rounded-lg shadow-sm border border-blue-200 ml-2 outline-none text-[11px] cursor-pointer";
     freezeSelect.innerHTML = `
-        <option value="3" ${(!userGridSettings.fixedColumns || userGridSettings.fixedColumns == 3) ? 'selected' : ''}>📌 ตรึงแค่หัวบิล</option>
-        <option value="12" ${([11, 12].includes(Number(userGridSettings.fixedColumns))) ? 'selected' : ''}>📌 ตรึงจนถึง "เบอร์ตู้ 2"</option>
+        <option value="2" selected>📌 ตรึงเลือกเที่ยวและจัดรถ</option>
+        <option value="4">📌 ตรึงเลขเที่ยวและ Booking ด้วย</option>
     `;
     freezeSelect.onchange = (e) => {
         if (hotGridInstance) {

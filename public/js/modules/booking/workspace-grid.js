@@ -1,9 +1,9 @@
 const workspaceDirty = new Map();
 const workspaceSelected = new Set();
 const workspaceUser = JSON.parse(localStorage.getItem('tms_user') || '{}');
-const workspaceViewKey = 'dispatch-view-' + (workspaceUser.id || 'local');
+const workspaceViewKey = 'dispatch-view-v2-' + (workspaceUser.id || 'local');
 let workspaceView;
-const workspaceDefaultView = () => ({job:true,pickup:false,container:false,delivery:false,returns:false,drops:false,finance:false});
+const workspaceDefaultView = () => ({job:false,pickup:true,container:true,delivery:false,returns:false,drops:false,finance:false});
 try { workspaceView = JSON.parse(localStorage.getItem(workspaceViewKey)) || workspaceDefaultView(); } catch { workspaceView = workspaceDefaultView(); }
 let workspacePendingOnly = false;
 let workspaceMode = '';
@@ -45,10 +45,10 @@ async function workspaceRequest(url, body) {
 }
 function workspaceBuildColumns() {
     const fields = [['_checkbox','เลือก'],['_action','จัดรถ'],['order_id','Order ID'],['booking_no','Booking']];
-    const groups = [{label:'เที่ยว',colspan:4}];
+    const groups = [{label:'เที่ยว',colspan:2},{label:'เลขอ้างอิง',colspan:2}];
     for (const [key, group] of Object.entries(workspaceGroups)) {
         if (workspaceView[key] === false) {
-            fields.push(['_summary_'+key,workspaceGroupLabel(key)+' · กดแสดงรายละเอียด']);
+            fields.push(['_summary_'+key,'ดูรายละเอียด ▸']);
             groups.push(workspaceGroupLabel(key));
         } else {
             const selected = group.fields.filter(([prop]) => key !== 'container' || workspaceView.second || !/(_2_no|_2)$/.test(prop));
@@ -63,8 +63,8 @@ function workspaceSummary(row, key) {
     if (key === 'finance') return [row.iv_no,row.ar_no,row.overall_status].filter(Boolean).join(' · ');
     if (key === 'container') return [row.container_1_no,row.container_2_no].filter(Boolean).join(' / ');
     const prefix = {pickup:'leg1',delivery:'leg2',returns:'leg3'}[key];
-    return prefix ? [row[prefix+'_plate'],row[prefix+'_driver'],row.overall_status].filter(Boolean).join(' · ') :
-        workspaceGroups[key].fields.map(([field])=>row[field]).filter(Boolean).slice(0,3).join(' · ');
+    if (prefix) return [row[prefix+'_plate'] || 'ยังไม่จัดรถ',row[prefix+'_driver'],row[prefix+'_appointment'] ? String(row[prefix+'_appointment']).replace('T',' ').slice(0,16) : 'ยังไม่นัด'].filter(Boolean).join(' · ');
+    return workspaceGroups[key].fields.map(([field])=>row[field]).filter(Boolean).slice(0,3).join(' · ');
 }
 initContainerHandsontable = function(data) {
     const modes=[...new Set(data.map(row=>row.mode))];workspaceMode=modes.length===1?modes[0]:'';
@@ -73,10 +73,10 @@ initContainerHandsontable = function(data) {
     for (const row of data) {
         row._checkbox = workspaceSelected.has(row.order_id);
         row.additional_total = (row.additional_revenue || []).reduce((sum,item)=>sum+Math.round(Number(item.amount||0)*100),0)/100;
-        for (const key of Object.keys(workspaceGroups)) row['_summary_'+key] = workspaceSummary(row,key);
         for (const [field,fallback] of [['leg1_appointment','cy_date'],['leg2_appointment',row.mode==='IMPORT'?'unload_date':'load_date'],['leg3_appointment','return_date'],['order_vgm_cutoff','vgm_cutoff'],['order_return_cutoff','cutoff_time']]) {
             if (row[field] == null) row[field] = row[fallback] || null;
         }
+        for (const key of Object.keys(workspaceGroups)) row['_summary_'+key] = workspaceSummary(row,key);
     }
     hotGridInstance = new Handsontable(document.getElementById('container-grid-container'), {
         data, columns:fields.map(([field])=> {
@@ -98,7 +98,9 @@ initContainerHandsontable = function(data) {
             };
             return column;
         }), nestedHeaders:[groups,fields.map(([,label])=>label)], rowHeaders:true,
-        fixedColumnsLeft:4, width:'100%',height:'100%',colWidths:130,stretchH:'none',
+        fixedColumnsLeft:2, width:'100%',height:'100%',
+        colWidths:fields.map(([field])=>field==='_checkbox'?42:field==='_action'?72:field.startsWith('_summary')?210:field==='order_id'?145:field==='booking_no'?150:field.endsWith('_driver')?170:field.includes('appointment')||field.includes('cutoff')?180:field.endsWith('_completed')?80:120),
+        rowHeights:52,columnHeaderHeight:[38,32],wordWrap:false,
         manualColumnResize:true,columnSorting:true,filters:true,dropdownMenu:true,
         afterOnCellMouseDown(event,coords) {
             if(coords.row<0)return;
@@ -119,18 +121,20 @@ initContainerHandsontable = function(data) {
             editedRowIndices=new Set([...workspaceDirty.keys()]);updateSaveStatusBadge();
         }
     });
+    renderDispatchStages(document.getElementById('filter-booking-no').value,data);
 };
 focusDispatchColumns = function() {};
 renderDispatchStages = function(booking,rows) {
     const host=document.getElementById('dispatch-stage-tabs');host.replaceChildren();
     document.getElementById('dispatch-booking-summary').textContent=booking ? booking+' · '+rows.length+' เที่ยว · '+(rows[0]?.customer_name||'') : 'เลือก Booking เพื่อทำงานหลายเที่ยว';
     for(const [key,group] of Object.entries(workspaceGroups)) {
-        const button=document.createElement('button');button.textContent=workspaceGroupLabel(key)+(workspaceView[key]===false?' ▸ แสดงรายละเอียด':' ▾ ย่อ');
+        const button=document.createElement('button');button.textContent=group.label+(workspaceView[key]===false?' ＋':' −');
+        button.title=workspaceGroupLabel(key)+(workspaceView[key]===false?' แสดงรายละเอียด':' ย่อหมวด');
         button.className='workspace-group workspace-zone-'+workspaceColors[key];
         button.setAttribute('aria-expanded',String(workspaceView[key]!==false));
         button.onclick=()=>{if(!workspaceReady())return;workspaceView[key]=workspaceView[key]===false;workspaceRefresh();};host.append(button);
     }
-    document.getElementById('dispatch-stage-help').textContent='วันที่กรอก YYYY-MM-DD HH:mm · ติ๊กเที่ยวแล้วออกเอกสารหรือดาวน์โหลด Excel';
+    document.getElementById('dispatch-stage-help').textContent='เลือกมุมมองงานด้านล่าง · ปุ่ม ＋ เปิดหมวดเพิ่มเติม · เวลาระบุเป็น YYYY-MM-DD HH:mm';
 };
 function workspaceRefresh() {localStorage.setItem(workspaceViewKey,JSON.stringify(workspaceView));applyFilters();}
 const workspaceOldApply=applyFilters;

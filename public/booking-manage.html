@@ -130,11 +130,10 @@
         </div>
         <section class="mt-2 border-t border-slate-100 pt-2">
             <p id="dispatch-booking-summary" class="mb-2 text-xs font-medium text-slate-600" aria-live="polite">เลือกเลข Booking เพื่อจัดเที่ยวตามขั้นตอน</p>
-            <div id="dispatch-primary-views"></div>
-            <details class="workspace-column-options" open>
-                <summary>กาง / พับหมวดตาราง <span class="workspace-fold-guide">▸ กางเพิ่ม · ▾ พับให้ย่อ</span></summary>
-                <div id="dispatch-stage-tabs" role="group" aria-label="กางหรือพับหมวดคอลัมน์" class="flex flex-wrap gap-1"></div>
-            </details>
+            <div id="dispatch-primary-views">
+                <div id="dispatch-station-controls" role="group" aria-label="กดสถานีเพื่อกางหรือพับคอลัมน์"></div>
+            </div>
+            <div id="dispatch-stage-tabs" hidden></div>
             <p id="dispatch-stage-help" class="mt-2 text-xs text-slate-600"></p>
         </section>
     </div>
@@ -340,9 +339,9 @@
 <script src="js/modules/booking/manage.js"></script>
 <script src="js/modules/booking/manage-grid-legacy.js"></script>
 <script src="js/modules/booking/manage-modal.js?v=20261120b"></script>
-<link rel="stylesheet" href="css/dispatch-stations.css?v=20261120f">
+<link rel="stylesheet" href="css/dispatch-stations.css?v=20261120g">
 <script src="js/modules/booking/workspace-stations.js?v=20261120e"></script>
-<script src="js/modules/booking/workspace-grid.js?v=20261120e"></script>
+<script src="js/modules/booking/workspace-grid.js?v=20261120g"></script>
 <script src="js/modules/booking/workspace-finance.js?v=20261120b"></script>
 <script src="js/modules/booking/workspace-export.js"></script>
 <script src="js/modules/booking/workspace-stops.js?v=20261120b"></script>

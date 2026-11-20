@@ -199,7 +199,7 @@ initContainerHandsontable = function(data) {
 focusDispatchColumns = function() {};
 
 renderDispatchStages = function(booking, rows) {
-    const host = document.getElementById('dispatch-stage-tabs'); host.replaceChildren();
+    const host = document.getElementById('dispatch-station-controls'); host.replaceChildren();
     document.getElementById('dispatch-booking-summary').textContent = booking ? `${booking} · ${rows.length} เที่ยว · ${rows[0]?.customer_name || ''}` : 'เลือก Booking จากตัวกรองด้านบนเพื่อทำงานหลายเที่ยว';
     
     for(const [key, group] of Object.entries(workspaceGroups)) {
@@ -292,15 +292,11 @@ window.addEventListener('DOMContentLoaded', () => {
     
     const presets = [
         ['ภาพรวม (ย่อ)', () => workspaceView = workspaceDefaultView()],
-        ['PICK UP · รับตู้', () => workspacePreset('pickup')],
-        ['ข้อมูลตู้', () => workspacePreset('container')],
-        ['DELIVERY · โรงงาน', () => workspacePreset('delivery')],
-        ['RETURN · ส่ง/คืนตู้', () => workspacePreset('returns')],
-        ['การเงิน', () => workspacePreset('finance')], // เปิดทั้งรายได้และคชจ.
-        ['เปิดทั้งหมด', () => { Object.keys(workspaceGroups).forEach(k => workspaceView[k] = true); workspaceView.second = true; }]
+        ['▾ กางทุกหมวด', () => { Object.keys(workspaceGroups).forEach(k => workspaceView[k] = true); workspaceView.second = true; }],
+        ['▸ พับทุกหมวด', () => { Object.keys(workspaceGroups).forEach(k => workspaceView[k] = false); }]
     ];
     
-    const tones = ['slate','sky','blue','orange','purple','emerald','slate'];
+    const tones = ['slate','slate','slate'];
     for(const [index, [label, action]] of presets.entries()) {
         const btn = document.createElement('button'); btn.textContent = label;
         btn.dataset.tone = tones[index];

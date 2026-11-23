@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const crypto = require('crypto');
+const {setSessionCookie} = require('../lib/session');
 
 const cleanNum = (val) => {
     if (val === '' || val === undefined || val === null) return 0;
@@ -32,6 +33,7 @@ router.post('/login', async (req, res) => {
         
         const user = result.rows[0];
         if (user.status && user.status !== 'ACTIVE') return res.status(403).json({ success: false, message: 'บัญชีผู้ใช้งานนี้ถูกระงับ' });
+        setSessionCookie(req,res,user,hashedPassword);
 
         res.json({
             success: true,

@@ -112,31 +112,17 @@ function setupGridControlButtons() {
 
 async function loadFleetData() {
     try {
-        const response = await fetch('/api/truck_assignments');
-        const result = await response.json();
-        if (result.success) {
-            globalTruckList = result.truckList || [];
-            globalDriverList = result.driverList || [];
-            truckTypeMap = result.truckTypes || {};
-            if (result.data) {
-                result.data.forEach(item => {
-                    const plate = item[1] || item.plate;
-                    const vType = item[2] || item.vehicle_type || item.type;
-                    const driver = item[3] || item.driver;
-
-                    if (plate && plate !== 'ทะเบียนรถ') {
-                        if (driver && driver !== 'ชื่อ.พนง.') {
-                            fleetAssignments[plate] = driver; 
-                            driverAssignments[driver] = plate; 
-                        }
-                        if (vType && vType !== 'ประเภทรถ') {
-                            truckTypeMap[plate] = vType;
-                        }
-                    }
-                });
-            }
+        const response=await fetch('/api/dispatch/fleet');const result=await response.json();
+        if(!response.ok||!result.success)throw Error(result.message||'โหลดข้อมูลรถและคนขับไม่สำเร็จ');
+        globalTruckList=result.truckList||[];globalDriverList=result.driverList||[];
+        truckTypeMap=result.truckTypes||{};fleetAssignments={};driverAssignments={};
+        const candidates={};
+        for(const pair of result.data||[]) {
+            fleetAssignments[pair[1]]=pair[3];
+            (candidates[pair[3]]??=[]).push(pair[1]);
         }
-    } catch(e) {}
+        for(const [driver,plates] of Object.entries(candidates))if(plates.length===1)driverAssignments[driver]=plates[0];
+    } catch(e) { alert(e.message); }
 }
 
 function applyZebraStripingCSS() {
@@ -213,11 +199,6 @@ async function loadContainerGridData() {
                 item._disp_load_date = formatShortDate(item.leg2_appointment || (item.mode === 'IMPORT' ? item.unload_date : item.load_date));
                 item._disp_return_date = formatShortDate(item.leg3_appointment || item.return_date);
                 
-                if (item.leg1_plate && !item.leg1_driver) item.leg1_driver = fleetAssignments[item.leg1_plate] || '';
-                if (item.drop1_plate && !item.drop1_driver) item.drop1_driver = fleetAssignments[item.drop1_plate] || '';
-                if (item.leg2_plate && !item.leg2_driver) item.leg2_driver = fleetAssignments[item.leg2_plate] || '';
-                if (item.drop2_plate && !item.drop2_driver) item.drop2_driver = fleetAssignments[item.drop2_plate] || '';
-                if (item.leg3_plate && !item.leg3_driver) item.leg3_driver = fleetAssignments[item.leg3_plate] || '';
                 
                 item._savedPlates = Object.fromEntries(DISPATCH_STEPS.map(step =>
                     [step, String(item[step + '_plate'] || '').trim()]

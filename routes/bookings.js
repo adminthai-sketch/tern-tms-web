@@ -326,6 +326,7 @@ router.get('/shipments', async (req, res) => {
             SELECT 
                 s.*,
                 (SELECT count(*)::integer FROM shipment_stops st WHERE st.order_id=s.order_id) AS stop_count,
+                (SELECT COALESCE(jsonb_agg(to_jsonb(st) ORDER BY segment DESC,position,stop_id),'[]'::jsonb) FROM shipment_stops st WHERE st.order_id=s.order_id) AS confirmed_stops,
                 b.id AS booking_id, b.mode, b.run_date, b.customer_id, c.short_name AS customer_name,
                 b.origin, b.destination, COALESCE(s.order_container_size, b.container_size) AS container_size, b.job_type, b.agent, b.job_name, b.job_owner, b.factory,
                 b.cy_date, b.vgm_cutoff, b.cutoff_time, b.demurrage, b.load_date, b.unload_date, b.return_date, b.open_gate,
@@ -605,21 +606,13 @@ router.post('/rates/single', async (req, res) => {
 // 9. ขนาดตู้
 router.get('/container-sizes', async (req, res) => {
     try {
-        const result = await pool.query('SELECT size_name FROM master_container_sizes ORDER BY size_name ASC');
-        const sizes = new Set(result.rows.map(row=>row.size_name));
-        sizes.add('20DC'); sizes.add('40DC');
-        res.json({ success: true, data: [...sizes].sort().map(size_name=>({size_name})) });
+        const result = await pool.query(`SELECT size_name FROM master_container_sizes m
+            WHERE COALESCE((to_jsonb(m)->>'is_active')::boolean,true) ORDER BY size_name ASC`);
+        res.json({ success: true, data: result.rows });
     } catch(err) { res.status(500).json({ success: false }); }
 });
 
-// 10. เพิ่มขนาดตู้
-router.post('/container-sizes', async (req, res) => {
-    try {
-        const { size_name } = req.body;
-        await pool.query('INSERT INTO master_container_sizes (size_name) VALUES ($1) ON CONFLICT DO NOTHING', [size_name.trim().toUpperCase()]);
-        res.json({ success: true });
-    } catch(err) { res.status(500).json({ success: false }); }
-});
+// Master writes are handled by routes/container-sizes.js with admin authentication.
 
 // อัปเดตข้อมูลลูกค้าเดิม (กรณีข้อมูลเลขภาษีหรือที่อยู่ยังไม่ครบ)
 router.put('/customers/:id', async (req, res) => {

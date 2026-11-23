@@ -8,6 +8,13 @@ function clearAutofilledSearch(event) {
 document.addEventListener('input', clearAutofilledSearch, true);
 document.addEventListener('focus', clearAutofilledSearch, true);
 
+// Shared typography for authenticated screens, including third-party table widgets.
+if (!document.getElementById('tms-prompt-font')) {
+    const font = document.createElement('link');
+    font.id = 'tms-prompt-font'; font.rel = 'stylesheet';
+    font.href = '/css/tms-typography.css?v=20261123b';
+    document.head.append(font);
+}
 // public/js/auth.js
 document.addEventListener('DOMContentLoaded', () => {
     // 1. ตรวจสอบการล็อกอิน (ถ้ายังไม่ล็อกอิน เตะกลับไปหน้า login)
@@ -86,5 +93,5 @@ document.addEventListener('DOMContentLoaded', () => {
 // 6. ฟังก์ชัน Global สำหรับกดปุ่ม Logout ออกจากระบบ
 window.logout = function() {
     localStorage.removeItem('tms_user');
-    window.location.href = '/login.html';
+    fetch('/api/logout',{method:'POST'}).finally(()=>{window.location.href='/login.html';});
 };

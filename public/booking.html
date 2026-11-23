@@ -310,11 +310,11 @@
                     containerSizeOptions = result.data.map(r => r.size_name);
                     updateContainerSizeDatalist();
                 } else {
-                    containerSizeOptions = ['20', '40', '40HC', '45HC'];
+                    containerSizeOptions = [];
                     updateContainerSizeDatalist();
                 }
             } catch (err) {
-                containerSizeOptions = ['20', '40', '40HC', '45HC'];
+                containerSizeOptions = [];
                 updateContainerSizeDatalist();
             }
         }
@@ -323,7 +323,7 @@
             const dl = document.getElementById('dl-container-sizes');
             if(!dl) return;
             dl.innerHTML = '';
-            [...new Set([...containerSizeOptions, '20DC', '40DC'])].forEach(sz => {
+            [...new Set(containerSizeOptions)].forEach(sz => {
                 const opt = document.createElement('option');
                 opt.value = sz;
                 dl.appendChild(opt);

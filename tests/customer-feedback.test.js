@@ -11,23 +11,27 @@ test('Thai dispatch dates are reformatted without parsing or shifting the stored
     assert.equal(ctx.workspaceFormatDateTime(null),'');
 });
 
-test('size lookup supplies DC options without mutating Master data',async()=>{
+test('size lookup returns only database options without adding hardcoded codes',async()=>{
     const routes={},sql=[];
     const router={get:(path,fn)=>routes[path]=fn,post(){},put(){},delete(){}};
     const ctx=vm.createContext({require:name=>name==='express'?{Router:()=>router}:{query:async text=>{sql.push(text);return {rows:[{size_name:'40HC'},{size_name:'20DC'}]};}},module:{exports:{}}});
     vm.runInContext(fs.readFileSync('routes/bookings.js','utf8'),ctx);
     let result;
     await routes['/container-sizes']({}, {json:data=>result=data,status(){return this;}});
-    assert.deepEqual(Array.from(result.data,row=>row.size_name),['20DC','40DC','40HC']);
+    assert.deepEqual(Array.from(result.data,row=>row.size_name),['40HC','20DC']);
+    assert.match(sql[0],/is_active/);
     assert.ok(sql.every(text=>text.startsWith('SELECT')));
 });
 
-test('monitor shows the last assigned main leg as a paired truck and driver without combining legs',()=>{
+test('monitor uses completed legacy work and ignores future planned crews',()=>{
     const ctx=vm.createContext({});vm.runInContext(fs.readFileSync('public/js/modules/booking/monitor-crew.js','utf8'),ctx);
     const order={leg1_plate:'A',leg1_driver:'pickup',leg2_plate:'B',leg2_driver:'factory',leg3_plate:'C',leg3_driver:'return'};
+    assert.equal(ctx.monitorAssignedCrew(order).driver,'pickup');
+    order.leg3_completed=true;
     const crew=ctx.monitorAssignedCrew(order);
     assert.equal(crew.driver,'return');assert.equal(crew.plate,'C');
     delete order.leg3_plate;delete order.leg3_driver;
+    order.leg2_completed=true;
     assert.equal(ctx.monitorAssignedCrew(order).driver,'factory');
     order.leg3_plate='C';assert.equal(ctx.monitorAssignedCrew(order).driver,'');
     assert.equal(ctx.monitorCrewText('<img>'),'&lt;img&gt;');

@@ -83,11 +83,8 @@ window.openDispatchModal = function(rowVisualIndex) {
         const plateSel = document.getElementById(`modal-${leg}-plate`);
         const driverSel = document.getElementById(`modal-${leg}-driver`);
         
-        plateSel.innerHTML = '<option value="">-- เลือกรถ --</option>';
-        globalTruckList.forEach(t => { plateSel.innerHTML += `<option value="${t}">${t}</option>`; });
-        
-        driverSel.innerHTML = '<option value="">-- เลือกคนขับ --</option>';
-        globalDriverList.forEach(d => { driverSel.innerHTML += `<option value="${d}">${d}</option>`; });
+        fillFleetOptions(plateSel,globalTruckList,rData[leg+'_plate'],'-- เลือกรถ --');
+        fillFleetOptions(driverSel,globalDriverList,rData[leg+'_driver'],'-- เลือกคนขับ --');
     });
 
     const parentRow = rawShipmentList.find(r => r.booking_no === bookingNo && r.order_id && !String(r.order_id).includes('ORD-ADD'));

@@ -26,9 +26,11 @@ const billingRoutes = require('./routes/billing');
 app.use('/api/billing', billingRoutes);
 
 app.use('/api', authRoutes);
+app.use('/api', require('./routes/container-sizes'));
 app.use('/api', bookingRoutes);
 app.use('/api', require('./routes/dispatch-workspace'));
 app.use('/api', require('./routes/dispatch-stops'));
+app.use('/api', require('./routes/dispatch-handoffs'));
 app.use('/api', fleetRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', excelRoutes);

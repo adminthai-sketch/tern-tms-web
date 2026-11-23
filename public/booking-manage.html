@@ -200,7 +200,7 @@
                     <div class="p-5 flex flex-col gap-4 flex-1">
                         <div class="space-y-3">
                             <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-truck text-blue-400"></i> ทะเบียนรถ</label><select id="modal-leg1-plate" onchange="handleModalTruckChange(1)" class="w-full text-sm font-bold text-blue-900 border border-blue-200 rounded-lg px-3 py-2 bg-blue-50 focus:bg-white outline-none"></select></div>
-                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-blue-400"></i> คนขับรถ</label><select id="modal-leg1-driver" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-blue-400"></i> คนขับรถ</label><select id="modal-leg1-driver" onchange="handleModalDriverChange(1)" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
                         </div>
                         <hr class="border-dashed border-slate-200">
                         <div class="space-y-3">
@@ -251,7 +251,7 @@
                                 </label>
                                 <select id="modal-leg2-plate" onchange="handleModalTruckChange(2)" class="w-full text-sm font-bold text-orange-900 border border-orange-200 rounded-lg px-3 py-2 bg-orange-50 focus:bg-white outline-none"></select>
                             </div>
-                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-orange-400"></i> คนขับรถ</label><select id="modal-leg2-driver" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-orange-400"></i> คนขับรถ</label><select id="modal-leg2-driver" onchange="handleModalDriverChange(2)" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
                         </div>
                         <hr class="border-dashed border-slate-200">
                         <div class="space-y-3">
@@ -292,7 +292,7 @@
                                 </label>
                                 <select id="modal-leg3-plate" onchange="handleModalTruckChange(3)" class="w-full text-sm font-bold text-purple-900 border border-purple-200 rounded-lg px-3 py-2 bg-purple-50 focus:bg-white outline-none"></select>
                             </div>
-                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-purple-400"></i> คนขับรถ</label><select id="modal-leg3-driver" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
+                            <div><label class="text-[11px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-id-badge text-purple-400"></i> คนขับรถ</label><select id="modal-leg3-driver" onchange="handleModalDriverChange(3)" class="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 outline-none"></select></div>
                         </div>
                         <hr class="border-dashed border-slate-200">
                         <div class="space-y-3">
@@ -336,17 +336,20 @@
 </div>
 
 <script src="js/modules/booking/manage.js"></script>
+<script src="js/session-login.js?v=20261123b"></script>
 <script src="js/modules/booking/manage-grid-legacy.js"></script>
-<script src="js/modules/booking/manage-modal.js?v=20261123"></script>
-<link rel="stylesheet" href="css/dispatch-stations.css?v=20261123">
-<script src="js/modules/booking/workspace-stations.js?v=20261123"></script>
-<script src="js/modules/booking/workspace-grid.js?v=20261123"></script>
-<script src="js/modules/booking/workspace-finance.js?v=20261123"></script>
+<script src="js/modules/booking/fleet-options.js?v=20261123b"></script>
+<script src="js/modules/booking/manage-modal.js?v=20261123b"></script>
+<link rel="stylesheet" href="css/dispatch-stations.css?v=20261123b">
+<script src="js/modules/booking/workspace-stations.js?v=20261123b"></script>
+<script src="js/modules/booking/workspace-handoffs.js?v=20261123b"></script>
+<script src="js/modules/booking/workspace-grid.js?v=20261123b"></script>
+<script src="js/modules/booking/workspace-finance.js?v=20261123b"></script>
 <script src="js/modules/booking/workspace-export.js"></script>
 <script src="js/modules/booking/workspace-stops.js?v=20261120b"></script>
 <script src="js/modules/booking/workspace-time.js"></script>
 <script src="js/modules/booking/workspace-toolbar.js?v=20261120f"></script>
-<script src="/js/auth.js"></script>
+<script src="/js/auth.js?v=20261123b"></script>
 <script src="/js/password.js"></script>
 </body>
 </html>

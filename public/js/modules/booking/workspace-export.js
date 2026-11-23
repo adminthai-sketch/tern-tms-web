@@ -3,7 +3,7 @@ window.exportToExcel = async function() {
     const {dialog, close} = workspaceDialog('ดาวน์โหลด Excel (Export Data)', 'blue');
     
     // ดึงฟิลด์ทั้งหมดจาก workspaceGroups 
-    const allFields = [['order_id','Order ID'], ['booking_no','Booking No.'], ...Object.values(workspaceGroups).flatMap(g => g.fields)];
+    const allFields = [['order_id','Order ID'], ['booking_no','Booking No.'], ...Object.values(workspaceGroups).flatMap(g => g.fields).filter(([key])=>!key.startsWith('_'))];
     
     const template = document.createElement('select'); template.className = 'border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-700 w-full mb-3'; template.add(new Option('➕ สร้างรูปแบบใหม่ (New Template)', ''));
     const name = document.createElement('input'); name.placeholder = 'ตั้งชื่อรูปแบบ (เช่น: Format ส่งคุณสมหมาย)'; name.className = 'border border-slate-300 rounded-lg p-2 text-sm w-full mb-3 focus:ring-2 focus:ring-blue-500 outline-none';

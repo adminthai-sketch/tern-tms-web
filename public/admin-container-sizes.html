@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ขนาดและประเภทตู้ · TERN TMS</title><script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>body{font-family:Prompt,sans-serif}dialog::backdrop{background:#0f172a80}</style></head>
+<body class="bg-slate-50 text-slate-800"><header class="bg-white border-b px-6 py-4 flex gap-6 items-center"><b>TERN TMS</b><a href="/admin.html" class="text-blue-800">← หลังบ้าน</a></header>
+<main class="max-w-5xl mx-auto p-6"><h1 class="text-2xl font-bold">ขนาด / ประเภทตู้</h1>
+<p class="text-sm text-slate-600 mt-2">จัดการตัวเลือกที่ใช้ใน Booking และจัดรถ ปิดใช้งานแทนการลบเพื่อรักษางานเก่า</p>
+<p id="size-message" role="status" class="my-4 text-sm"></p>
+<button id="size-setup" hidden class="bg-amber-100 border border-amber-300 text-amber-900 px-4 py-2 rounded">เปิดใช้งานข้อมูลหลักขนาดตู้และยืนยันรับช่วง (ครั้งแรก)</button>
+<form id="size-form" class="bg-white border rounded-xl p-5 my-4 grid md:grid-cols-4 gap-3 items-end">
+<label class="text-sm">รหัสตู้<input id="size-code" required maxlength="50" placeholder="เช่น 40HC" class="mt-1 block border rounded p-2 w-full uppercase"></label>
+<label class="text-sm md:col-span-2">คำอธิบาย<input id="size-description" maxlength="500" placeholder="เช่น ตู้สูง 40 ฟุต" class="mt-1 block border rounded p-2 w-full"></label>
+<label class="text-sm"><input id="size-active" type="checkbox" checked> เปิดใช้งาน</label>
+<div class="flex gap-2 md:col-span-4"><button id="size-save" type="submit" class="bg-blue-800 text-white rounded px-4 py-2">เพิ่มประเภทตู้</button><button id="size-reset" type="button" class="border rounded px-4 py-2">ล้างฟอร์ม</button></div>
+</form>
+<div class="flex gap-3 items-center mb-3"><input id="size-search" placeholder="ค้นหารหัส / คำอธิบาย" class="border rounded p-2 flex-1"><label class="text-sm"><input id="size-inactive" type="checkbox" checked> แสดงที่ปิดใช้งานด้วย</label><button id="size-refresh" class="border rounded px-3 py-2">โหลดใหม่</button></div>
+<div class="bg-white border rounded-xl overflow-x-auto"><table class="w-full text-sm text-left"><thead class="bg-slate-100"><tr><th class="p-3">รหัส</th><th class="p-3">คำอธิบาย</th><th class="p-3">สถานะ</th><th class="p-3">จัดการ</th></tr></thead><tbody id="size-rows"></tbody></table></div>
+<p class="text-xs text-slate-500 mt-4">รหัสที่ถูกใช้ในงานแล้วจะเปลี่ยนชื่อไม่ได้ แต่แก้คำอธิบายและเปิด/ปิดใช้งานได้</p>
+</main><script src="/js/session-login.js?v=20261123"></script><script src="/js/admin-container-sizes.js?v=20261123"></script><script src="/js/auth.js?v=20261123"></script></body></html>

@@ -2,12 +2,18 @@ let stopEditorDirty = false;
 window.openWorkspaceStops = async function(order) {
     if (!workspaceReady()) return;
     const {dialog,close} = workspaceDialog('เส้นทางฝากตู้ · '+order.order_id);
-    const host=document.createElement('div');dialog.append(host,close);dialog.showModal();
+    const host=document.createElement('div');dialog.append(host);dialog.showModal();
+    const listKey=crypto.randomUUID();
+    for(const [name,values]of [['plates',globalTruckList],['drivers',globalDriverList]]){
+        const list=document.createElement('datalist');list.id='stop-'+name+'-'+listKey;
+        for(const value of values)list.append(new Option(value,value));dialog.append(list);
+    }
     close.onclick=()=>{if(!stopEditorDirty||confirm('ปิดโดยไม่บันทึกจุดฝาก?'))dialog.close();};
     let stops=[],base=[];
     const input=(row,field,label,type='text')=>{
         const wrapper=document.createElement('label');wrapper.className='text-xs flex flex-col gap-1';wrapper.textContent=label;
         const element=document.createElement('input');element.type=type;element.className='border rounded p-2';
+        if(field==='plate'||field==='driver')element.setAttribute('list','stop-'+(field==='plate'?'plates':'drivers')+'-'+listKey);
         if(type==='checkbox')element.checked=row[field];else element.value=type==='datetime-local'?String(row[field]||'').replace(' ','T').slice(0,16):row[field]||'';
         element.onchange=()=>{row[field]=type==='checkbox'?element.checked:element.value||null;stopEditorDirty=true;};
         wrapper.append(element);return wrapper;
@@ -22,6 +28,9 @@ window.openWorkspaceStops = async function(order) {
                 const title=document.createElement('p');title.textContent='จุดฝาก '+(index+1)+' · รถที่นำตู้มาถึงจุดนี้';title.className='font-bold mb-2';card.append(title);
                 const fields=document.createElement('div');fields.className='grid grid-cols-2 gap-2';
                 for(const args of [['location','ลาน / สถานที่'],['plate','ทะเบียนรถ'],['driver','คนขับ'],['appointment','เวลานัด','datetime-local'],['actual_at','เวลาฝากจริง','datetime-local'],['completed','ฝากสำเร็จ','checkbox']])fields.append(input(stop,...args));card.append(fields);
+                const accept=document.createElement('button');accept.textContent='✓ ยืนยันรถนำตู้มาฝาก';accept.className='border rounded px-2 py-1 mt-2 bg-emerald-50 text-emerald-800';
+                accept.onclick=async()=>{if(stopEditorDirty)return alert('กรุณาบันทึกจุดฝากก่อนยืนยันรถ');accept.disabled=true;try{await workspaceAcceptCrew(order,{stop_id:stop.stop_id},stop);}finally{accept.disabled=false;}};
+                card.append(accept);
                 for(const [label,action]of [
                     ['ใช้รถจากจุดก่อน',()=>{const previous=items[index-1];const prefix=segment==='after_pickup'?'leg1':'leg2';stop.plate=previous?previous.plate:order[prefix+'_plate'];stop.driver=previous?previous.driver:order[prefix+'_driver'];alert('ใช้ข้อมูลจาก '+(previous?previous.location||'จุดฝากก่อนหน้า':before));}],
                     ['↑',()=>{if(index>0)[items[index].position,items[index-1].position]=[items[index-1].position,items[index].position];}],
@@ -36,7 +45,7 @@ window.openWorkspaceStops = async function(order) {
             try{
                 const response=await fetch('/api/dispatch/stops/'+encodeURIComponent(order.order_id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({stops,base})});
                 const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message);
-                stopEditorDirty=false;order._dynamicStops=stops;dialog.close();hotGridInstance.render();
+                stopEditorDirty=false;order._dynamicStops=stops;order.confirmed_stops=stops;order.stop_count=stops.length;dialog.close();hotGridInstance.render();
             }catch(error){alert(error.message);}finally{save.disabled=false;}
         };host.append(save);
     }

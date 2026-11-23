@@ -94,3 +94,26 @@ main>div:has(>#container-grid-container) {min-height:200px;}
 .wtHolder::-webkit-scrollbar-track {background:#f5f7fa;}
 .workspace-revenue-button {display:block;margin-top:4px;border:1px solid #6ee7b7;border-radius:6px;padding:4px 8px;background:#ecfdf5;color:#047857;font-weight:700;font-size:11px;cursor:pointer;}
 .workspace-revenue-button:hover {background:#d1fae5;}
+
+/* Compact controls on a brighter work surface; completion remains a native checkbox. */
+.handsontable td {vertical-align:middle!important;}
+.handsontable td.workspace-zone-sky {background:#f5fcff!important;}
+.handsontable td.workspace-zone-blue {background:#f8faff!important;}
+.handsontable td.workspace-zone-orange {background:#fffaf4!important;}
+.handsontable td.workspace-zone-purple {background:#fdf9ff!important;}
+.handsontable td.workspace-zone-emerald {background:#f3fff9!important;}
+.handsontable td.workspace-zone-rose {background:#fff8fa!important;}
+.handsontable th.workspace-zone-sky {background:#c5edff!important;}
+.handsontable th.workspace-zone-blue {background:#dae5ff!important;}
+.handsontable th.workspace-zone-orange {background:#ffe0ba!important;}
+.handsontable th.workspace-zone-purple {background:#e9d5ff!important;}
+.handsontable th.workspace-zone-emerald {background:#bcf4db!important;}
+.handsontable th.workspace-zone-rose {background:#ffd5e0!important;}
+.handsontable td button {font-family:'Prompt',sans-serif!important;font-size:10px!important;line-height:1.3!important;min-height:22px;padding:3px 6px!important;box-shadow:none!important;border-radius:5px!important;}
+.workspace-container-button,.workspace-revenue-button {margin-top:2px;}
+.handsontable td input.htCheckboxRendererInput {width:21px;height:21px;margin:0!important;vertical-align:middle;accent-color:#059669;cursor:pointer;border-radius:5px;}
+.handsontable td:has(input.htCheckboxRendererInput) {text-align:center!important;}
+.handsontable td:has(input.htCheckboxRendererInput:checked) {background:#e5fbef!important;}
+.handsontable td input.htCheckboxRendererInput:focus-visible {outline:2px solid #2563eb;outline-offset:3px;}
+.handsontable td.workspace-time-cell strong {font-size:13px;}
+@media print {.handsontable td {background:white!important;}}

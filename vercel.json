@@ -3,7 +3,8 @@
   "builds": [
     {
       "src": "server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": { "includeFiles": ["sql/009-container-size-master.sql", "sql/010-shipment-handoffs.sql"] }
     }
   ],
   "routes": [

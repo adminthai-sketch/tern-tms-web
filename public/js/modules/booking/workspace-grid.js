@@ -7,15 +7,16 @@ const workspaceDefaultView = () => ({job:false, pickup:true, container:true, del
 try { workspaceView = JSON.parse(localStorage.getItem(workspaceViewKey)) || workspaceDefaultView(); } catch { workspaceView = workspaceDefaultView(); }
 let workspacePendingOnly = false;
 let workspaceMode = ''; // เก็บโหมดงานของ Booking ที่เลือก
-let workspaceSecondSignature = '';
+// Container 2 is a display choice for this visit, independent of saved cargo data.
+workspaceView.second = false;
 
 // 🎨 1. ตั้งค่าหมวดหมู่ตารางและสี (แยกรายได้-ค่าใช้จ่าย)
 const workspaceGroups = {
     job: { label: 'ข้อมูลงาน', fields: [['mode','MODE'],['customer_name','ลูกค้า'],['job_owner','เจ้าของงาน'],['origin','ต้นทาง'],['factory','โรงงาน'],['destination','ปลายทาง'],['container_size','ขนาดตู้']] },
-    pickup: { label: 'PICK UP', fields: [['leg1_plate','ทะเบียนรถ'],['leg1_driver','คนขับ'],['leg1_appointment','CY DATE'],['leg1_completed','สถานะรับตู้'],['order_vgm_cutoff','VGM Cutoff']] },
+    pickup: { label: 'PICK UP', fields: [['leg1_plate','ทะเบียนรถ'],['leg1_driver','คนขับ'],['_accept_pickup','รับช่วงงาน'],['leg1_appointment','CY DATE'],['leg1_completed','สถานะรับตู้'],['order_vgm_cutoff','VGM Cutoff']] },
     container: { label: 'ข้อมูลตู้', fields: [1,2].flatMap(n => [['container_'+n+'_no','เบอร์ตู้ '+n],['seal_'+n+'_no','SEAL '+n],['tare_'+n,'TARE '+n],['max_gross_'+n,'MAX GROSS '+n]]) },
-    delivery: { label: 'DELIVERY', fields: [['_copy_delivery','ใช้รถ / คนขับเดิม'],['leg2_plate','ทะเบียนรถ'],['leg2_driver','คนขับ'],['leg2_appointment','เวลาเข้าโรงงาน'],['leg2_completed','สถานะส่งมอบ']] },
-    returns: { label: 'RETURN', fields: [['_copy_returns','ใช้รถ / คนขับเดิม'],['leg3_plate','ทะเบียนรถ'],['leg3_driver','คนขับ'],['order_return_cutoff','Cutoff Time'],['leg3_completed','สถานะคืนตู้']] },
+    delivery: { label: 'DELIVERY', fields: [['_copy_delivery','ใช้รถ / คนขับเดิม'],['leg2_plate','ทะเบียนรถ'],['leg2_driver','คนขับ'],['_accept_delivery','รับช่วงงาน'],['leg2_appointment','เวลาเข้าโรงงาน'],['leg2_completed','สถานะส่งมอบ']] },
+    returns: { label: 'RETURN', fields: [['_copy_returns','ใช้รถ / คนขับเดิม'],['leg3_plate','ทะเบียนรถ'],['leg3_driver','คนขับ'],['_accept_returns','รับช่วงงาน'],['order_return_cutoff','Cutoff Time'],['leg3_completed','สถานะคืนตู้']] },
     revenue: { label: 'รายได้ (ลูกค้า)', fields: [['trans_fee','ค่าขนส่ง'],['additional_total','รายได้อื่นรวม'],['iv_no','IV']] },
     expense: { label: 'ค่าใช้จ่าย (ต้นทุน)', fields: [['trip_fee','ค่าเที่ยว'],['port_pass_fee','ค่าผ่านท่า'],['shore_fee','ชอร์'],['lift_fee','ยกตู้'],['deposit_fee','ฝากตู้'],['other_expense','ค่าใช้จ่ายอื่น'],['ar_no','AR']] }
 };
@@ -93,13 +94,6 @@ initContainerHandsontable = function(data) {
     workspaceMode = modes.length === 1 ? modes[0] : 'EXPORT'; // Default EXPORT if mixed/empty
     if (hotGridInstance) hotGridInstance.destroy();
     
-    // Saved second-container data must remain visible, regardless of a user's old view.
-    const secondSignature = data.filter(workspaceHasSecondContainer).map(row=>row.order_id).sort().join('|');
-    if (secondSignature) {
-        if (workspaceSecondSignature !== secondSignature) workspaceView.container = true;
-        workspaceView.second = true;
-    }
-    workspaceSecondSignature = secondSignature;
     const { fields, groups } = workspaceBuildColumns();
     for (const row of data) {
         row._checkbox = workspaceSelected.has(row.order_id);
@@ -127,6 +121,7 @@ initContainerHandsontable = function(data) {
                 column.renderer = workspaceCopyRenderer;
             }
             if (field === 'additional_total') column.renderer = workspaceRevenueRenderer;
+            if (field.startsWith('_accept_')) {column.readOnly=true;column.renderer=workspaceHandoffRenderer;}
             
             // Render Time Warnings
             if(field === 'order_vgm_cutoff' || field === 'order_return_cutoff') {
@@ -170,7 +165,7 @@ initContainerHandsontable = function(data) {
         }), 
         nestedHeaders: [groups, fields.map(([,label])=>label)], rowHeaders: true, fixedColumnsLeft: 2, width: '100%', height: '100%',
         colWidths: fields.map(([field]) => field==='_checkbox'?45 : field==='_action'?125 : field==='additional_total'?170 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
-        rowHeights: 64, columnHeaderHeight: [42, 34], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
+        rowHeights: 52, columnHeaderHeight: [34, 30], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
         afterGetColHeader: workspaceStationHeader,
         afterOnCellMouseDown(event, coords) {
             if(coords.row < 0) return;
@@ -183,6 +178,7 @@ initContainerHandsontable = function(data) {
         licenseKey: 'non-commercial-and-evaluation',
         afterChange(changes, source) {
             if (!changes || source === 'loadData') return;
+            const suggestions=workspaceFleetSuggestions(changes, hotGridInstance, source);
             for (const [visual, field, old, value] of changes) {
                 const row = hotGridInstance.getSourceDataAtRow(hotGridInstance.toPhysicalRow(visual));
                 if (!row || old === value) continue;
@@ -191,6 +187,7 @@ initContainerHandsontable = function(data) {
                 patch[field] = value === '' ? null : value;
                 workspaceDirty.set(row.order_id, patch);
             }
+            if(suggestions.length)hotGridInstance.setDataAtRowProp(suggestions,'fleet-auto');
             editedRowIndices = new Set([...workspaceDirty.keys()]); updateSaveStatusBadge();
         }
     });
@@ -221,6 +218,18 @@ renderDispatchStages = function(booking, rows) {
         btn.onclick = () => { if(workspaceReady()){ workspaceView[key] = isCollapsed; workspaceRefresh(); } };
         host.append(btn);
     }
+    const second = document.createElement('button');
+    second.type = 'button';
+    second.className = 'workspace-group workspace-zone-blue';
+    second.textContent = workspaceView.second ? '▾ ตู้ 2 · พับ' : '▸ ตู้ 2 · กางดูข้อมูล';
+    second.setAttribute('aria-expanded', String(!!workspaceView.second));
+    second.onclick = () => {
+        if (!workspaceReady()) return;
+        workspaceView.second = !workspaceView.second;
+        if (workspaceView.second) workspaceView.container = true;
+        workspaceRefresh();
+    };
+    host.append(second);
 };
 
 function workspaceRefresh() {

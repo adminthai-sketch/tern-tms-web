@@ -64,6 +64,7 @@ window.openWorkspaceRevenue = function(orderId) {
 window.openWorkspaceBilling = function() {
     if(!workspaceReady()) return;
     const booking = document.getElementById('filter-booking-no').value.trim();
+    if (typeof TmsFilters !== 'undefined' && TmsFilters.values(booking).length > 1) return alert('เลือก Booking เดียวก่อนเปิดหน้าวางบิล');
     if(!booking) return alert('⚠️ เลือก Booking ด้านบนก่อนเปิดหน้าวางบิล');
     location.href = '/billing-detail.html?' + new URLSearchParams({booking, month: loadedDispatchMonth});
 };

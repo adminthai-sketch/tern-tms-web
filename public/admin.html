@@ -65,6 +65,7 @@
         }
         .btn-action-delete:hover { background-color: #fecaca; color: #b91c1c; }
     </style>
+<link rel="stylesheet" href="/css/admin-shell.css?v=20261123c">
 </head>
 <body class="bg-bglight text-slate-800 h-screen overflow-hidden flex flex-col">
 
@@ -169,7 +170,8 @@
     <script>
         // 🌟 โค้ดส่วนนี้จะสั่งเปิดแท็บ "ผู้ใช้งาน" อัตโนมัติเมื่อเข้ามาหน้า Admin
         window.addEventListener('DOMContentLoaded', () => {
-            switchMasterTab('users');
+            const requested = location.hash.slice(1);
+            switchMasterTab(Object.hasOwn(masterConfigs, requested) ? requested : 'users');
         });
 
         // --- 📊 State & Configs ---
@@ -279,6 +281,8 @@
         }
 
         async function switchMasterTab(type) {
+            if (!Object.hasOwn(masterConfigs, type)) return;
+            history.replaceState(null, '', '#'+type);
             currentMasterType = type;
             const cfg = masterConfigs[type];
             deletedIdsList = []; 
@@ -518,5 +522,6 @@
     
     <!-- 2. ใส่สคริปต์เปลี่ยนรหัสผ่าน (เพิ่มกุญแจมุมขวาบน) -->
     <script src="/js/password.js"></script>
+<script src="/js/admin-shell.js?v=20261123c"></script>
 </body>
 </html>

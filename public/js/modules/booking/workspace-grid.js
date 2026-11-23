@@ -198,7 +198,9 @@ focusDispatchColumns = function() {};
 
 renderDispatchStages = function(booking, rows) {
     const host = document.getElementById('dispatch-station-controls'); host.replaceChildren();
-    document.getElementById('dispatch-booking-summary').textContent = booking ? `${booking} · ${rows.length} เที่ยว · ${rows[0]?.customer_name || ''}` : 'เลือก Booking จากตัวกรองด้านบนเพื่อทำงานหลายเที่ยว';
+    const bookings = typeof TmsFilters === 'undefined' ? [booking].filter(Boolean) : TmsFilters.values(booking);
+    const bookingLabel = bookings.length > 1 ? bookings.length+' Booking' : booking;
+    document.getElementById('dispatch-booking-summary').textContent = booking ? `${bookingLabel} · ${rows.length} เที่ยว · ${[...new Set(rows.map(row=>row.customer_name).filter(Boolean))].join(', ')}` : 'เลือก Booking จากตัวกรองด้านบนเพื่อทำงานหลายเที่ยว';
     
     for(const [key, group] of Object.entries(workspaceGroups)) {
         const isCollapsed = workspaceView[key] === false;
@@ -217,19 +219,22 @@ renderDispatchStages = function(booking, rows) {
         btn.className = `workspace-group workspace-zone-${workspaceColors[key]} shadow-sm ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`;
         btn.onclick = () => { if(workspaceReady()){ workspaceView[key] = isCollapsed; workspaceRefresh(); } };
         host.append(btn);
+        if (key === 'container') {
+            const second = document.createElement('button');
+            second.type = 'button';
+            second.className = 'workspace-group workspace-zone-blue workspace-second-toggle';
+            const count = rows.filter(workspaceHasSecondContainer).length;
+            second.textContent = (workspaceView.second ? '▾' : '▸') + ' ตู้ 2 (' + count + ' เที่ยว)';
+            second.setAttribute('aria-expanded', String(!!workspaceView.second));
+            second.onclick = () => {
+                if (!workspaceReady()) return;
+                workspaceView.second = !workspaceView.second;
+                if (workspaceView.second) workspaceView.container = true;
+                workspaceRefresh();
+            };
+            host.append(second);
+        }
     }
-    const second = document.createElement('button');
-    second.type = 'button';
-    second.className = 'workspace-group workspace-zone-blue';
-    second.textContent = workspaceView.second ? '▾ ตู้ 2 · พับ' : '▸ ตู้ 2 · กางดูข้อมูล';
-    second.setAttribute('aria-expanded', String(!!workspaceView.second));
-    second.onclick = () => {
-        if (!workspaceReady()) return;
-        workspaceView.second = !workspaceView.second;
-        if (workspaceView.second) workspaceView.container = true;
-        workspaceRefresh();
-    };
-    host.append(second);
 };
 
 function workspaceRefresh() {

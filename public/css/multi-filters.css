@@ -1,0 +1,15 @@
+.tms-filter{position:relative;display:inline-block;font-family:Prompt,sans-serif}
+.tms-filter-trigger{height:32px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid #cbd5e1;border-radius:7px;background:#fff;padding:0 10px;color:#475569;font-size:12px;text-align:left}
+.tms-filter-trigger.has-selection{border-color:#93c5fd;background:#eff6ff;color:#1e40af}
+.tms-filter-trigger:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.tms-filter-panel{position:absolute;top:38px;left:0;width:300px;max-width:85vw;z-index:10010;background:#fff;border:1px solid #dbe4ef;border-radius:12px;box-shadow:0 14px 36px #0f172a24;padding:12px;color:#334155}
+.tms-filter-panel[hidden]{display:none!important}
+.tms-filter-search{width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px;font-size:12px}
+.tms-filter-tools{display:flex;justify-content:space-between;gap:8px;padding:8px 0 0}
+.tms-filter-tools button{font-size:12px;padding:5px 9px;border-radius:6px;color:#1d4ed8}
+.tms-filter-tools .tms-filter-apply{background:#1d4ed8;color:white}
+.tms-filter-options{max-height:260px;overflow:auto;margin-top:8px;border-block:1px solid #edf2f7}
+.tms-filter-options label{display:flex;gap:9px;align-items:center;padding:8px 4px;font-size:12px;cursor:pointer;overflow-wrap:anywhere}
+.tms-filter-options label:hover{background:#eff6ff}
+.tms-filter-options input{width:17px;height:17px;accent-color:#2563eb;flex-shrink:0}
+#dispatch-toolbar,#dispatch-toolbar-actions{overflow:visible}

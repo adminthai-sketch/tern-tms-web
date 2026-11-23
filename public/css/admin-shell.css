@@ -1,0 +1,22 @@
+body.admin-shell{background:#f3f7fc;font-family:Prompt,sans-serif;color:#1e293b}
+.admin-shell>header{background:#fff;border-bottom:1px solid #e2e8f0;min-height:64px;flex-shrink:0}
+.admin-navigation{width:236px;min-width:236px;overflow:auto;padding:22px 14px;background:#fff;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;gap:16px}
+.admin-nav-title{font-size:15px;font-weight:700;padding:0 10px;color:#0f4c81}
+.admin-nav-hint{font-size:11px;color:#64748b;padding:0 10px;margin-top:-10px}
+.admin-navigation section h3{font-size:10px;letter-spacing:.4px;color:#64748b;margin:0 10px 7px;font-weight:600}
+.admin-navigation .sidebar-item{display:flex;gap:10px;align-items:center;margin:3px 0;padding:10px 12px;border:0!important;border-radius:9px;font-size:12px;font-weight:500;color:#475569;text-decoration:none;transition:background .15s}
+.admin-navigation .sidebar-item i{display:grid;place-items:center;background:#f1f5f9;width:29px;height:29px;border-radius:8px;color:#64748b}
+.admin-navigation .sidebar-item:hover{background:#f0f7ff;color:#1d4ed8}
+.admin-navigation .sidebar-item.bg-emerald-50,.admin-navigation .sidebar-item.is-current{background:#e9f2ff;color:#1d4ed8;font-weight:600}
+.admin-navigation .sidebar-item.bg-emerald-50 i,.admin-navigation .sidebar-item.is-current i{background:#dbeafe;color:#1d4ed8}
+.admin-home{font-size:12px;padding:12px;color:#475569;border-top:1px solid #e2e8f0;margin-top:auto}
+.admin-layout{display:flex;min-height:calc(100vh - 64px)}
+.admin-layout main{flex:1;min-width:0;max-width:none;margin:0;padding:24px;overflow:auto}
+.admin-shell main>div,.admin-shell form{border-color:#e2e8f0;border-radius:12px}
+.admin-shell #table-title{color:#0f4c81;font-size:19px}
+.admin-shell button{border-radius:7px;font-size:12px}
+.admin-shell input:focus-visible,.admin-shell select:focus-visible{outline:2px solid #93c5fd;outline-offset:1px}
+.admin-shell .handsontable td{font-size:12px!important;vertical-align:middle}
+.admin-shell .handsontable th{font-size:11px!important;background:#f0f5fb;color:#334155}
+@media(max-width:900px){.admin-navigation{width:190px;min-width:190px;padding:16px 8px}.admin-shell main{padding:12px}.admin-shell main>div>div{flex-wrap:wrap;gap:10px}}
+@media(max-width:600px){.admin-navigation{width:150px;min-width:150px}.admin-navigation .sidebar-item{padding:7px;font-size:11px;gap:5px}.admin-navigation .sidebar-item i{display:none}.admin-shell>header{padding:12px;flex-wrap:wrap}.admin-shell header span{font-size:14px}}

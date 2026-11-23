@@ -1,92 +1,99 @@
+function workspaceExportRows(instance, mode, selected) {
+    return instance.getData().map((_,visual)=>instance.getSourceDataAtRow(instance.toPhysicalRow(visual)))
+        .filter(row=>row && (mode==='all'||selected.has(row.order_id)));
+}
 window.exportToExcel = async function() {
-    if(workspaceDirty.size && !await saveGridChanges()) return;
-    const {dialog, close} = workspaceDialog('ดาวน์โหลด Excel (Export Data)', 'blue');
-    
-    // ดึงฟิลด์ทั้งหมดจาก workspaceGroups 
-    const allFields = [['order_id','Order ID'], ['booking_no','Booking No.'], ...Object.values(workspaceGroups).flatMap(g => g.fields).filter(([key])=>!key.startsWith('_'))];
-    
-    const template = document.createElement('select'); template.className = 'border border-slate-300 rounded-lg p-2 text-sm font-bold text-slate-700 w-full mb-3'; template.add(new Option('➕ สร้างรูปแบบใหม่ (New Template)', ''));
-    const name = document.createElement('input'); name.placeholder = 'ตั้งชื่อรูปแบบ (เช่น: Format ส่งคุณสมหมาย)'; name.className = 'border border-slate-300 rounded-lg p-2 text-sm w-full mb-3 focus:ring-2 focus:ring-blue-500 outline-none';
-    const scope = document.createElement('select'); scope.className = 'border border-slate-300 rounded-lg p-2 text-sm w-full mb-3 bg-slate-50';
-    scope.add(new Option('🔒 บันทึกเป็นรูปแบบส่วนตัว (Private)', ''));
-    
-    const customerIds = [...new Set(filteredList.map(row => row.customer_id).filter(Boolean))];
-    if(customerIds.length === 1) scope.add(new Option(`🏢 ผูกกับลูกค้ารายนี้เท่านั้น (${filteredList[0]?.customer_name})`, customerIds[0]));
-    
-    const rowsMode = document.createElement('select'); rowsMode.className = 'border border-slate-300 rounded-lg p-2 text-sm w-full mb-4 bg-blue-50 text-blue-800 font-bold';
-    rowsMode.add(new Option('📂 โหลดข้อมูลทุกแถวที่เห็นในตาราง', 'all'));
-    rowsMode.add(new Option('✅ โหลดเฉพาะแถวที่ "ติ๊กถูก" เลือกไว้', 'selected'));
-    
-    const host = document.createElement('div'); host.className = 'max-h-60 overflow-y-auto border border-slate-200 rounded-lg mb-4 bg-slate-50 p-2 shadow-inner';
-    let ordered = allFields.map(([key]) => key); let chosen = new Set(ordered); let templates = [];
-    
-    const preview = document.createElement('div'); preview.className = 'text-xs font-bold text-slate-500 mb-4 bg-white p-2 rounded border border-slate-200';
-    const selectedRows = () => hotGridInstance.getData().map((_, v) => hotGridInstance.getSourceDataAtRow(hotGridInstance.toPhysicalRow(v))).filter(r => rowsMode.value === 'all' || workspaceSelected.has(r.order_id));
-    
-    function render() {
+    const {dialog} = workspaceDialog('ดาวน์โหลด Excel', 'blue');
+    const allFields=[['order_id','Order ID'],['booking_no','Booking'],...Object.values(workspaceGroups).flatMap(g=>g.fields).filter(([key])=>!key.startsWith('_'))];
+    const visibleRows=()=>workspaceExportRows(hotGridInstance,'all',workspaceSelected);
+    const picked=()=>workspaceExportRows(hotGridInstance,'selected',workspaceSelected);
+    const customerIds=[...new Set(visibleRows().map(r=>r.customer_id).filter(Boolean))];
+    const customerId=customerIds.length===1?customerIds[0]:null;
+    const customerName=visibleRows()[0]?.customer_name||'';
+    const rowsMode=document.createElement('select');rowsMode.className='w-full rounded-lg border border-blue-200 bg-blue-50 p-3 my-3 text-sm';
+    rowsMode.add(new Option(`แถวที่ติ๊ก — ${picked().length} เที่ยว`,'selected'));
+    rowsMode.add(new Option(`ทั้งหมดตามตัวกรอง — ${visibleRows().length} เที่ยว`,'all'));
+    rowsMode.value=picked().length?'selected':'all';
+    const settings=document.createElement('details');settings.className='border rounded-lg p-3 my-3';
+    const summary=document.createElement('summary');summary.textContent='ปรับคอลัมน์ / บันทึกรูปแบบ';summary.className='cursor-pointer text-sm font-semibold text-blue-800';
+    const template=document.createElement('select'),scope=document.createElement('select'),name=document.createElement('input');
+    for(const input of [template,scope,name])input.className='w-full border rounded-lg p-2 my-2 text-sm';
+    template.setAttribute('aria-label','รูปแบบ Excel');scope.setAttribute('aria-label','บันทึกส่วนตัวหรือผูกลูกค้า');name.setAttribute('aria-label','ชื่อรูปแบบ');
+    name.placeholder='ตั้งชื่อรูปแบบ';template.add(new Option('รูปแบบใหม่ / ทุกคอลัมน์',''));
+    scope.add(new Option('รูปแบบส่วนตัว',''));
+    if(customerId)scope.add(new Option('ผูกกับลูกค้า '+customerName,String(customerId)));
+    const host=document.createElement('div');host.className='max-h-60 overflow-auto my-2';
+    const preview=document.createElement('p');preview.className='text-xs text-slate-600 my-3';
+    let ordered=allFields.map(([key])=>key),chosen=new Set(ordered),templates=[],templatesLoaded=false;
+    const selectedRows=()=>workspaceExportRows(hotGridInstance,rowsMode.value,workspaceSelected);
+    function update(){preview.textContent=`${selectedRows().length} เที่ยว · ${ordered.filter(k=>chosen.has(k)).length} คอลัมน์ · ข้อมูลตามตัวกรองปัจจุบัน`;}
+    function render(){
         host.replaceChildren();
-        ordered.forEach(key => {
-            const label = allFields.find(([f]) => f === key)?.[1]; if(!label) return;
-            const row = document.createElement('div'); row.className = 'flex items-center gap-3 p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-colors';
-            
-            const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.className = 'w-4 h-4 accent-blue-600'; checkbox.checked = chosen.has(key);
-            checkbox.onchange = () => { checkbox.checked ? chosen.add(key) : chosen.delete(key); update(); };
-            
-            const labelSpan = document.createElement('span'); labelSpan.textContent = label; labelSpan.className = 'text-sm text-slate-700 flex-1';
-            row.append(checkbox, labelSpan);
-            
-            [['▲', -1], ['▼', 1]].forEach(([icon, delta]) => {
-                const btn = document.createElement('button'); btn.textContent = icon; btn.className = 'text-slate-400 hover:text-blue-600 px-1 text-xs';
-                btn.onclick = () => {
-                    const idx = ordered.indexOf(key), nxt = idx + delta;
-                    if(nxt < 0 || nxt >= ordered.length) return;
-                    [ordered[idx], ordered[nxt]] = [ordered[nxt], ordered[idx]]; render();
-                };
-                row.append(btn);
-            });
+        for(const key of ordered){
+            const row=document.createElement('div');row.className='flex gap-2 items-center py-1';
+            const label=document.createElement('label');label.className='flex gap-2 items-center flex-1 text-sm';
+            const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=chosen.has(key);
+            checkbox.onchange=()=>{checkbox.checked?chosen.add(key):chosen.delete(key);update();};
+            label.append(checkbox,document.createTextNode(allFields.find(([field])=>field===key)[1]));row.append(label);
+            for(const [text,delta] of [['↑',-1],['↓',1]]){
+                const button=document.createElement('button');button.type='button';button.textContent=text;button.className='px-2 text-blue-700';
+                button.setAttribute('aria-label',text+' '+allFields.find(([field])=>field===key)[1]);
+                button.onclick=()=>{const i=ordered.indexOf(key),j=i+delta;if(j<0||j>=ordered.length)return;[ordered[i],ordered[j]]=[ordered[j],ordered[i]];render();};
+                row.append(button);
+            }
             host.append(row);
-        }); update();
+        }
+        update();
     }
-    
-    function update() { preview.textContent = `📊 พร้อมโหลด: ${selectedRows().length} แถว | ${ordered.filter(k => chosen.has(k)).length} คอลัมน์`; }
-    rowsMode.onchange = update;
-    
-    template.onchange = () => {
-        const item = templates.find(t => String(t.id) === template.value); if(!item) return;
-        name.value = item.name; scope.value = String(item.customer_id || '');
-        ordered = [...item.columns.filter(k => allFields.some(([f]) => f === k)), ...allFields.map(([k]) => k).filter(k => !item.columns.includes(k))];
-        chosen = new Set(item.columns); render();
+    function chooseTemplate(item){
+        if(!item){ordered=allFields.map(([key])=>key);chosen=new Set(ordered);name.value='';scope.value='';render();return;}
+        name.value=item.name;scope.value=String(item.customer_id||'');
+        const valid=item.columns.filter(k=>allFields.some(([field])=>field===k));
+        ordered=[...valid,...allFields.map(([key])=>key).filter(k=>!valid.includes(k))];chosen=new Set(valid);render();
+    }
+    template.onchange=()=>chooseTemplate(templates.find(t=>String(t.id)===template.value));
+    rowsMode.onchange=update;
+    const save=document.createElement('button');save.type='button';save.textContent='บันทึกรูปแบบ';save.className='border rounded-lg px-4 py-2 text-sm text-blue-800';
+    async function saveTemplate(asNew=false){
+        const columns=ordered.filter(k=>chosen.has(k));
+        if(!name.value.trim()||!columns.length)throw Error('กรุณาตั้งชื่อและเลือกอย่างน้อย 1 คอลัมน์');
+        const existing=templates.find(t=>String(t.id)===template.value);
+        const id=!asNew&&existing&&String(existing.owner_id)===String(workspaceUser.id)?existing.id:undefined;
+        const result=await workspaceRequest('/api/dispatch/templates',{id,name:name.value.trim(),customer_id:scope.value||null,columns});
+        templates=templates.filter(t=>String(t.id)!==String(result.data.id));templates.push(result.data);
+        template.replaceChildren(new Option('รูปแบบใหม่ / ทุกคอลัมน์',''));
+        for(const item of templates)template.add(new Option(item.name,item.id));
+        template.value=String(result.data.id);localStorage.setItem('dispatch-excel-template-'+workspaceUser.id,template.value);
+    }
+    save.onclick=async()=>{save.disabled=true;try{await saveTemplate();alert('บันทึกรูปแบบแล้ว');}catch(e){alert(e.message);}finally{save.disabled=false;}};
+    const copy=document.createElement('button');copy.type='button';copy.textContent='บันทึกเป็นรูปแบบใหม่';copy.className=save.className+' ml-2';
+    copy.onclick=async()=>{copy.disabled=true;try{await saveTemplate(true);alert('บันทึกเป็นรูปแบบใหม่แล้ว');}catch(e){alert(e.message);}finally{copy.disabled=false;}};
+    const download=document.createElement('button');download.type='button';
+    download.textContent=workspaceDirty.size?'บันทึกแล้วดาวน์โหลด Excel':'ดาวน์โหลด Excel';
+    download.className='w-full rounded-lg bg-emerald-600 text-white font-semibold px-4 py-3';
+    download.onclick=async()=>{
+        const fields=ordered.filter(k=>chosen.has(k)),ids=selectedRows().map(r=>r.order_id);
+        if(!fields.length||!ids.length)return alert('เลือกอย่างน้อย 1 แถว และ 1 คอลัมน์');
+        download.disabled=true;
+        try{
+            if(workspaceDirty.size&&!await saveGridChanges())return;
+            const byId=new Map(rawShipmentList.map(row=>[row.order_id,row]));
+            const rows=ids.map(id=>byId.get(id));
+            if(rows.some(row=>!row))throw Error('มีเที่ยวเปลี่ยนแปลง กรุณาปิดแล้วเปิดดาวน์โหลดใหม่');
+            if(templatesLoaded&&customerId&&!templates.some(t=>String(t.customer_id)===String(customerId))&&confirm('ลูกค้านี้ยังไม่มีรูปแบบ Excel ต้องการบันทึกรูปแบบนี้ไว้ใช้ครั้งถัดไปไหม?')){
+                scope.value=String(customerId);name.value=name.value.trim()||customerName+' Excel';await saveTemplate();
+            }
+            // aoa_to_sheet stores user text as string cells, never executable formula objects.
+            const sheet=XLSX.utils.aoa_to_sheet([fields.map(k=>allFields.find(([field])=>field===k)[1]),...rows.map(row=>fields.map(key=>row[key]??''))]);
+            const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,sheet,'Dispatch Data');XLSX.writeFile(book,'TMS_Export_'+Date.now()+'.xlsx');
+        }catch(e){alert(e.message);}finally{download.disabled=false;download.textContent=workspaceDirty.size?'บันทึกแล้วดาวน์โหลด Excel':'ดาวน์โหลด Excel';}
     };
-    
-    const btnGroup = document.createElement('div'); btnGroup.className = 'flex gap-2';
-    const saveBtn = document.createElement('button'); saveBtn.innerHTML = '<i class="fa-solid fa-bookmark"></i> บันทึกรูปแบบนี้'; saveBtn.className = 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold p-2.5 rounded-lg w-1/3 transition-colors text-sm';
-    saveBtn.onclick = async () => {
-        if(!name.value) return alert('ตั้งชื่อรูปแบบก่อนบันทึกครับ');
-        try {
-            const res = await workspaceRequest('/api/dispatch/templates', { id: template.value || undefined, name: name.value, customer_id: scope.value || null, columns: ordered.filter(k => chosen.has(k)) });
-            templates = templates.filter(t => t.id !== res.data.id); templates.push(res.data);
-            template.add(new Option(res.data.name, res.data.id)); template.value = res.data.id;
-            alert('✅ บันทึก Template เรียบร้อย');
-        } catch(e) { alert(e.message); }
-    };
-    
-    const downloadBtn = document.createElement('button'); downloadBtn.innerHTML = '<i class="fa-solid fa-file-excel"></i> ดาวน์โหลดไฟล์ Excel'; downloadBtn.className = 'bg-blue-600 hover:bg-blue-700 text-white font-bold p-2.5 rounded-lg w-2/3 transition-colors shadow-md text-sm';
-    downloadBtn.onclick = () => {
-        const fields = ordered.filter(k => chosen.has(k)); const rows = selectedRows();
-        if(!fields.length || !rows.length) return alert('⚠️ ต้องเลือกอย่างน้อย 1 แถว และ 1 คอลัมน์');
-        const sheet = XLSX.utils.aoa_to_sheet([fields.map(k => allFields.find(([f]) => f === k)[1]), ...rows.map(r => fields.map(k => r[k] ?? ''))]);
-        const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, sheet, 'Dispatch Data'); XLSX.writeFile(book, `TMS_Export_${new Date().getTime()}.xlsx`);
-    };
-    
-    btnGroup.append(saveBtn, downloadBtn);
-    dialog.querySelector('h2').insertAdjacentElement('afterend', template);
-    dialog.querySelector('h2').insertAdjacentElement('afterend', rowsMode);
-    dialog.querySelector('h2').insertAdjacentElement('afterend', scope);
-    dialog.querySelector('h2').insertAdjacentElement('afterend', name);
-    dialog.append(host, preview, btnGroup); render(); dialog.showModal();
-    
-    try {
-        const res = await fetch('/api/dispatch/templates?' + new URLSearchParams({user_id: workspaceUser.id, customer_id: customerIds.length === 1 ? customerIds[0] : ''}));
-        const result = await res.json(); if(result.success) { templates = result.data; templates.forEach(t => template.add(new Option(t.name, t.id))); }
-    } catch(e) {}
+    settings.append(summary,template,name,scope,host,save,copy);dialog.append(rowsMode,preview,download,settings);render();dialog.showModal();
+    try{
+        const response=await fetch('/api/dispatch/templates?'+new URLSearchParams({user_id:workspaceUser.id,customer_id:customerId||''}));
+        const result=await response.json();if(!response.ok||!result.success)throw Error('โหลดรูปแบบเดิมไม่สำเร็จ');
+        templatesLoaded=true;templates=result.data.filter(t=>!t.customer_id||(customerId&&String(t.customer_id)===String(customerId)));for(const item of templates)template.add(new Option(item.name,item.id));
+        const preferred=templates.find(t=>customerId&&String(t.customer_id)===String(customerId))||templates.find(t=>String(t.id)===localStorage.getItem('dispatch-excel-template-'+workspaceUser.id));
+        if(preferred){template.value=String(preferred.id);chooseTemplate(preferred);}
+    }catch(e){preview.textContent+=' · โหลดรูปแบบเดิมไม่ได้ ใช้รูปแบบปัจจุบันได้';}
 };

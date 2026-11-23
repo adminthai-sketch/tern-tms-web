@@ -95,9 +95,7 @@ async function loadBookingGridData() {
             editedRowIndices.clear();
             updateSaveStatusBadge(); 
             updateDropdownOptions(); 
-            initBookingHandsontable(filteredList); 
-            updateQuickFilterCounts();
-            updateSummaryFooter(filteredList);
+            applyFilters();
         } else {
             rawBookingList = []; filteredList = []; initBookingHandsontable([]); updateSummaryFooter([]);
         }
@@ -190,9 +188,9 @@ window.applyFilters = function() {
         const iJ = item.job_name ? String(item.job_name).trim() : '';
         const iB = item.booking_no ? String(item.booking_no).trim() : '';
         
-        const matchD = !d || iD === d; 
-        const matchC = !c || iC === c || iJ === c; 
-        const matchB = !b || iB === b;
+        const matchD = TmsFilters.matches(d, iD);
+        const matchC = TmsFilters.matches(c, iC);
+        const matchB = TmsFilters.matches(b, iB);
         const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
         
         let matchQF = true; 

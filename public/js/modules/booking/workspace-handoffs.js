@@ -3,7 +3,6 @@ async function workspaceAcceptCrew(order,target,crew) {
     const plate=crew?crew.plate:order['leg'+target.leg_no+'_plate'];
     const driver=crew?crew.driver:order['leg'+target.leg_no+'_driver'];
     if(!plate&&!driver)return alert('กรุณาจัดรถและคนขับ แล้วบันทึกก่อนยืนยันรับช่วง');
-    if(!confirm(`ยืนยัน ${plate||'ไม่ระบุรถ'} · ${driver||'ไม่ระบุคนขับ'} รับผิดชอบ ${order.order_id} ที่จุดนี้?`))return;
     try {
         await tmsAuthenticatedRequest('/api/dispatch/handoffs/'+encodeURIComponent(order.order_id),{
             method:'POST',headers:{'Content-Type':'application/json'},

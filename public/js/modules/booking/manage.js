@@ -213,7 +213,7 @@ async function loadContainerGridData() {
 
             const urlParams = new URLSearchParams(window.location.search);
             const selectBooking = urlParams.get('select');
-            if (selectBooking) {
+            if (selectBooking && !document.getElementById('filter-booking-no').value) {
                 document.getElementById('filter-booking-no').value = selectBooking;
                 document.getElementById('filter-customer').value = '';
                 document.getElementById('filter-run-date').value = '';
@@ -221,7 +221,7 @@ async function loadContainerGridData() {
                 // Keep Booking and month in the URL when refreshing.
             }
             
-            if (selectBooking) {
+            if (selectBooking && document.getElementById('filter-booking-no').value === selectBooking) {
                 const match = rawShipmentList.find(r => r.booking_no === selectBooking);
                 if (match) {
                     const cInput = document.getElementById('filter-customer');
@@ -347,9 +347,9 @@ window.applyFilters = function() {
         const iD = item.run_date ? String(item.run_date).split('T')[0] : '';
         const iC = item.customer_name ? String(item.customer_name).trim() : ''; 
         const iB = item.booking_no ? String(item.booking_no).trim() : ''; 
-        const matchD = !d || iD === d; 
-        const matchC = !c || iC === c; 
-        const matchB = !b || iB === b;
+        const matchD = TmsFilters.matches(d, iD);
+        const matchC = TmsFilters.matches(c, iC);
+        const matchB = TmsFilters.matches(b, iB);
         const matchGlobal = !searchTxt || JSON.stringify(item).toLowerCase().includes(searchTxt);
         return matchD && matchC && matchB && matchGlobal;
     });
@@ -562,6 +562,7 @@ window.saveGridSettings = async function() {
 window.addNewContainerRow = function() {
     if (editedRowIndices.size) return alert('กรุณาบันทึกตารางก่อนเพิ่มเที่ยว');
     const filterBooking = document.getElementById('filter-booking-no').value;
+    if (TmsFilters.values(filterBooking).length > 1) { alert('เลือก Booking เดียวก่อนเพิ่มเที่ยว'); return; }
     if (!filterBooking) { alert("⚠️ กรุณากรองเลือกเลข Booking ที่ต้องการเพิ่มตู้ในช่องค้นหาด้านบนก่อนครับ!"); return; }
 
     const templateRow = rawShipmentList.find(r => r.booking_no === filterBooking && (!r.order_id || !r.order_id.includes('ORD-ADD')));

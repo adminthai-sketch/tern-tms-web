@@ -117,3 +117,4 @@ main>div:has(>#container-grid-container) {min-height:200px;}
 .handsontable td input.htCheckboxRendererInput:focus-visible {outline:2px solid #2563eb;outline-offset:3px;}
 .handsontable td.workspace-time-cell strong {font-size:13px;}
 @media print {.handsontable td {background:white!important;}}
+.workspace-second-toggle {margin-left:-3px;border-style:dashed!important;white-space:nowrap;}

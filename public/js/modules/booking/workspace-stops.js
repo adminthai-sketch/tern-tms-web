@@ -15,7 +15,7 @@ window.openWorkspaceStops = async function(order) {
         const element=document.createElement('input');element.type=type;element.className='border rounded p-2';
         if(field==='plate'||field==='driver')element.setAttribute('list','stop-'+(field==='plate'?'plates':'drivers')+'-'+listKey);
         if(type==='checkbox')element.checked=row[field];else element.value=type==='datetime-local'?String(row[field]||'').replace(' ','T').slice(0,16):row[field]||'';
-        element.onchange=()=>{row[field]=type==='checkbox'?element.checked:element.value||null;stopEditorDirty=true;};
+        element.onchange=()=>{const old=row[field];row[field]=type==='checkbox'?element.checked:element.value||null;stopEditorDirty=true;if(field==='plate'||field==='driver')workspaceOfferNewFleet([[0,'stop_'+field,old,row[field]]],'edit');};
         wrapper.append(element);return wrapper;
     };
     function render(){
@@ -28,8 +28,9 @@ window.openWorkspaceStops = async function(order) {
                 const title=document.createElement('p');title.textContent='จุดฝาก '+(index+1)+' · รถที่นำตู้มาถึงจุดนี้';title.className='font-bold mb-2';card.append(title);
                 const fields=document.createElement('div');fields.className='grid grid-cols-2 gap-2';
                 for(const args of [['location','ลาน / สถานที่'],['plate','ทะเบียนรถ'],['driver','คนขับ'],['appointment','เวลานัด','datetime-local'],['actual_at','เวลาฝากจริง','datetime-local'],['completed','ฝากสำเร็จ','checkbox']])fields.append(input(stop,...args));card.append(fields);
-                const accept=document.createElement('button');accept.textContent='✓ ยืนยันรถนำตู้มาฝาก';accept.className='border rounded px-2 py-1 mt-2 bg-emerald-50 text-emerald-800';
-                accept.onclick=async()=>{if(stopEditorDirty)return alert('กรุณาบันทึกจุดฝากก่อนยืนยันรถ');accept.disabled=true;try{await workspaceAcceptCrew(order,{stop_id:stop.stop_id},stop);}finally{accept.disabled=false;}};
+                const active=workspaceTargetHandoff(order,{stop_id:stop.stop_id});
+                const accept=document.createElement('button');accept.textContent=active?'✓ รับช่วงแล้ว · แก้ไข':'รับช่วงรถนำตู้มาฝาก';accept.className='workspace-handoff-button border rounded px-2 py-1 mt-2'+(active?' is-accepted':'');
+                accept.onclick=async()=>{if(stopEditorDirty)return alert('กรุณาบันทึกจุดฝากก่อนยืนยันรถ');accept.disabled=true;try{if(active)workspaceEditHandoff(order,{stop_id:stop.stop_id},active,stop,render);else{await workspaceAcceptCrew(order,{stop_id:stop.stop_id},stop);render();}}finally{accept.disabled=false;}};
                 card.append(accept);
                 for(const [label,action]of [
                     ['ใช้รถจากจุดก่อน',()=>{const previous=items[index-1];const prefix=segment==='after_pickup'?'leg1':'leg2';stop.plate=previous?previous.plate:order[prefix+'_plate'];stop.driver=previous?previous.driver:order[prefix+'_driver'];alert('ใช้ข้อมูลจาก '+(previous?previous.location||'จุดฝากก่อนหน้า':before));}],
@@ -41,11 +42,12 @@ window.openWorkspaceStops = async function(order) {
             const add=document.createElement('button');add.textContent='＋ แทรกจุดฝากก่อน '+after;add.className='border border-amber-400 rounded p-2 text-amber-900';add.onclick=()=>{stops.push({stop_id:crypto.randomUUID(),segment,position:(items.at(-1)?.position??-1)+1,completed:false});stopEditorDirty=true;render();};host.append(add);
         }
         const save=document.createElement('button');save.textContent='บันทึกจุดฝากทั้งหมด';save.className='block bg-blue-800 text-white rounded p-3 my-4';save.onclick=async()=>{
+            await workspaceFleetOffers;
             save.disabled=true;
             try{
                 const response=await fetch('/api/dispatch/stops/'+encodeURIComponent(order.order_id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({stops,base})});
                 const result=await response.json();if(!response.ok||!result.success)throw new Error(result.message);
-                stopEditorDirty=false;order._dynamicStops=stops;order.confirmed_stops=stops;order.stop_count=stops.length;dialog.close();hotGridInstance.render();
+                stopEditorDirty=false;order._dynamicStops=stops;order.confirmed_stops=stops;order.stop_count=stops.length;await workspaceLoadHandoffs(rawShipmentList);dialog.close();hotGridInstance.render();
             }catch(error){alert(error.message);}finally{save.disabled=false;}
         };host.append(save);
     }

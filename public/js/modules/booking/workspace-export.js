@@ -4,7 +4,7 @@ function workspaceExportRows(instance, mode, selected) {
 }
 window.exportToExcel = async function() {
     const {dialog} = workspaceDialog('ดาวน์โหลด Excel', 'blue');
-    const allFields=[['order_id','Order ID'],['booking_no','Booking'],...Object.values(workspaceGroups).flatMap(g=>g.fields).filter(([key])=>!key.startsWith('_'))];
+    const allFields=[['order_id','Order ID'],['booking_no','Booking'],...Object.values(workspaceGroups).flatMap(g=>g.fields).filter(([key])=>!key.startsWith('_')),['container_2_no','เบอร์ตู้ 2'],['seal_2_no','SEAL 2'],['tare_2','TARE 2'],['max_gross_2','MAX GROSS 2']];
     const visibleRows=()=>workspaceExportRows(hotGridInstance,'all',workspaceSelected);
     const picked=()=>workspaceExportRows(hotGridInstance,'selected',workspaceSelected);
     const customerIds=[...new Set(visibleRows().map(r=>r.customer_id).filter(Boolean))];

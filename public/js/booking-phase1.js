@@ -9,7 +9,7 @@ function renderContainerRows(rows, locked = false) {
     document.getElementById('addContainerRow').disabled = locked;
 }
 
-function addContainerRow(row = { qty: 1, size: '40HC' }, locked = false) {
+function addContainerRow(row = { qty: '', size: '' }, locked = false) {
     const div = document.createElement('div');
     div.className = 'flex gap-2 items-center mb-2';
     const qty = document.createElement('input');
@@ -293,7 +293,7 @@ function phaseBookingPayload(payload) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-    renderContainerRows([{ qty: 1, size: '40HC' }]);
+    renderContainerRows([{ qty: '', size: '' }]);
     if (!new URLSearchParams(location.search).get('edit')) {
         document.getElementById('pMode').value = 'EXPORT';
         document.getElementById('pJobType').value = 'CONTAINER'; 

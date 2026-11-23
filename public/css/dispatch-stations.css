@@ -118,3 +118,12 @@ main>div:has(>#container-grid-container) {min-height:200px;}
 .handsontable td.workspace-time-cell strong {font-size:13px;}
 @media print {.handsontable td {background:white!important;}}
 .workspace-second-toggle {margin-left:-3px;border-style:dashed!important;white-space:nowrap;}
+.workspace-second-card {display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:left;padding:7px 0;white-space:normal;}
+.workspace-second-card label {font-size:10px;color:#475569;}
+.workspace-second-card input {display:block;width:100%;min-width:0;background:white;border:1px solid #bfdbfe;border-radius:5px;padding:4px;font-size:11px;color:#0f172a;}
+.workspace-handoff-button {border:1px solid #93c5fd;color:#1d4ed8;background:white;white-space:normal;}
+.workspace-handoff-button.is-accepted {background:#059669;color:white;border-color:#047857;}
+.handsontable td.deadline-overdue {animation:workspace-overdue-pulse 1.2s ease-in-out infinite!important;}
+.vgm-text-blink {animation:workspace-overdue-pulse 1.2s ease-in-out infinite;}
+@keyframes workspace-overdue-pulse {0%,100%{background-color:#ffe4e6;box-shadow:inset 0 0 0 1px #fb7185;}50%{background-color:#fecdd3;box-shadow:inset 0 0 0 2px #e11d48;}}
+@media(prefers-reduced-motion:reduce){.handsontable td.deadline-overdue,.vgm-text-blink{animation:none!important;outline:2px solid #e11d48;outline-offset:-2px;}}

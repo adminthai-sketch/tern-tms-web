@@ -65,6 +65,6 @@ test('second container detection includes seal and weight without requiring its 
     const context=vm.createContext({});vm.runInContext(source,context);
     assert.equal(context.workspaceHasSecondContainer({container_1_no:'A'}),false);
     assert.equal(context.workspaceHasSecondContainer({pop_2_no:'POP-2'}),true);
-    assert.equal(context.workspaceHasSecondContainer({tare_2:0}),true);
+    assert.equal(context.workspaceHasSecondContainer({tare_2:0}),false);
     assert.equal(context.workspaceHasSecondContainer({container_2_no:'B'}),true);
 });

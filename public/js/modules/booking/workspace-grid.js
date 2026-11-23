@@ -7,22 +7,20 @@ const workspaceDefaultView = () => ({job:false, pickup:true, container:true, del
 try { workspaceView = JSON.parse(localStorage.getItem(workspaceViewKey)) || workspaceDefaultView(); } catch { workspaceView = workspaceDefaultView(); }
 let workspacePendingOnly = false;
 let workspaceMode = ''; // เก็บโหมดงานของ Booking ที่เลือก
-// Container 2 is a display choice for this visit, independent of saved cargo data.
-workspaceView.second = false;
 
 // 🎨 1. ตั้งค่าหมวดหมู่ตารางและสี (แยกรายได้-ค่าใช้จ่าย)
 const workspaceGroups = {
     job: { label: 'ข้อมูลงาน', fields: [['mode','MODE'],['customer_name','ลูกค้า'],['job_owner','เจ้าของงาน'],['origin','ต้นทาง'],['factory','โรงงาน'],['destination','ปลายทาง'],['container_size','ขนาดตู้']] },
     pickup: { label: 'PICK UP', fields: [['leg1_plate','ทะเบียนรถ'],['leg1_driver','คนขับ'],['_accept_pickup','รับช่วงงาน'],['leg1_appointment','CY DATE'],['leg1_completed','สถานะรับตู้'],['order_vgm_cutoff','VGM Cutoff']] },
-    container: { label: 'ข้อมูลตู้', fields: [1,2].flatMap(n => [['container_'+n+'_no','เบอร์ตู้ '+n],['seal_'+n+'_no','SEAL '+n],['tare_'+n,'TARE '+n],['max_gross_'+n,'MAX GROSS '+n]]) },
+    container: { label: 'ข้อมูลตู้', fields: [['container_1_no','เบอร์ตู้ 1'],['seal_1_no','SEAL 1'],['tare_1','TARE 1'],['max_gross_1','MAX GROSS 1'],['_container2','ตู้ 2 · รายเที่ยว']] },
     delivery: { label: 'DELIVERY', fields: [['_copy_delivery','ใช้รถ / คนขับเดิม'],['leg2_plate','ทะเบียนรถ'],['leg2_driver','คนขับ'],['_accept_delivery','รับช่วงงาน'],['leg2_appointment','เวลาเข้าโรงงาน'],['leg2_completed','สถานะส่งมอบ']] },
     returns: { label: 'RETURN', fields: [['_copy_returns','ใช้รถ / คนขับเดิม'],['leg3_plate','ทะเบียนรถ'],['leg3_driver','คนขับ'],['_accept_returns','รับช่วงงาน'],['order_return_cutoff','Cutoff Time'],['leg3_completed','สถานะคืนตู้']] },
-    revenue: { label: 'รายได้ (ลูกค้า)', fields: [['trans_fee','ค่าขนส่ง'],['additional_total','รายได้อื่นรวม'],['iv_no','IV']] },
+    revenue: { label: 'รายได้ (ลูกค้า)', fields: [['trans_fee','ค่าขนส่ง'],['additional_total','รายได้อื่นรวม'],['additional_notes','หมายเหตุรายได้เพิ่ม'],['iv_no','IV']] },
     expense: { label: 'ค่าใช้จ่าย (ต้นทุน)', fields: [['trip_fee','ค่าเที่ยว'],['port_pass_fee','ค่าผ่านท่า'],['shore_fee','ชอร์'],['lift_fee','ยกตู้'],['deposit_fee','ฝากตู้'],['other_expense','ค่าใช้จ่ายอื่น'],['ar_no','AR']] }
 };
 const workspaceColors = {job:'slate', pickup:'sky', container:'blue', delivery:'orange', returns:'purple', revenue:'emerald', expense:'rose'};
 const workspaceMoney = ['trip_fee','trans_fee','port_pass_fee','shore_fee','lift_fee','deposit_fee','other_expense'];
-const workspaceReadOnly = new Set([...workspaceGroups.job.fields.map(([key])=>key), 'iv_no','ar_no','additional_total']);
+const workspaceReadOnly = new Set([...workspaceGroups.job.fields.map(([key])=>key), 'iv_no','ar_no','additional_total','additional_notes']);
 
 // 🏷️ 2. เปลี่ยนชื่อหมวดอัตโนมัติตาม MODE
 function workspaceGroupLabel(key) {
@@ -44,9 +42,9 @@ function workspaceDeadline(value, now = Date.now()) {
     if(!Number.isFinite(deadline)) return null;
     const minutes = Math.ceil((deadline - now)/60000);
     
-    if (minutes <= 0) return { level: 'overdue', text: `เลยเวลา ${Math.abs(minutes)} นาที` };
-    if (minutes <= 120) return { level: 'red', text: `เหลือ ${Math.floor(minutes/60)} ชม. ${minutes%60} นาที` };
-    if (minutes <= 180) return { level: 'yellow', text: `เหลือ ${Math.floor(minutes/60)} ชม. ${minutes%60} นาที` };
+    if (minutes <= 0) return { level: 'overdue', text: 'เลยเวลา '+workspaceDuration(minutes) };
+    if (minutes <= 120) return { level: 'red', text: 'เหลือ '+workspaceDuration(minutes) };
+    if (minutes <= 180) return { level: 'yellow', text: 'เหลือ '+workspaceDuration(minutes) };
     return { level: 'normal', text: '' };
 }
 
@@ -71,7 +69,7 @@ function workspaceBuildColumns() {
             fields.push(['_summary_'+key,'สรุปสถานี · กดเพื่อกาง']);
             groups.push(workspaceGroupLabel(key));
         } else {
-            const selected = group.fields.filter(([prop]) => key !== 'container' || workspaceView.second || !/(_2_no|_2)$/.test(prop));
+            const selected = group.fields;
             fields.push(...selected);
             groups.push({label:workspaceGroupLabel(key), colspan:selected.length});
         }
@@ -98,12 +96,14 @@ initContainerHandsontable = function(data) {
     for (const row of data) {
         row._checkbox = workspaceSelected.has(row.order_id);
         row.additional_total = (row.additional_revenue || []).reduce((sum,item)=>sum+Math.round(Number(item.amount||0)*100),0)/100;
+        row.additional_notes = (row.additional_revenue || []).map(item=>[item.type,item.note].filter(Boolean).join(': ')).join(' · ');
         for (const [field, fallback] of [['leg1_appointment','cy_date'],['leg2_appointment',row.mode==='IMPORT'?'unload_date':'load_date'],['order_vgm_cutoff','vgm_cutoff'],['order_return_cutoff','cutoff_time']]) {
             if (row[field] == null) row[field] = row[fallback] || null;
         }
         for (const key of Object.keys(workspaceGroups)) row['_summary_'+key] = workspaceSummary(row,key);
     }
     
+    let renderedGrid;
     hotGridInstance = new Handsontable(document.getElementById('container-grid-container'), {
         data, 
         columns: fields.map(([field]) => {
@@ -121,6 +121,8 @@ initContainerHandsontable = function(data) {
                 column.renderer = workspaceCopyRenderer;
             }
             if (field === 'additional_total') column.renderer = workspaceRevenueRenderer;
+            if (field === 'additional_notes') column.renderer=(instance,td,r,c,p,value,properties)=>{Handsontable.renderers.TextRenderer(instance,td,r,c,p,value,properties);td.title=value||'';};
+            if (field === '_container2') {column.readOnly=true;column.renderer=workspaceSecondContainerRenderer;}
             if (field.startsWith('_accept_')) {column.readOnly=true;column.renderer=workspaceHandoffRenderer;}
             
             // Render Time Warnings
@@ -128,7 +130,8 @@ initContainerHandsontable = function(data) {
                 column.renderer = (instance, td, r, c, p, value, properties) => {
                     Handsontable.renderers.TextRenderer(instance, td, r, c, p, workspaceFormatDateTime(value), properties);
                     const row = instance.getSourceDataAtRow(instance.toPhysicalRow(r));
-                    const isFinished = field === 'order_vgm_cutoff' ? row.leg1_completed : row.actual_return_date;
+                    td.classList.remove('deadline-yellow','deadline-red','deadline-overdue');
+                    const isFinished = field === 'order_vgm_cutoff' ? row.leg1_completed : row.leg3_completed || row.actual_return_date;
                     const warning = isFinished ? null : workspaceDeadline(value);
                     if(warning && warning.level !== 'normal') {
                         td.classList.add('deadline-' + warning.level);
@@ -150,22 +153,13 @@ initContainerHandsontable = function(data) {
                     btn.onclick = () => openDispatchModal(r);
                     btn.onmousedown = event => { event.preventDefault(); event.stopPropagation(); };
                     td.append(btn);
-                    const row = instance.getSourceDataAtRow(instance.toPhysicalRow(r));
-                    const containers = document.createElement('button');
-                    const hasSecond = dispatchContainerFields.some(([key]) => row[dispatchContainerKey(key,2)] != null && row[dispatchContainerKey(key,2)] !== '');
-                    containers.textContent = hasSecond ? 'ดูตู้ 1 / ตู้ 2' : '＋ เพิ่มตู้ 2';
-                    containers.className = 'workspace-container-button';
-                    containers.title = 'จัดการข้อมูลตู้ใน Order '+row.order_id+' (ไม่เพิ่มเที่ยวใหม่)';
-                    containers.onclick = () => workspaceOpenContainers(r, !hasSecond);
-                    containers.onmousedown = event => { event.preventDefault(); event.stopPropagation(); };
-                    td.append(containers);
                 };
             }
             return column;
         }), 
         nestedHeaders: [groups, fields.map(([,label])=>label)], rowHeaders: true, fixedColumnsLeft: 2, width: '100%', height: '100%',
-        colWidths: fields.map(([field]) => field==='_checkbox'?45 : field==='_action'?125 : field==='additional_total'?170 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
-        rowHeights: 52, columnHeaderHeight: [34, 30], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
+        colWidths: fields.map(([field]) => field==='_container2'||field==='additional_notes'?240 : field==='_checkbox'?45 : field==='_action'?90 : field==='additional_total'?170 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
+        rowHeights: index => workspaceContainerRowHeight(renderedGrid,data,index), columnHeaderHeight: [34, 30], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
         afterGetColHeader: workspaceStationHeader,
         afterOnCellMouseDown(event, coords) {
             if(coords.row < 0) return;
@@ -188,9 +182,11 @@ initContainerHandsontable = function(data) {
                 workspaceDirty.set(row.order_id, patch);
             }
             if(suggestions.length)hotGridInstance.setDataAtRowProp(suggestions,'fleet-auto');
+            if(typeof workspaceOfferNewFleet==='function')workspaceOfferNewFleet(changes,source);
             editedRowIndices = new Set([...workspaceDirty.keys()]); updateSaveStatusBadge();
         }
     });
+    renderedGrid=hotGridInstance;
     renderDispatchStages(document.getElementById('filter-booking-no').value, data);
 };
 
@@ -219,21 +215,6 @@ renderDispatchStages = function(booking, rows) {
         btn.className = `workspace-group workspace-zone-${workspaceColors[key]} shadow-sm ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`;
         btn.onclick = () => { if(workspaceReady()){ workspaceView[key] = isCollapsed; workspaceRefresh(); } };
         host.append(btn);
-        if (key === 'container') {
-            const second = document.createElement('button');
-            second.type = 'button';
-            second.className = 'workspace-group workspace-zone-blue workspace-second-toggle';
-            const count = rows.filter(workspaceHasSecondContainer).length;
-            second.textContent = (workspaceView.second ? '▾' : '▸') + ' ตู้ 2 (' + count + ' เที่ยว)';
-            second.setAttribute('aria-expanded', String(!!workspaceView.second));
-            second.onclick = () => {
-                if (!workspaceReady()) return;
-                workspaceView.second = !workspaceView.second;
-                if (workspaceView.second) workspaceView.container = true;
-                workspaceRefresh();
-            };
-            host.append(second);
-        }
     }
 };
 
@@ -256,6 +237,8 @@ applyFilters = function() {
 };
 
 saveGridChanges = async function() {
+    if(typeof workspaceFleetOffers!=='undefined')await workspaceFleetOffers;
+    for(const input of document.querySelectorAll('.workspace-second-card input'))if(!input.reportValidity())return false;
     if(!workspaceDirty.size) return true;
     const btn = document.getElementById('btn-save-grid'); btn.disabled = true;
     try {

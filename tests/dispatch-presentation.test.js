@@ -9,8 +9,9 @@ test('container 2 starts folded even with an old saved expanded view; toggling p
     const grid = read('workspace-grid.js');
     vm.runInContext(grid.slice(0, grid.indexOf('initContainerHandsontable =')), ctx);
     assert.ok(!ctx.workspaceBuildColumns().fields.some(([field])=>field==='container_2_no'));
+    assert.ok(ctx.workspaceBuildColumns().fields.some(([field])=>field==='_container2'));
     vm.runInContext('workspaceView.second=true', ctx);
-    assert.ok(ctx.workspaceBuildColumns().fields.some(([field])=>field==='container_2_no'));
+    assert.ok(!ctx.workspaceBuildColumns().fields.some(([field])=>field==='container_2_no'));
     assert.ok(!grid.includes('workspaceView.second = true;\n    }'));
 });
 

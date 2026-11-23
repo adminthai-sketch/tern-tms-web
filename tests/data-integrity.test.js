@@ -18,6 +18,8 @@ function routesFor(file, pool) {
         require(name) {
             if (name === 'express') return { Router: () => router };
             if (name === '../config/db') return pool;
+            if (name === '../lib/handoffs') return require('../lib/handoffs');
+            if (name === '../lib/session') return {readSession:()=>null};
             throw new Error('Unexpected dependency: ' + name);
         }
     };
@@ -587,7 +589,8 @@ test('phase 1 form defaults, legacy loading and payload preserve hidden DEMU and
     vm.createContext(context); vm.runInContext(read('public/js/booking-phase1.js'), context);
     await listeners[0]();
     assert.equal(elements.pMode.value, 'EXPORT'); assert.equal(elements.pJobType.value, 'CONTAINER');
-    assert.equal(elements.containerRows.children[0].querySelector('.container-size').value, '40HC');
+    assert.equal(elements.containerRows.children[0].querySelector('.container-size').value, '');
+    assert.equal(elements.containerRows.children[0].querySelector('.container-qty').value, '');
     const legacy = { id: 9, booking_no: 'OLD', mode: 'IMPORT', container_count: 2, container_size: '20', customer_id: 7, trip_fee: 0, demurrage: '2026-11-18 10:00' };
     context.fetch = async () => ({ ok: true, json: async () => ({ success: true, data: [legacy] }) });
     await context.loadBookingForEdit('OLD');

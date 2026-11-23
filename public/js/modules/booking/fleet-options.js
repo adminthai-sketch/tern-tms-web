@@ -2,15 +2,20 @@ function fillFleetOptions(select,values,saved,placeholder) {
     select.replaceChildren(new Option(placeholder,''));
     for(const value of [...new Set(values)])select.add(new Option(value,value));
     if(saved && !values.includes(saved))select.add(new Option(saved+' (ข้อมูลเดิม)',saved));
+    select.add(new Option(placeholder.includes('คนขับ')?'＋ เพิ่มคนขับใหม่':'＋ เพิ่มทะเบียนใหม่','__new__'));
     select.value=saved||'';
 }
 window.handleModalTruckChange = function(leg) {
+    const select=document.getElementById(`modal-leg${leg}-plate`);
+    if(select.value==='__new__'){workspaceNewModalFleet('truck',select,leg);return;}
     const plate=document.getElementById(`modal-leg${leg}-plate`).value;
     const driver=document.getElementById(`modal-leg${leg}-driver`);
     if(fleetAssignments[plate])driver.value=fleetAssignments[plate];
     document.getElementById('dispatch-copy-source').textContent=fleetAssignments[plate]?'คนขับประจำรถ '+plate+': '+fleetAssignments[plate]+' · เปลี่ยนเฉพาะเที่ยวได้':'รถคันนี้ยังไม่มีคนขับประจำ กรุณาเลือกคนขับ';
 };
 window.handleModalDriverChange = function(leg) {
+    const select=document.getElementById(`modal-leg${leg}-driver`);
+    if(select.value==='__new__'){workspaceNewModalFleet('driver',select,leg);return;}
     const driver=document.getElementById(`modal-leg${leg}-driver`).value;
     const plate=document.getElementById(`modal-leg${leg}-plate`);
     if(driverAssignments[driver])plate.value=driverAssignments[driver];

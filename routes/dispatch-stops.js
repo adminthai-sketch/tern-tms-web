@@ -1,6 +1,8 @@
 const express = require('express');
 const pool = require('../config/db');
 const router = express.Router();
+const {acceptCompletedStops}=require('../lib/handoffs');
+const {readSession}=require('../lib/session');
 const error = message => Object.assign(new Error(message), {status:400});
 function normalizeStops(stops) {
     if (!Array.isArray(stops) || stops.length > 200) throw error('จำนวนจุดฝากไม่ถูกต้อง');
@@ -44,6 +46,7 @@ router.put('/dispatch/stops/:orderId', async (req,res) => {
             ON CONFLICT(order_id,stop_id) DO UPDATE SET segment=EXCLUDED.segment,position=EXCLUDED.position,location=EXCLUDED.location,plate=EXCLUDED.plate,driver=EXCLUDED.driver,appointment=EXCLUDED.appointment,actual_at=EXCLUDED.actual_at,completed=EXCLUDED.completed`,
             [req.params.orderId,stop.stop_id,stop.segment,stop.position,stop.location,stop.plate,stop.driver,stop.appointment,stop.actual_at,stop.completed]);
         await client.query('DELETE FROM shipment_stops WHERE order_id=$1 AND NOT(stop_id=ANY($2::text[]))',[req.params.orderId,stops.map(stop=>stop.stop_id)]);
+        await acceptCompletedStops(client,req.params.orderId,old.rows,stops,readSession({headers:req.headers||{}})?.id||null);
         await client.query('COMMIT'); res.json({success:true});
     } catch (e) {
         if (client) await client.query('ROLLBACK');

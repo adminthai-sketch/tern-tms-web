@@ -7,7 +7,7 @@ function routeModule(file,query) {
     const routes={};const router={get:(path,...fn)=>routes['GET '+path]=fn.at(-1),post:(path,...fn)=>routes['POST '+path]=fn.at(-1),put:(path,...fn)=>routes['PUT '+path]=fn.at(-1)};
     let released=false;
     const pool={query,connect:async()=>({query,release(){released=true;}})};
-    const context=vm.createContext({require:name=>name==='express'?{Router:()=>router}:name.includes('session')?{requirePermission:()=>()=>{}}:name.includes('master-setup')?{setupMasters:async()=>{}}:pool,module:{exports:{}}});
+    const context=vm.createContext({require:name=>name==='express'?{Router:()=>router}:name.includes('session')?{requirePermission:()=>()=>{}}:name.includes('handoffs')?require('../lib/handoffs'):name.includes('master-setup')?{setupMasters:async()=>{}}:pool,module:{exports:{}}});
     vm.runInContext(fs.readFileSync(file,'utf8'),context);
     return {routes,get released(){return released;}};
 }

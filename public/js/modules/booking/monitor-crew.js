@@ -1,6 +1,7 @@
 // Display confirmed crew only. This does not allocate pay or customer revenue.
 function monitorAssignedCrew(order) {
     const snapshot=order._confirmedCrew;
+    if(snapshot?.no_active)return {plate:'',driver:'',leg:null,label:'ยังไม่มีผู้รับช่วง'};
     if(snapshot)return {plate:snapshot.plate||'',driver:snapshot.driver||'',leg:snapshot.leg_no,
         label:snapshot.stop_id?'จุดฝาก · ยืนยันแล้ว':['','PICK UP','DELIVERY','RETURN'][snapshot.leg_no]+' · ยืนยันแล้ว'};
     // Legacy work has no handoff history: use completed work, never a future assignment.

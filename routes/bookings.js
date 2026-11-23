@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
+const {acceptCompletedLegs}=require('../lib/handoffs');
+const {readSession}=require('../lib/session');
 
 const cleanVal = (val) => (!val || val === '' || val === 'NaN') ? null : String(val).trim();
 const cleanNum = (val) => {
@@ -97,6 +99,7 @@ async function saveShipmentContainers(client, orderId, row) {
             if (!provided[index] || row[field] == null || String(row[field]).trim() === '') return null;
             return index < 2 ? cleanVal(row[field]) : priceValue(row[field]);
         });
+        if(values.slice(2).some(value=>value!=null&&value<0))throw requestError('น้ำหนักตู้ต้องไม่ติดลบ');
         await client.query(`
             INSERT INTO shipment_containers (order_id, container_position, container_no, seal_no, tare, max_gross)
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -358,7 +361,7 @@ router.get('/shipments', async (req, res) => {
     }
 });
 
-async function saveDispatchPatch(client, row) {
+async function saveDispatchPatch(client, row, actor=null) {
     const result = await client.query(`
         SELECT s.*, b.mode, b.job_type FROM shipment_operations s
         JOIN bookings b ON b.booking_no = s.booking_no
@@ -404,6 +407,7 @@ async function saveDispatchPatch(client, row) {
         `, [row.order_id, position, cleanVal(row[popField])]);
     }
     await saveShipmentContainers(client, row.order_id, row);
+    await acceptCompletedLegs(client,result.rows[0],{...order,order_id:row.order_id},patch,actor);
     return patch.overall_status;
 }
 
@@ -420,7 +424,8 @@ router.post('/shipments', async (req, res) => {
         if (req.body.dispatch_patch === true) {
             if (!Array.isArray(data) || data.length > 500 || new Set(data.map(row => row.order_id)).size !== data.length) throw requestError('รายการเที่ยวไม่ถูกต้อง');
             let status;
-            for (const row of [...data].sort((a,b) => String(a.order_id).localeCompare(String(b.order_id)))) status = await saveDispatchPatch(client, row);
+            const actor=readSession({headers:req.headers||{}})?.id||null;
+            for (const row of [...data].sort((a,b) => String(a.order_id).localeCompare(String(b.order_id)))) status = await saveDispatchPatch(client, row,actor);
             await client.query('COMMIT');
             return res.json({ success: true, overall_status: status });
         }

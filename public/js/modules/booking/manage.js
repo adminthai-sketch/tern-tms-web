@@ -181,6 +181,7 @@ window.changeDispatchMonth = function(input) {
 };
 
 async function loadContainerGridData() {
+    const savedPosition=typeof workspaceCaptureScroll==='function'?workspaceCaptureScroll():null;
     const monthVal = document.getElementById('filter-month').value;
     loadedDispatchMonth = monthVal;
     if (!monthVal) return;
@@ -209,6 +210,7 @@ async function loadContainerGridData() {
             });
 
             editedRowIndices.clear();
+            if(typeof workspaceLoadHandoffs==='function')await workspaceLoadHandoffs(rawShipmentList);
             updateDropdownOptions(); 
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -235,7 +237,7 @@ async function loadContainerGridData() {
         } else {
             rawShipmentList = []; applyFilters();
         }
-    } catch (err) { applyFilters(); } finally { document.getElementById('loading-overlay').classList.add('hidden'); }
+    } catch (err) { applyFilters(); } finally { document.getElementById('loading-overlay').classList.add('hidden'); if(savedPosition)workspaceRestoreScroll(savedPosition); }
 }
 
 function updateDropdownOptions() {

@@ -45,9 +45,11 @@ function addDispatchContainer(position) {
 
 window.addDispatchSecondContainer = function() {
     const existing = document.querySelector('#dispatch-containers [data-position="2"]');
+    if(existing&&!existing.hidden){existing.hidden=true;document.getElementById('dispatch-add-container').textContent='▸ ดูตู้ 2';return;}
     if (existing) existing.hidden = false;
     else addDispatchContainer(2);
-    document.getElementById('dispatch-add-container').hidden = true;
+    document.getElementById('dispatch-add-container').hidden = false;
+    document.getElementById('dispatch-add-container').textContent = '▾ พับตู้ 2';
     const second = document.querySelector('#dispatch-containers [data-position="2"]');
     second.scrollIntoView({block:'nearest'});
     second.querySelector('input')?.focus({preventScroll:true});
@@ -68,9 +70,12 @@ window.openDispatchModal = function(rowVisualIndex) {
     document.getElementById('dispatch-copy-source').textContent = '';
     document.getElementById('dispatch-containers').replaceChildren();
     document.getElementById('dispatch-add-container').hidden = false;
+    document.getElementById('dispatch-add-container').textContent = '＋ เพิ่มตู้ 2';
     addDispatchContainer(1);
-    if (dispatchContainerFields.some(([field]) => rData[dispatchContainerKey(field, 2)] != null && rData[dispatchContainerKey(field, 2)] !== '')) {
-        addDispatchSecondContainer();
+    if (workspaceHasSecondContainer(rData)) {
+        addDispatchContainer(2);
+        document.querySelector('#dispatch-containers [data-position="2"]').hidden=true;
+        document.getElementById('dispatch-add-container').textContent='▸ ดูตู้ 2';
     }
 
     const orderId = rData.order_id || 'Order';
@@ -185,7 +190,7 @@ function checkVGMAlert() {
     }
     
     if (diffHours < 0) {
-        vgmInput.classList.add('bg-rose-100', 'text-rose-700', 'ring-2', 'ring-rose-500');
+        vgmInput.classList.add('bg-rose-100', 'text-rose-700', 'ring-2', 'ring-rose-500','vgm-text-blink');
         // เพิ่มข้อความ "เลยเวลา VGM แล้ว" (คุณสามารถเพิ่ม label ข้างๆ input ได้)
     } else if (diffHours <= 2) {
         vgmInput.classList.add('bg-red-100', 'text-red-700', 'vgm-text-blink', 'ring-2', 'ring-red-500');
@@ -194,6 +199,7 @@ function checkVGMAlert() {
     } else {
         vgmInput.classList.remove('bg-rose-100', 'text-rose-700', 'bg-red-100', 'text-red-700', 'vgm-text-blink', 'bg-yellow-100', 'text-yellow-700', 'ring-2', 'ring-red-500', 'ring-yellow-500');
     }
+    if(diffHours<=3)message.textContent=(diffHours<=0?'เลย VGM Cutoff ':'เหลือ ')+workspaceDuration(Math.ceil(Math.abs(diffHours)*60));
 }
 
 // 🌟 ก๊อปปี้รถ (ระบุให้ชัดเจนว่าดึงจากขารับตู้ หรือ ฝากลาน) 🌟

@@ -1,6 +1,7 @@
 // Station presentation and copy actions use visual-to-physical row mapping after sorting.
 function workspaceHasSecondContainer(row) {
-    return ['container_2_no','tare_2','max_gross_2','seal_2_no','pop_2_no'].some(key=>row[key] != null && row[key] !== '');
+    return ['container_2_no','seal_2_no','pop_2_no'].some(key=>String(row[key]||'').trim()) ||
+        ['tare_2','max_gross_2'].some(key=>Number(row[key])>0);
 }
 function workspaceOpenContainers(visual, addSecond) {
     if (!workspaceReady()) return;
@@ -20,7 +21,12 @@ function workspaceCaptureScroll() {
         const item = {field, offset:start-holder.scrollLeft};
         start += widths[index]; return item;
     }).filter(item=>item.offset>=0);
-    return {left:holder.scrollLeft,top:holder.scrollTop,anchors};
+    const selected=hotGridInstance.getSelectedLast?.();
+    const selectedRow=selected&&selected[0]>=0?hotGridInstance.getSourceDataAtRow(hotGridInstance.toPhysicalRow(selected[0])):null;
+    const sorting=hotGridInstance.getPlugin?.('columnSorting')?.getSortConfig?.()||[];
+    return {left:holder.scrollLeft,top:holder.scrollTop,anchors,
+        selected:selectedRow?{id:selectedRow.order_id,field:hotGridInstance.colToProp(selected[1])}:null,
+        sorting:sorting.map(item=>({...item,field:workspaceColumns[item.column]?.[0]}))};
 }
 
 function workspaceRestoreScroll(saved) {
@@ -30,6 +36,15 @@ function workspaceRestoreScroll(saved) {
         if (hotGridInstance !== grid) return;
         const holder = document.querySelector('#container-grid-container .ht_master .wtHolder');
         if (!holder) return;
+        if(saved.sorting?.length){
+            const configs=saved.sorting.map(item=>({column:workspaceColumns.findIndex(([field])=>field===item.field),sortOrder:item.sortOrder})).filter(item=>item.column>=0);
+            grid.getPlugin?.('columnSorting')?.sort(configs);
+        }
+        if(saved.selected){
+            const physical=grid.getSourceData().findIndex(row=>row.order_id===saved.selected.id);
+            const col=workspaceColumns.findIndex(([field])=>field===saved.selected.field);
+            if(physical>=0&&col>=0){const visual=grid.toVisualRow(physical);if(visual!=null)grid.selectCell(visual,col,visual,col,false,false);}
+        }
         const anchor = saved.anchors.find(item=>workspaceColumns.some(([field])=>field===item.field));
         let left = saved.left;
         if (anchor) {
@@ -39,6 +54,12 @@ function workspaceRestoreScroll(saved) {
         holder.scrollLeft = Math.max(0,left);
         holder.scrollTop = saved.top;
     });
+}
+
+function workspaceDuration(totalMinutes) {
+    const minutes=Math.max(0,Math.floor(Math.abs(totalMinutes)));
+    const days=Math.floor(minutes/1440),hours=Math.floor(minutes%1440/60),rest=minutes%60;
+    return [days?days+' วัน':'',hours?hours+' ชม.':'',rest||(!days&&!hours)?rest+' นาที':''].filter(Boolean).join(' ');
 }
 
 function workspaceTimeRenderer(instance, td, r, c, prop, value, properties) {

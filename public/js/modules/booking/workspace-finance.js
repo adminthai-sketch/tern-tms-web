@@ -11,9 +11,9 @@ function workspaceDialog(title, colorClass) {
 }
 
 // 💵 ปุ่ม "+ เพิ่มรายได้อื่น ๆ (เรียกเก็บลูกค้า)"
-window.openWorkspaceRevenue = function() {
+window.openWorkspaceRevenue = function(orderId) {
     if(!workspaceReady()) return;
-    const selected = rawShipmentList.filter(row => workspaceSelected.has(row.order_id));
+    const selected = rawShipmentList.filter(row => typeof orderId === 'string' ? row.order_id === orderId : workspaceSelected.has(row.order_id));
     if(selected.length !== 1) return alert('⚠️ กรุณาติ๊กเลือก 1 เที่ยววิ่ง ที่ต้องการลงรายได้เพิ่ม');
     
     const order = selected[0];
@@ -25,7 +25,8 @@ window.openWorkspaceRevenue = function() {
         for(const [key, placeholder] of [['type','ประเภท (เช่น ค่ารอ)'], ['amount','จำนวนเงิน'], ['note','รายละเอียด (โชว์ในบิล)']]) {
             const input = document.createElement('input'); input.name = key; input.value = item[key]??''; input.placeholder = placeholder;
             input.className = 'border border-slate-300 rounded-lg p-2 text-sm w-full focus:ring-2 focus:ring-emerald-500 outline-none';
-            if(key === 'amount') { input.type = 'number'; input.min = '0'; input.step = '0.01'; input.className += ' font-bold text-emerald-700 bg-emerald-50'; }
+            input.required = key !== 'note';
+            if(key === 'amount') { input.type = 'number'; input.min = '0.01'; input.step = '0.01'; input.className += ' font-bold text-emerald-700 bg-emerald-50'; }
             row.append(input);
         }
         const remove = document.createElement('button'); remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>'; remove.className = 'text-rose-400 hover:text-rose-600 p-2';
@@ -33,6 +34,7 @@ window.openWorkspaceRevenue = function() {
     };
     
     (order.additional_revenue || []).forEach(addRow);
+    if (!host.children.length) addRow();
     
     const addBtn = document.createElement('button'); addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> เพิ่มรายการ'; 
     addBtn.className = 'text-emerald-700 font-bold text-sm hover:underline mt-2'; addBtn.onclick = () => addRow();
@@ -40,19 +42,21 @@ window.openWorkspaceRevenue = function() {
     const saveBtn = document.createElement('button'); saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> บันทึกรายได้'; 
     saveBtn.className = 'w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg py-2.5 shadow-md transition-all';
     saveBtn.onclick = async () => {
+        for (const input of host.querySelectorAll('input')) if (!input.reportValidity()) return;
         saveBtn.disabled = true; saveBtn.innerHTML = 'กำลังบันทึก...';
         try {
             const items = Array.from(host.children).map(row => ({
                 type: row.querySelector('[name="type"]').value, 
                 amount: Number(row.querySelector('[name="amount"]').value), 
                 note: row.querySelector('[name="note"]').value
-            })).filter(i => i.type && i.amount > 0);
+            }));
+            if (items.some(item=>!item.type.trim() || !Number.isFinite(item.amount) || item.amount<=0)) throw new Error('กรุณากรอกประเภทรายได้และจำนวนเงินมากกว่า 0 ทุกแถว');
             
             let reason = ''; 
             if(order.iv_no || order.ar_no) { reason = prompt('เอกสารนี้ออก IV/AR ไปแล้ว กรุณาระบุเหตุผลที่แก้ไขยอด:'); if(!reason) return; }
             await workspaceRequest('/api/dispatch/finance', { data: [{ order_id: order.order_id, additional_revenue: items }], reopen_reason: reason });
             close(); await loadContainerGridData();
-        } catch(e) { alert(e.message); } finally { saveBtn.disabled = false; }
+        } catch(e) { alert(e.message); } finally { saveBtn.disabled = false; saveBtn.textContent='บันทึกรายได้'; }
     };
     dialog.append(addBtn, saveBtn); dialog.showModal();
 };

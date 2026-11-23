@@ -45,12 +45,34 @@ function workspaceTimeRenderer(instance, td, r, c, prop, value, properties) {
     Handsontable.renderers.TextRenderer(instance, td, r, c, prop, value, properties);
     td.replaceChildren();
     const label = document.createElement('strong');
-    const stamp = value ? String(value).replace('T', ' ') : '';
-    label.textContent = stamp ? stamp.slice(11,16) : '＋ ระบุวันเวลา';
+    const stamp = workspaceFormatDateTime(value);
+    label.textContent = stamp ? stamp.split(' / ')[1] || '' : '＋ ระบุวันเวลา';
     const hint = document.createElement('small');
-    hint.textContent = stamp ? stamp.slice(0,10) : 'ดับเบิลคลิกเพื่อเลือก';
+    hint.textContent = stamp ? stamp.split(' / ')[0] : 'ดับเบิลคลิกเพื่อเลือก';
     td.title = 'ดับเบิลคลิกเพื่อเลือกวันเวลา';
     td.append(hint, document.createElement('br'), label);
+}
+
+function workspaceFormatDateTime(value) {
+    if (!value) return '';
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+    if (!match) return String(value);
+    return `${match[3]}-${match[2]}-${match[1]}` + (match[4] ? ` / ${match[4]}:${match[5]}` : '');
+}
+
+function workspaceRevenueRenderer(instance, td, visual, col, prop, value, properties) {
+    Handsontable.renderers.TextRenderer(instance,td,visual,col,prop,value,properties);
+    const row = instance.getSourceDataAtRow(instance.toPhysicalRow(visual));
+    td.replaceChildren();
+    const amount = document.createElement('span');
+    amount.textContent = Number(value||0).toLocaleString('th-TH',{minimumFractionDigits:2});
+    const button = document.createElement('button');
+    button.type='button'; button.textContent='＋ เพิ่ม / แก้ไข';
+    button.className='workspace-revenue-button';
+    button.setAttribute('aria-label','เพิ่มหรือแก้ไขรายได้อื่น '+row.order_id);
+    button.onmousedown=event=>{event.preventDefault();event.stopPropagation();};
+    button.onclick=event=>{event.stopPropagation();openWorkspaceRevenue(row.order_id);};
+    td.append(amount,button);
 }
 
 function workspaceStationHeader(col, th) {

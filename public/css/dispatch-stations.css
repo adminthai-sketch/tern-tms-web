@@ -92,3 +92,5 @@ main>div:has(>#container-grid-container) {min-height:200px;}
 .wtHolder::-webkit-scrollbar {width:9px;height:9px;}
 .wtHolder::-webkit-scrollbar-thumb {background:#bdc8d7;border:2px solid #f5f7fa;border-radius:8px;}
 .wtHolder::-webkit-scrollbar-track {background:#f5f7fa;}
+.workspace-revenue-button {display:block;margin-top:4px;border:1px solid #6ee7b7;border-radius:6px;padding:4px 8px;background:#ecfdf5;color:#047857;font-weight:700;font-size:11px;cursor:pointer;}
+.workspace-revenue-button:hover {background:#d1fae5;}

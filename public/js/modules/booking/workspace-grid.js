@@ -13,9 +13,9 @@ let workspaceSecondSignature = '';
 const workspaceGroups = {
     job: { label: 'ข้อมูลงาน', fields: [['mode','MODE'],['customer_name','ลูกค้า'],['job_owner','เจ้าของงาน'],['origin','ต้นทาง'],['factory','โรงงาน'],['destination','ปลายทาง'],['container_size','ขนาดตู้']] },
     pickup: { label: 'PICK UP', fields: [['leg1_plate','ทะเบียนรถ'],['leg1_driver','คนขับ'],['leg1_appointment','CY DATE'],['leg1_completed','สถานะรับตู้'],['order_vgm_cutoff','VGM Cutoff']] },
-    container: { label: 'ข้อมูลตู้', fields: [1,2].flatMap(n => [['container_'+n+'_no','เบอร์ตู้ '+n],['tare_'+n,'TARE '+n],['max_gross_'+n,'MAX GROSS '+n],['seal_'+n+'_no','SEAL '+n],['pop_'+n+'_no','POP '+n]]) },
+    container: { label: 'ข้อมูลตู้', fields: [1,2].flatMap(n => [['container_'+n+'_no','เบอร์ตู้ '+n],['seal_'+n+'_no','SEAL '+n],['tare_'+n,'TARE '+n],['max_gross_'+n,'MAX GROSS '+n]]) },
     delivery: { label: 'DELIVERY', fields: [['_copy_delivery','ใช้รถ / คนขับเดิม'],['leg2_plate','ทะเบียนรถ'],['leg2_driver','คนขับ'],['leg2_appointment','เวลาเข้าโรงงาน'],['leg2_completed','สถานะส่งมอบ']] },
-    returns: { label: 'RETURN', fields: [['_copy_returns','ใช้รถ / คนขับเดิม'],['leg3_plate','ทะเบียนรถ'],['leg3_driver','คนขับ'],['leg3_appointment','เวลาเปิดประตู'],['order_return_cutoff','Cutoff Time'],['leg3_completed','สถานะคืนตู้']] },
+    returns: { label: 'RETURN', fields: [['_copy_returns','ใช้รถ / คนขับเดิม'],['leg3_plate','ทะเบียนรถ'],['leg3_driver','คนขับ'],['order_return_cutoff','Cutoff Time'],['leg3_completed','สถานะคืนตู้']] },
     revenue: { label: 'รายได้ (ลูกค้า)', fields: [['trans_fee','ค่าขนส่ง'],['additional_total','รายได้อื่นรวม'],['iv_no','IV']] },
     expense: { label: 'ค่าใช้จ่าย (ต้นทุน)', fields: [['trip_fee','ค่าเที่ยว'],['port_pass_fee','ค่าผ่านท่า'],['shore_fee','ชอร์'],['lift_fee','ยกตู้'],['deposit_fee','ฝากตู้'],['other_expense','ค่าใช้จ่ายอื่น'],['ar_no','AR']] }
 };
@@ -84,7 +84,7 @@ function workspaceSummary(row, key) {
     if (key === 'expense') return [row.ar_no, 'คชจ: ฿'+(row.trip_fee||0)].filter(Boolean).join(' · ');
     if (key === 'container') return [row.container_1_no, row.container_2_no].filter(Boolean).join(' / ');
     const prefix = {pickup:'leg1', delivery:'leg2', returns:'leg3'}[key];
-    if (prefix) return [row[prefix+'_plate'] || 'รอจัดรถ', row[prefix+'_driver'], row[prefix+'_appointment'] ? String(row[prefix+'_appointment']).replace('T',' ').slice(0,16) : 'ยังไม่ระบุ'].filter(Boolean).join(' · ');
+    if (prefix) return [row[prefix+'_plate'] || 'รอจัดรถ', row[prefix+'_driver'], key==='returns' ? '' : workspaceFormatDateTime(row[prefix+'_appointment']) || 'ยังไม่ระบุ'].filter(Boolean).join(' · ');
     return workspaceGroups[key].fields.map(([field])=>row[field]).filter(Boolean).slice(0,3).join(' · ');
 }
 
@@ -104,7 +104,7 @@ initContainerHandsontable = function(data) {
     for (const row of data) {
         row._checkbox = workspaceSelected.has(row.order_id);
         row.additional_total = (row.additional_revenue || []).reduce((sum,item)=>sum+Math.round(Number(item.amount||0)*100),0)/100;
-        for (const [field, fallback] of [['leg1_appointment','cy_date'],['leg2_appointment',row.mode==='IMPORT'?'unload_date':'load_date'],['leg3_appointment','open_gate'],['order_vgm_cutoff','vgm_cutoff'],['order_return_cutoff','cutoff_time']]) {
+        for (const [field, fallback] of [['leg1_appointment','cy_date'],['leg2_appointment',row.mode==='IMPORT'?'unload_date':'load_date'],['order_vgm_cutoff','vgm_cutoff'],['order_return_cutoff','cutoff_time']]) {
             if (row[field] == null) row[field] = row[fallback] || null;
         }
         for (const key of Object.keys(workspaceGroups)) row['_summary_'+key] = workspaceSummary(row,key);
@@ -126,11 +126,12 @@ initContainerHandsontable = function(data) {
                 column.readOnly = true;
                 column.renderer = workspaceCopyRenderer;
             }
+            if (field === 'additional_total') column.renderer = workspaceRevenueRenderer;
             
             // Render Time Warnings
             if(field === 'order_vgm_cutoff' || field === 'order_return_cutoff') {
                 column.renderer = (instance, td, r, c, p, value, properties) => {
-                    Handsontable.renderers.TextRenderer(instance, td, r, c, p, value, properties);
+                    Handsontable.renderers.TextRenderer(instance, td, r, c, p, workspaceFormatDateTime(value), properties);
                     const row = instance.getSourceDataAtRow(instance.toPhysicalRow(r));
                     const isFinished = field === 'order_vgm_cutoff' ? row.leg1_completed : row.actual_return_date;
                     const warning = isFinished ? null : workspaceDeadline(value);
@@ -168,7 +169,7 @@ initContainerHandsontable = function(data) {
             return column;
         }), 
         nestedHeaders: [groups, fields.map(([,label])=>label)], rowHeaders: true, fixedColumnsLeft: 2, width: '100%', height: '100%',
-        colWidths: fields.map(([field]) => field==='_checkbox'?45 : field==='_action'?125 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
+        colWidths: fields.map(([field]) => field==='_checkbox'?45 : field==='_action'?125 : field==='additional_total'?170 : field.startsWith('_summary')?220 : field==='order_id'?140 : field==='booking_no'?140 : field.endsWith('_driver')?140 : field.includes('appointment')||field.includes('cutoff')?170 : field.endsWith('_completed')?85 : 110),
         rowHeights: 64, columnHeaderHeight: [42, 34], wordWrap: false, manualColumnResize: true, columnSorting: true, filters: true, dropdownMenu: true,
         afterGetColHeader: workspaceStationHeader,
         afterOnCellMouseDown(event, coords) {

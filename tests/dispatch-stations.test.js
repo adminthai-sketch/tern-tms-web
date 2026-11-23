@@ -23,12 +23,12 @@ test('failed stop lookup does not silently copy a different crew', async () => {
     await assert.rejects(context.workspacePreviousCrew({order_id:'ORD-X'},2),/unavailable/);
 });
 
-test('Delivery appointment stays visible in the default view; Return uses Open Gate separately from Cutoff', () => {
+test('Delivery stays visible; Return no longer offers Open Gate and still exposes Cutoff', () => {
     const grid=fs.readFileSync('public/js/modules/booking/workspace-grid.js','utf8');
     assert.match(grid,/delivery:true, returns:true/);
     assert.match(grid,/\['leg2_appointment','เวลาเข้าโรงงาน'\]/);
-    assert.match(grid,/\['leg3_appointment','เวลาเปิดประตู'\]/);
-    assert.match(grid,/\['leg3_appointment','open_gate'\]/);
+    assert.ok(!grid.includes("['leg3_appointment','เวลาเปิดประตู']"));
+    assert.match(grid,/\['order_return_cutoff','Cutoff Time'\]/);
 });
 
 test('folding preserves the visible column anchor and vertical position after columns shrink',()=>{

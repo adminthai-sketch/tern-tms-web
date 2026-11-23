@@ -606,7 +606,9 @@ router.post('/rates/single', async (req, res) => {
 router.get('/container-sizes', async (req, res) => {
     try {
         const result = await pool.query('SELECT size_name FROM master_container_sizes ORDER BY size_name ASC');
-        res.json({ success: true, data: result.rows });
+        const sizes = new Set(result.rows.map(row=>row.size_name));
+        sizes.add('20DC'); sizes.add('40DC');
+        res.json({ success: true, data: [...sizes].sort().map(size_name=>({size_name})) });
     } catch(err) { res.status(500).json({ success: false }); }
 });
 

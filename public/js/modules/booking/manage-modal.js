@@ -25,7 +25,7 @@ function addDispatchContainer(position) {
         };
         card.append(remove);
     }
-    for (const [field, caption] of dispatchContainerFields) {
+    for (const [field, caption] of dispatchContainerFields.filter(([field])=>field !== 'pop')) {
         const label = document.createElement('label');
         label.className = 'text-xs font-semibold';
         label.textContent = caption;
@@ -96,7 +96,6 @@ window.openDispatchModal = function(rowVisualIndex) {
     const planCy = rData.leg1_appointment || rData.cy_date;
     const planVgm = rData.order_vgm_cutoff || rData.vgm_cutoff;
     const planLoad = rData.leg2_appointment || (rData.mode === 'IMPORT' ? rData.unload_date : rData.load_date);
-    const planReturn = rData.leg3_appointment || rData.open_gate;
     const planCutoff = rData.order_return_cutoff || rData.cutoff_time;
 
     // แสดงแจ้งเตือนเวลาอ้างอิงบนหัว Modal
@@ -117,7 +116,6 @@ window.openDispatchModal = function(rowVisualIndex) {
 
     document.getElementById('modal-leg3-plate').value = rData.leg3_plate || '';
     document.getElementById('modal-leg3-driver').value = rData.leg3_driver || '';
-    document.getElementById('modal-leg3-time').value = convertToDatetimeLocal(planReturn); 
     document.getElementById('modal-leg3-actual').value = convertToDatetimeLocal(rData.actual_return_date); // เวลาจริง
     document.getElementById('modal-leg3-cutoff').value = convertToDatetimeLocal(planCutoff); 
 
@@ -255,7 +253,6 @@ window.saveDispatchModal = async function(btnElement) {
 
         leg3_plate: document.getElementById('modal-leg3-plate').value,
         leg3_driver: document.getElementById('modal-leg3-driver').value,
-        leg3_appointment: formatDatetimeForDB(document.getElementById('modal-leg3-time').value),
         actual_return_date: formatDatetimeForDB(document.getElementById('modal-leg3-actual').value),
         order_return_cutoff: formatDatetimeForDB(document.getElementById('modal-leg3-cutoff').value),
     };
@@ -331,5 +328,5 @@ function formatDatetimeForDB(dtStr) {
 }
 function formatDateTimeForModal(dtStr) {
     if (!dtStr || String(dtStr).trim() === 'NaN' || String(dtStr).trim() === 'null') return '';
-    return String(dtStr).replace('T', ' ').substring(0, 16);
+    return workspaceFormatDateTime(dtStr);
 }

@@ -78,7 +78,7 @@
                         <div class="flex flex-wrap gap-4 items-end">
                             <div class="w-64">
                                 <label for="pCustomer" class="block text-sm font-bold text-primary mb-1">
-                                    <i class="fa-solid fa-building mr-1"></i> ค้นลูกค้าด้วยตัวย่อ (เช่น SCG) <span class="text-red-500">*</span>
+                                    <i class="fa-solid fa-building mr-1"></i> ชื่อที่ออก INV. <span class="text-red-500">*</span>
                                 </label>
                                 <input type="text" id="pCustomer" list="bookingCustomerList" autocomplete="off" onchange="checkAndPromptCustomer()" class="w-full px-3 py-2 border border-blue-300 rounded-lg bg-white font-bold text-blue-800 shadow-sm focus:ring-2 focus:ring-blue-400 outline-none uppercase placeholder:text-slate-300 placeholder:font-normal" placeholder="ระบุตัวย่อลูกค้า...">
                                 <datalist id="bookingCustomerList"></datalist>
@@ -146,10 +146,10 @@
                         </div>
 
                         <div class="flex-1 min-w-[250px]">
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">เจ้าของงาน (พิมพ์อิสระ)</label>
-                            <input id="jobOwner" class="w-full px-3 py-2 border border-slate-300 rounded-lg mb-3 text-sm focus:border-primary outline-none bg-white" placeholder="ระบุเจ้าของงาน">
-                            <label class="block text-sm font-semibold text-slate-700 mb-1">เลือกเรทเดิม (ถ้ามี)</label>
-                            <input type="text" id="jobNameInput" list="jobList" oninput="previewJobData()" onchange="previewJobData()" placeholder="พิมพ์ชื่องานจากฐานข้อมูลเพื่อดึงราคา..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white shadow-sm focus:border-primary outline-none">
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ลูกค้า (พิมพ์อิสระ)</label>
+                            <input id="jobOwner" class="w-full px-3 py-2 border border-slate-300 rounded-lg mb-3 text-sm focus:border-primary outline-none bg-white" placeholder="ระบุลูกค้า">
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">ชนิดสินค้า</label>
+                            <input type="text" id="jobNameInput" list="jobList" oninput="previewJobData()" onchange="previewJobData()" placeholder="ระบุชนิดสินค้า / เลือกรายการเดิม..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white shadow-sm focus:border-primary outline-none">
                             <datalist id="jobList"></datalist>
                         </div>
                     </div>
@@ -323,7 +323,7 @@
             const dl = document.getElementById('dl-container-sizes');
             if(!dl) return;
             dl.innerHTML = '';
-            containerSizeOptions.forEach(sz => {
+            [...new Set([...containerSizeOptions, '20DC', '40DC'])].forEach(sz => {
                 const opt = document.createElement('option');
                 opt.value = sz;
                 dl.appendChild(opt);
